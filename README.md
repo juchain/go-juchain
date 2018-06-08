@@ -1,4 +1,4 @@
-Infinet proposes the notion of Autonomous Chain Domains (ACDs) as the building blocks of the blockchain infrastructure. An ACD is formed by a set of peers sharing a common contractual, geographical or other forms of agreement. Examples may be enterprises or voluntarily-formed originations that operate their own blockchain systems. Using ACDs, rather than individual peers, as building blocks provide natural boundaries for failure isolation and blockchain operation autonomy, allowing Infinet to extend its scale by incorporating heterogeneous domains. 
+Infinet proposes the notion of Autonomous Chain Domains (ACDs) as the building blocks of the blockchain operating system. An ACD is formed by a set of peers sharing a common contractual, geographical or other forms of agreement. Examples may be enterprises or voluntarily-formed originations that operate their own blockchain systems. Using ACDs, rather than individual peers, as building blocks provide natural boundaries for failure isolation and blockchain operation autonomy, allowing Infinet to extend its scale by incorporating heterogeneous domains.
 
 Design Principles
 
