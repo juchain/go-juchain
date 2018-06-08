@@ -25,11 +25,11 @@ import (
 	"sync"
 	"time"
 
-	ethereum "github.com/ethereum/go-ethereum"
-	"github.com/ethereum/go-ethereum/accounts"
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/ethereum/go-ethereum/log"
+	"github.com/infinetio/go-infinet"
+	"github.com/infinetio/go-infinet/core/account"
+	"github.com/infinetio/go-infinet/common"
+	"github.com/infinetio/go-infinet/core/types"
+	"github.com/infinetio/go-infinet/common/log"
 	"github.com/karalabe/hid"
 )
 
@@ -61,11 +61,11 @@ type driver interface {
 
 	// Derive sends a derivation request to the USB device and returns the Ethereum
 	// address located on that path.
-	Derive(path accounts.DerivationPath) (common.Address, error)
+	Derive(path account.DerivationPath) (common.Address, error)
 
 	// SignTx sends the transaction to the USB device and waits for the user to confirm
 	// or deny the transaction.
-	SignTx(path accounts.DerivationPath, tx *types.Transaction, chainID *big.Int) (common.Address, *types.Transaction, error)
+	SignTx(path account.DerivationPath, tx *types.Transaction, chainID *big.Int) (common.Address, *types.Transaction, error)
 }
 
 // wallet represents the common functionality shared by all USB hardware
@@ -74,17 +74,17 @@ type driver interface {
 type wallet struct {
 	hub    *Hub          // USB hub scanning
 	driver driver        // Hardware implementation of the low level device operations
-	url    *accounts.URL // Textual URL uniquely identifying this wallet
+	url    *account.URL // Textual URL uniquely identifying this wallet
 
 	info   hid.DeviceInfo // Known USB device infos about the wallet
 	device *hid.Device    // USB device advertising itself as a hardware wallet
 
-	accounts []accounts.Account                         // List of derive accounts pinned on the hardware wallet
-	paths    map[common.Address]accounts.DerivationPath // Known derivation paths for signing operations
+	accounts []account.Account                         // List of derive account pinned on the hardware wallet
+	paths    map[common.Address]account.DerivationPath // Known derivation paths for signing operations
 
-	deriveNextPath accounts.DerivationPath   // Next derivation path for account auto-discovery
+	deriveNextPath account.DerivationPath   // Next derivation path for account auto-discovery
 	deriveNextAddr common.Address            // Next derived account address for auto-discovery
-	deriveChain    ethereum.ChainStateReader // Blockchain state reader to discover used account with
+	deriveChain    infinet.ChainStateReader // Blockchain state reader to discover used account with
 	deriveReq      chan chan struct{}        // Channel to request a self-derivation on
 	deriveQuit     chan chan error           // Channel to terminate the self-deriver with
 
@@ -95,7 +95,7 @@ type wallet struct {
 	// time. Worse still, waiting for user confirmation can take arbitrarily long,
 	// but exclusive communication must be upheld during. Locking the entire wallet
 	// in the mean time however would stall any parts of the system that don't want
-	// to communicate, just read some state (e.g. list the accounts).
+	// to communicate, just read some state (e.g. list the account).
 	//
 	// As such, a hardware wallet needs two locks to function correctly. A state
 	// lock can be used to protect the wallet's software-side internal state, which
@@ -115,12 +115,12 @@ type wallet struct {
 	log log.Logger // Contextual logger to tag the base with its id
 }
 
-// URL implements accounts.Wallet, returning the URL of the USB hardware device.
-func (w *wallet) URL() accounts.URL {
+// URL implements account.Wallet, returning the URL of the USB hardware device.
+func (w *wallet) URL() account.URL {
 	return *w.url // Immutable, no need for a lock
 }
 
-// Status implements accounts.Wallet, returning a custom status message from the
+// Status implements account.Wallet, returning a custom status message from the
 // underlying vendor-specific hardware wallet implementation.
 func (w *wallet) Status() (string, error) {
 	w.stateLock.RLock() // No device communication, state lock is enough
@@ -133,7 +133,7 @@ func (w *wallet) Status() (string, error) {
 	return status, failure
 }
 
-// Open implements accounts.Wallet, attempting to open a USB connection to the
+// Open implements account.Wallet, attempting to open a USB connection to the
 // hardware wallet.
 func (w *wallet) Open(passphrase string) error {
 	w.stateLock.Lock() // State lock is enough since there's no connection yet at this point
@@ -141,7 +141,7 @@ func (w *wallet) Open(passphrase string) error {
 
 	// If the device was already opened once, refuse to try again
 	if w.paths != nil {
-		return accounts.ErrWalletAlreadyOpen
+		return account.ErrWalletAlreadyOpen
 	}
 	// Make sure the actual device connection is done only once
 	if w.device == nil {
@@ -158,7 +158,7 @@ func (w *wallet) Open(passphrase string) error {
 		return err
 	}
 	// Connection successful, start life-cycle management
-	w.paths = make(map[common.Address]accounts.DerivationPath)
+	w.paths = make(map[common.Address]account.DerivationPath)
 
 	w.deriveReq = make(chan chan struct{})
 	w.deriveQuit = make(chan chan error)
@@ -168,7 +168,7 @@ func (w *wallet) Open(passphrase string) error {
 	go w.selfDerive()
 
 	// Notify anyone listening for wallet events that a new device is accessible
-	go w.hub.updateFeed.Send(accounts.WalletEvent{Wallet: w, Kind: accounts.WalletOpened})
+	go w.hub.updateFeed.Send(account.WalletEvent{Wallet: w, Kind: account.WalletOpened})
 
 	return nil
 }
@@ -221,7 +221,7 @@ func (w *wallet) heartbeat() {
 	errc <- err
 }
 
-// Close implements accounts.Wallet, closing the USB connection to the device.
+// Close implements account.Wallet, closing the USB connection to the device.
 func (w *wallet) Close() error {
 	// Ensure the wallet was opened
 	w.stateLock.RLock()
@@ -281,7 +281,7 @@ func (w *wallet) close() error {
 // Accounts implements accounts.Wallet, returning the list of accounts pinned to
 // the USB hardware wallet. If self-derivation was enabled, the account list is
 // periodically expanded based on current chain state.
-func (w *wallet) Accounts() []accounts.Account {
+func (w *wallet) Accounts() []account.Account {
 	// Attempt self-derivation if it's running
 	reqc := make(chan struct{}, 1)
 	select {
@@ -295,7 +295,7 @@ func (w *wallet) Accounts() []accounts.Account {
 	w.stateLock.RLock()
 	defer w.stateLock.RUnlock()
 
-	cpy := make([]accounts.Account, len(w.accounts))
+	cpy := make([]account.Account, len(w.accounts))
 	copy(cpy, w.accounts)
 	return cpy
 }
@@ -337,8 +337,8 @@ func (w *wallet) selfDerive() {
 		}
 		// Device lock obtained, derive the next batch of accounts
 		var (
-			accs  []accounts.Account
-			paths []accounts.DerivationPath
+			accs  []account.Account
+			paths []account.DerivationPath
 
 			nextAddr = w.deriveNextAddr
 			nextPath = w.deriveNextPath
@@ -373,17 +373,17 @@ func (w *wallet) selfDerive() {
 				empty = true
 			}
 			// We've just self-derived a new account, start tracking it locally
-			path := make(accounts.DerivationPath, len(nextPath))
+			path := make(account.DerivationPath, len(nextPath))
 			copy(path[:], nextPath[:])
 			paths = append(paths, path)
 
-			account := accounts.Account{
+			account := account.Account{
 				Address: nextAddr,
-				URL:     accounts.URL{Scheme: w.url.Scheme, Path: fmt.Sprintf("%s/%s", w.url.Path, path)},
+				URL:     account.URL{Scheme: w.url.Scheme, Path: fmt.Sprintf("%s/%s", w.url.Path, path)},
 			}
 			accs = append(accs, account)
 
-			// Display a log message to the user for new (or previously empty accounts)
+			// Display a log message to the user for new (or previously empty account)
 			if _, known := w.paths[nextAddr]; !known || (!empty && nextAddr == w.deriveNextAddr) {
 				w.log.Info("USB wallet discovered new account", "address", nextAddr, "path", path, "balance", balance, "nonce", nonce)
 			}
@@ -397,7 +397,7 @@ func (w *wallet) selfDerive() {
 		w.commsLock <- struct{}{}
 		w.stateLock.RUnlock()
 
-		// Insert any accounts successfully derived
+		// Insert any account successfully derived
 		w.stateLock.Lock()
 		for i := 0; i < len(accs); i++ {
 			if _, ok := w.paths[accs[i].Address]; !ok {
@@ -430,10 +430,10 @@ func (w *wallet) selfDerive() {
 	errc <- err
 }
 
-// Contains implements accounts.Wallet, returning whether a particular account is
+// Contains implements account.Wallet, returning whether a particular account is
 // or is not pinned into this wallet instance. Although we could attempt to resolve
-// unpinned accounts, that would be an non-negligible hardware operation.
-func (w *wallet) Contains(account accounts.Account) bool {
+// unpinned account, that would be an non-negligible hardware operation.
+func (w *wallet) Contains(account account.Account) bool {
 	w.stateLock.RLock()
 	defer w.stateLock.RUnlock()
 
@@ -441,16 +441,16 @@ func (w *wallet) Contains(account accounts.Account) bool {
 	return exists
 }
 
-// Derive implements accounts.Wallet, deriving a new account at the specific
+// Derive implements account.Wallet, deriving a new account at the specific
 // derivation path. If pin is set to true, the account will be added to the list
-// of tracked accounts.
-func (w *wallet) Derive(path accounts.DerivationPath, pin bool) (accounts.Account, error) {
+// of tracked account.
+func (w *wallet) Derive(path account.DerivationPath, pin bool) (account.Account, error) {
 	// Try to derive the actual account and update its URL if successful
 	w.stateLock.RLock() // Avoid device disappearing during derivation
 
 	if w.device == nil {
 		w.stateLock.RUnlock()
-		return accounts.Account{}, accounts.ErrWalletClosed
+		return account.Account{}, account.ErrWalletClosed
 	}
 	<-w.commsLock // Avoid concurrent hardware access
 	address, err := w.driver.Derive(path)
@@ -460,35 +460,35 @@ func (w *wallet) Derive(path accounts.DerivationPath, pin bool) (accounts.Accoun
 
 	// If an error occurred or no pinning was requested, return
 	if err != nil {
-		return accounts.Account{}, err
+		return account.Account{}, err
 	}
-	account := accounts.Account{
+	acc := account.Account{
 		Address: address,
-		URL:     accounts.URL{Scheme: w.url.Scheme, Path: fmt.Sprintf("%s/%s", w.url.Path, path)},
+		URL:     account.URL{Scheme: w.url.Scheme, Path: fmt.Sprintf("%s/%s", w.url.Path, path)},
 	}
 	if !pin {
-		return account, nil
+		return acc, nil
 	}
 	// Pinning needs to modify the state
 	w.stateLock.Lock()
 	defer w.stateLock.Unlock()
 
 	if _, ok := w.paths[address]; !ok {
-		w.accounts = append(w.accounts, account)
+		w.accounts = append(w.accounts, acc)
 		w.paths[address] = path
 	}
-	return account, nil
+	return acc, nil
 }
 
 // SelfDerive implements accounts.Wallet, trying to discover accounts that the
 // user used previously (based on the chain state), but ones that he/she did not
 // explicitly pin to the wallet manually. To avoid chain head monitoring, self
 // derivation only runs during account listing (and even then throttled).
-func (w *wallet) SelfDerive(base accounts.DerivationPath, chain ethereum.ChainStateReader) {
+func (w *wallet) SelfDerive(base account.DerivationPath, chain infinet.ChainStateReader) {
 	w.stateLock.Lock()
 	defer w.stateLock.Unlock()
 
-	w.deriveNextPath = make(accounts.DerivationPath, len(base))
+	w.deriveNextPath = make(account.DerivationPath, len(base))
 	copy(w.deriveNextPath[:], base[:])
 
 	w.deriveNextAddr = common.Address{}
@@ -497,8 +497,8 @@ func (w *wallet) SelfDerive(base accounts.DerivationPath, chain ethereum.ChainSt
 
 // SignHash implements accounts.Wallet, however signing arbitrary data is not
 // supported for hardware wallets, so this method will always return an error.
-func (w *wallet) SignHash(account accounts.Account, hash []byte) ([]byte, error) {
-	return nil, accounts.ErrNotSupported
+func (w *wallet) SignHash(acc account.Account, hash []byte) ([]byte, error) {
+	return nil, account.ErrNotSupported
 }
 
 // SignTx implements accounts.Wallet. It sends the transaction over to the Ledger
@@ -508,18 +508,18 @@ func (w *wallet) SignHash(account accounts.Account, hash []byte) ([]byte, error)
 // Note, if the version of the Ethereum application running on the Ledger wallet is
 // too old to sign EIP-155 transactions, but such is requested nonetheless, an error
 // will be returned opposed to silently signing in Homestead mode.
-func (w *wallet) SignTx(account accounts.Account, tx *types.Transaction, chainID *big.Int) (*types.Transaction, error) {
+func (w *wallet) SignTx(acc account.Account, tx *types.Transaction, chainID *big.Int) (*types.Transaction, error) {
 	w.stateLock.RLock() // Comms have own mutex, this is for the state fields
 	defer w.stateLock.RUnlock()
 
 	// If the wallet is closed, abort
 	if w.device == nil {
-		return nil, accounts.ErrWalletClosed
+		return nil, account.ErrWalletClosed
 	}
-	// Make sure the requested account is contained within
-	path, ok := w.paths[account.Address]
+	// Make sure the requested acc is contained within
+	path, ok := w.paths[acc.Address]
 	if !ok {
-		return nil, accounts.ErrUnknownAccount
+		return nil, account.ErrUnknownAccount
 	}
 	// All infos gathered and metadata checks out, request signing
 	<-w.commsLock
@@ -541,8 +541,8 @@ func (w *wallet) SignTx(account accounts.Account, tx *types.Transaction, chainID
 	if err != nil {
 		return nil, err
 	}
-	if sender != account.Address {
-		return nil, fmt.Errorf("signer mismatch: expected %s, got %s", account.Address.Hex(), sender.Hex())
+	if sender != acc.Address {
+		return nil, fmt.Errorf("signer mismatch: expected %s, got %s", acc.Address.Hex(), sender.Hex())
 	}
 	return signed, nil
 }
@@ -550,13 +550,13 @@ func (w *wallet) SignTx(account accounts.Account, tx *types.Transaction, chainID
 // SignHashWithPassphrase implements accounts.Wallet, however signing arbitrary
 // data is not supported for Ledger wallets, so this method will always return
 // an error.
-func (w *wallet) SignHashWithPassphrase(account accounts.Account, passphrase string, hash []byte) ([]byte, error) {
-	return w.SignHash(account, hash)
+func (w *wallet) SignHashWithPassphrase(acc account.Account, passphrase string, hash []byte) ([]byte, error) {
+	return w.SignHash(acc, hash)
 }
 
 // SignTxWithPassphrase implements accounts.Wallet, attempting to sign the given
 // transaction with the given account using passphrase as extra authentication.
 // Since USB wallets don't rely on passphrases, these are silently ignored.
-func (w *wallet) SignTxWithPassphrase(account accounts.Account, passphrase string, tx *types.Transaction, chainID *big.Int) (*types.Transaction, error) {
-	return w.SignTx(account, tx, chainID)
+func (w *wallet) SignTxWithPassphrase(acc account.Account, passphrase string, tx *types.Transaction, chainID *big.Int) (*types.Transaction, error) {
+	return w.SignTx(acc, tx, chainID)
 }

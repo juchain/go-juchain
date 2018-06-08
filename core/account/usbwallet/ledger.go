@@ -28,12 +28,12 @@ import (
 	"io"
 	"math/big"
 
-	"github.com/ethereum/go-ethereum/accounts"
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/common/hexutil"
-	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/ethereum/go-ethereum/log"
-	"github.com/ethereum/go-ethereum/rlp"
+	"github.com/infinetio/go-infinet/core/account"
+	"github.com/infinetio/go-infinet/common"
+	"github.com/infinetio/go-infinet/common/hexutil"
+	"github.com/infinetio/go-infinet/core/types"
+	"github.com/infinetio/go-infinet/common/log"
+	"github.com/infinetio/go-infinet/common/rlp"
 )
 
 // ledgerOpcode is an enumeration encoding the supported Ledger opcodes.
@@ -111,7 +111,7 @@ func (w *ledgerDriver) offline() bool {
 func (w *ledgerDriver) Open(device io.ReadWriter, passphrase string) error {
 	w.device, w.failure = device, nil
 
-	_, err := w.ledgerDerive(accounts.DefaultBaseDerivationPath)
+	_, err := w.ledgerDerive(account.DefaultBaseDerivationPath)
 	if err != nil {
 		// Ethereum app is not running or in browser mode, nothing more to do, return
 		if err == errLedgerReplyInvalidHeader {
@@ -145,7 +145,7 @@ func (w *ledgerDriver) Heartbeat() error {
 
 // Derive implements usbwallet.driver, sending a derivation request to the Ledger
 // and returning the Ethereum address located on that derivation path.
-func (w *ledgerDriver) Derive(path accounts.DerivationPath) (common.Address, error) {
+func (w *ledgerDriver) Derive(path account.DerivationPath) (common.Address, error) {
 	return w.ledgerDerive(path)
 }
 
@@ -155,10 +155,10 @@ func (w *ledgerDriver) Derive(path accounts.DerivationPath) (common.Address, err
 // Note, if the version of the Ethereum application running on the Ledger wallet is
 // too old to sign EIP-155 transactions, but such is requested nonetheless, an error
 // will be returned opposed to silently signing in Homestead mode.
-func (w *ledgerDriver) SignTx(path accounts.DerivationPath, tx *types.Transaction, chainID *big.Int) (common.Address, *types.Transaction, error) {
+func (w *ledgerDriver) SignTx(path account.DerivationPath, tx *types.Transaction, chainID *big.Int) (common.Address, *types.Transaction, error) {
 	// If the Ethereum app doesn't run, abort
 	if w.offline() {
-		return common.Address{}, nil, accounts.ErrWalletClosed
+		return common.Address{}, nil, account.ErrWalletClosed
 	}
 	// Ensure the wallet is capable of signing the given transaction
 	if chainID != nil && w.version[0] <= 1 && w.version[1] <= 0 && w.version[2] <= 2 {

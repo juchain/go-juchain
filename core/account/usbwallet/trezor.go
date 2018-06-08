@@ -27,12 +27,12 @@ import (
 	"io"
 	"math/big"
 
-	"github.com/ethereum/go-ethereum/accounts"
-	"github.com/ethereum/go-ethereum/accounts/usbwallet/internal/trezor"
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/common/hexutil"
-	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/ethereum/go-ethereum/log"
+	"github.com/infinetio/go-infinet/core/account"
+	"github.com/infinetio/go-infinet/core/account/usbwallet/internal/trezor"
+	"github.com/infinetio/go-infinet/common"
+	"github.com/infinetio/go-infinet/common/hexutil"
+	"github.com/infinetio/go-infinet/core/types"
+	"github.com/infinetio/go-infinet/common/log"
 	"github.com/golang/protobuf/proto"
 )
 
@@ -146,15 +146,15 @@ func (w *trezorDriver) Heartbeat() error {
 
 // Derive implements usbwallet.driver, sending a derivation request to the Trezor
 // and returning the Ethereum address located on that derivation path.
-func (w *trezorDriver) Derive(path accounts.DerivationPath) (common.Address, error) {
+func (w *trezorDriver) Derive(path account.DerivationPath) (common.Address, error) {
 	return w.trezorDerive(path)
 }
 
 // SignTx implements usbwallet.driver, sending the transaction to the Trezor and
 // waiting for the user to confirm or deny the transaction.
-func (w *trezorDriver) SignTx(path accounts.DerivationPath, tx *types.Transaction, chainID *big.Int) (common.Address, *types.Transaction, error) {
+func (w *trezorDriver) SignTx(path account.DerivationPath, tx *types.Transaction, chainID *big.Int) (common.Address, *types.Transaction, error) {
 	if w.device == nil {
-		return common.Address{}, nil, accounts.ErrWalletClosed
+		return common.Address{}, nil, account.ErrWalletClosed
 	}
 	return w.trezorSign(path, tx, chainID)
 }
