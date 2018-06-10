@@ -1,18 +1,18 @@
-// Copyright 2017 The go-ethereum Authors
-// This file is part of the go-ethereum library.
+// Copyright 2017 The go-juchain Authors
+// This file is part of the go-juchain library.
 //
-// The go-ethereum library is free software: you can redistribute it and/or modify
+// The go-juchain library is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Lesser General Public License as published by
 // the Free Software Foundation, either version 3 of the License, or
 // (at your option) any later version.
 //
-// The go-ethereum library is distributed in the hope that it will be useful,
+// The go-juchain library is distributed in the hope that it will be useful,
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
 // MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
 // GNU Lesser General Public License for more details.
 //
 // You should have received a copy of the GNU Lesser General Public License
-// along with the go-ethereum library. If not, see <http://www.gnu.org/licenses/>.
+// along with the go-juchain library. If not, see <http://www.gnu.org/licenses/>.
 
 package keystore
 
@@ -31,7 +31,7 @@ import (
 	"github.com/davecgh/go-spew/spew"
 	"github.com/juchain/go-juchain/common"
 	"github.com/juchain/go-juchain/core/account"
-	"github.com/ethereum/go-ethereum/accounts"
+	"github.com/ethereum/go-juchain/accounts"
 )
 
 var (
@@ -39,7 +39,7 @@ var (
 	cachetestAccounts = []account.Account{
 		{
 			Address: common.HexToAddress("7ef5a6135f1fd6a02593eedc869c6d41d934aef8"),
-			URL:     account.URL{Scheme: KeyStoreScheme, Path: filepath.Join(cachetestDir, "UTC--2016-03-22T12-57-55.920751759Z--7ef5a6135f1fd6a02593eedc869c6d41d934aef8")},
+			URL:     account.URL{Scheme: KeyStoreScheme, Path: filepath.Join(cachetestDir, "UTC--2018-03-22T12-57-55.920751759Z--7ef5a6135f1fd6a02593eedc869c6d41d934aef8")},
 		},
 		{
 			Address: common.HexToAddress("f466859ead1932d743d622cb74fc058882e8648a"),
@@ -164,7 +164,7 @@ func TestCacheAddDeleteOrder(t *testing.T) {
 		},
 		{
 			Address: common.HexToAddress("7ef5a6135f1fd6a02593eedc869c6d41d934aef8"),
-			URL:     account.URL{Scheme: KeyStoreScheme, Path: "UTC--2016-03-22T12-57-55.920751759Z--7ef5a6135f1fd6a02593eedc869c6d41d934aef8"},
+			URL:     account.URL{Scheme: KeyStoreScheme, Path: "UTC--2018-03-22T12-57-55.920751759Z--7ef5a6135f1fd6a02593eedc869c6d41d934aef8"},
 		},
 		{
 			Address: common.HexToAddress("f466859ead1932d743d622cb74fc058882e8648a"),

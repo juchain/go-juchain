@@ -10,11 +10,11 @@ fi
 # Create fake Go workspace if it doesn't exist yet.
 workspace="$PWD/build/_workspace"
 root="$PWD"
-infidir="$workspace/src/github.com/infinetio"
-if [ ! -L "$infidir/go-infinet" ]; then
+infidir="$workspace/src/github.com/juchain"
+if [ ! -L "$infidir/go-juchain" ]; then
     mkdir -p "$infidir"
     cd "$infidir"
-    ln -s ../../../../../. go-infinet
+    ln -s ../../../../../. go-juchain
     cd "$root"
 fi
 
@@ -23,8 +23,8 @@ GOPATH="$workspace"
 export GOPATH
 
 # Run the command inside the workspace.
-cd "$infidir/go-infinet"
-PWD="$infidir/go-infinet"
+cd "$infidir/go-juchain"
+PWD="$infidir/go-juchain"
 
 # Launch the arguments with the configured environment.
 exec "$@"

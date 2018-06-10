@@ -5860,7 +5860,7 @@ module.exports = Shh;
 /**
  * @file bzz.js
  * @author Alex Beregszaszi <alex@rtfs.hu>
- * @date 2016
+ * @date 2018
  *
  * Reference: https://github.com/juchain/go-juchain/blob/swarm/internal/web3ext/web3ext.go#L33
  */

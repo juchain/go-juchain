@@ -1,18 +1,18 @@
-// Copyright 2016 The go-infinetio Authors
-// This file is part of the go-infinetio library.
+// Copyright 2018 The go-juchain Authors
+// This file is part of the go-juchain library.
 //
-// The go-infinetio library is free software: you can redistribute it and/or modify
+// The go-juchain library is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Lesser General Public License as published by
 // the Free Software Foundation, either version 3 of the License, or
 // (at your option) any later version.
 //
-// The go-infinetio library is distributed in the hope that it will be useful,
+// The go-juchain library is distributed in the hope that it will be useful,
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
 // MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
 // GNU Lesser General Public License for more details.
 //
 // You should have received a copy of the GNU Lesser General Public License
-// along with the go-infinetio library. If not, see <http://www.gnu.org/licenses/>.
+// along with the go-juchain library. If not, see <http://www.gnu.org/licenses/>.
 
 // +build none
 
@@ -149,7 +149,7 @@ func doInstall(cmdline []string) {
 
 		if minor < 9 {
 			log.Println("You have Go version", runtime.Version())
-			log.Println("go-infinet requires at least Go version 1.9 and cannot")
+			log.Println("go-juchain requires at least Go version 1.9 and cannot")
 			log.Println("be compiled with an earlier version. Please upgrade your Go installation.")
 			os.Exit(1)
 		}
@@ -487,7 +487,7 @@ func isUnstableBuild(env build.Environment) bool {
 type debMetadata struct {
 	Env build.Environment
 
-	// go-infinet version being built. Note that this
+	// go-juchain version being built. Note that this
 	// is not the debian package version. The package version
 	// is constructed by VersionString.
 	Version string
