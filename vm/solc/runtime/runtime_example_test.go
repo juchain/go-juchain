@@ -19,8 +19,8 @@ package runtime_test
 import (
 	"fmt"
 
-	"github.com/infinetio/go-infinet/common"
-	"github.com/infinetio/go-infinet/vm/solc/runtime"
+	"github.com/juchain/go-juchain/common"
+	"github.com/juchain/go-juchain/vm/solc/runtime"
 )
 
 func ExampleExecute() {

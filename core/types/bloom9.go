@@ -20,8 +20,8 @@ import (
 	"fmt"
 	"math/big"
 
-	"github.com/infinetio/go-infinet/common/hexutil"
-	"github.com/infinetio/go-infinet/common/crypto"
+	"github.com/juchain/go-juchain/common/hexutil"
+	"github.com/juchain/go-juchain/common/crypto"
 )
 
 type bytesBacked interface {

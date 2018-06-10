@@ -20,8 +20,8 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/infinetio/go-infinet/common"
-	"github.com/infinetio/go-infinet/core/store"
+	"github.com/juchain/go-juchain/common"
+	"github.com/juchain/go-juchain/core/store"
 	"gopkg.in/karalabe/cookiejar.v2/collections/prque"
 )
 

@@ -20,7 +20,7 @@ import (
 	"fmt"
 	"math/big"
 
-	"github.com/infinetio/go-infinet/common"
+	"github.com/juchain/go-juchain/common"
 )
 
 var (

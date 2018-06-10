@@ -19,8 +19,8 @@ package trie
 import (
 	"fmt"
 
-	"github.com/infinetio/go-infinet/common"
-	"github.com/infinetio/go-infinet/common/log"
+	"github.com/juchain/go-juchain/common"
+	"github.com/juchain/go-juchain/common/log"
 )
 
 // SecureTrie wraps a trie with key hashing. In a secure trie, all

@@ -24,13 +24,13 @@ import (
 	"fmt"
 	"math/big"
 
-	"github.com/infinetio/go-infinet/common"
-	"github.com/infinetio/go-infinet/core/types"
-	"github.com/infinetio/go-infinet/core/store"
-	"github.com/infinetio/go-infinet/common/log"
-	"github.com/infinetio/go-infinet/common/metrics"
-	"github.com/infinetio/go-infinet/config"
-	"github.com/infinetio/go-infinet/common/rlp"
+	"github.com/juchain/go-juchain/common"
+	"github.com/juchain/go-juchain/core/types"
+	"github.com/juchain/go-juchain/core/store"
+	"github.com/juchain/go-juchain/common/log"
+	"github.com/juchain/go-juchain/common/metrics"
+	"github.com/juchain/go-juchain/config"
+	"github.com/juchain/go-juchain/common/rlp"
 )
 
 // DatabaseReader wraps the Get method of a backing data store.

@@ -26,7 +26,7 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/infinetio/go-infinet/common/log"
+	"github.com/juchain/go-juchain/common/log"
 )
 
 const (

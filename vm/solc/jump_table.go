@@ -20,7 +20,7 @@ import (
 	"errors"
 	"math/big"
 
-	"github.com/infinetio/go-infinet/params"
+	"github.com/juchain/go-juchain/params"
 )
 
 type (

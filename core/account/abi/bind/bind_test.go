@@ -26,7 +26,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/infinetio/go-infinet/common"
+	"github.com/juchain/go-juchain/common"
 	"golang.org/x/tools/imports"
 )
 

@@ -20,12 +20,12 @@ import (
 	"fmt"
 	"io/ioutil"
 
-	"github.com/infinetio/go-infinet/core/account"
-	"github.com/infinetio/go-infinet/core/account/keystore"
-	"github.com/infinetio/go-infinet/cmd/utils"
-	"github.com/infinetio/go-infinet/cmd/console"
-	"github.com/infinetio/go-infinet/common/crypto"
-	"github.com/infinetio/go-infinet/common/log"
+	"github.com/juchain/go-juchain/core/account"
+	"github.com/juchain/go-juchain/core/account/keystore"
+	"github.com/juchain/go-juchain/cmd/utils"
+	"github.com/juchain/go-juchain/cmd/console"
+	"github.com/juchain/go-juchain/common/crypto"
+	"github.com/juchain/go-juchain/common/log"
 	"gopkg.in/urfave/cli.v1"
 )
 

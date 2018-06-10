@@ -17,10 +17,10 @@
 package clique
 
 import (
-	"github.com/infinetio/go-infinet/common"
-	"github.com/infinetio/go-infinet/consensus"
-	"github.com/infinetio/go-infinet/core/types"
-	"github.com/infinetio/go-infinet/rpc"
+	"github.com/juchain/go-juchain/common"
+	"github.com/juchain/go-juchain/consensus"
+	"github.com/juchain/go-juchain/core/types"
+	"github.com/juchain/go-juchain/rpc"
 )
 
 // API is a user facing RPC API to allow controlling the signer and voting

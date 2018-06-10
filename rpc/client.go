@@ -33,7 +33,7 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/infinetio/go-infinet/common/log"
+	"github.com/juchain/go-juchain/common/log"
 )
 
 var (

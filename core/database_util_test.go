@@ -21,11 +21,11 @@ import (
 	"math/big"
 	"testing"
 
-	"github.com/infinetio/go-infinet/common"
-	"github.com/infinetio/go-infinet/core/types"
-	"github.com/infinetio/go-infinet/common/crypto/sha3"
-	"github.com/infinetio/go-infinet/core/store"
-	"github.com/infinetio/go-infinet/common/rlp"
+	"github.com/juchain/go-juchain/common"
+	"github.com/juchain/go-juchain/core/types"
+	"github.com/juchain/go-juchain/common/crypto/sha3"
+	"github.com/juchain/go-juchain/core/store"
+	"github.com/juchain/go-juchain/common/rlp"
 )
 
 // Tests block header storage and retrieval operations.

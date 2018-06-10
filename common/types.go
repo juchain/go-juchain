@@ -23,8 +23,8 @@ import (
 	"math/rand"
 	"reflect"
 
-	"github.com/infinetio/go-infinet/common/hexutil"
-	"github.com/infinetio/go-infinet/common/crypto/sha3"
+	"github.com/juchain/go-juchain/common/hexutil"
+	"github.com/juchain/go-juchain/common/crypto/sha3"
 )
 
 const (

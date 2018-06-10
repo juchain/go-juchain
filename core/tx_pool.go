@@ -25,13 +25,13 @@ import (
 	"sync"
 	"time"
 
-	"github.com/infinetio/go-infinet/common"
-	"github.com/infinetio/go-infinet/core/state"
-	"github.com/infinetio/go-infinet/core/types"
-	"github.com/infinetio/go-infinet/common/event"
-	"github.com/infinetio/go-infinet/common/log"
-	"github.com/infinetio/go-infinet/common/metrics"
-	"github.com/infinetio/go-infinet/config"
+	"github.com/juchain/go-juchain/common"
+	"github.com/juchain/go-juchain/core/state"
+	"github.com/juchain/go-juchain/core/types"
+	"github.com/juchain/go-juchain/common/event"
+	"github.com/juchain/go-juchain/common/log"
+	"github.com/juchain/go-juchain/common/metrics"
+	"github.com/juchain/go-juchain/config"
 	"gopkg.in/karalabe/cookiejar.v2/collections/prque"
 )
 

@@ -38,9 +38,9 @@ import (
 	"math/big"
 	"unsafe"
 
-	"github.com/infinetio/go-infinet/core/state"
-	"github.com/infinetio/go-infinet/crypto"
-	"github.com/infinetio/go-infinet/params"
+	"github.com/juchain/go-juchain/core/state"
+	"github.com/juchain/go-juchain/crypto"
+	"github.com/juchain/go-juchain/params"
 )
 
 type JitVm struct {

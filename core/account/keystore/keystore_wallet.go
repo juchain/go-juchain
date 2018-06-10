@@ -19,9 +19,9 @@ package keystore
 import (
 	"math/big"
 
-	"github.com/infinetio/go-infinet"
-	"github.com/infinetio/go-infinet/core/account"
-	"github.com/infinetio/go-infinet/core/types"
+	"github.com/juchain/go-juchain"
+	"github.com/juchain/go-juchain/core/account"
+	"github.com/juchain/go-juchain/core/types"
 )
 
 // keystoreWallet implements the accounts.Wallet interface for the original

@@ -19,7 +19,7 @@ package state
 import (
 	"math/big"
 
-	"github.com/infinetio/go-infinet/common"
+	"github.com/juchain/go-juchain/common"
 )
 
 // journalEntry is a modification entry in the state change journal that can be

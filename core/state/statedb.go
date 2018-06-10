@@ -23,12 +23,12 @@ import (
 	"sort"
 	"sync"
 
-	"github.com/infinetio/go-infinet/common"
-	"github.com/infinetio/go-infinet/core/types"
-	"github.com/infinetio/go-infinet/common/crypto"
-	"github.com/infinetio/go-infinet/common/log"
-	"github.com/infinetio/go-infinet/common/rlp"
-	"github.com/infinetio/go-infinet/core/trie"
+	"github.com/juchain/go-juchain/common"
+	"github.com/juchain/go-juchain/core/types"
+	"github.com/juchain/go-juchain/common/crypto"
+	"github.com/juchain/go-juchain/common/log"
+	"github.com/juchain/go-juchain/common/rlp"
+	"github.com/juchain/go-juchain/core/trie"
 )
 
 type revision struct {
@@ -471,7 +471,7 @@ func (self *StateDB) Copy() *StateDB {
 	}
 	// Copy the dirty states, logs, and preimages
 	for addr := range self.journal.dirties {
-		// As documented [here](https://github.com/infinetio/go-infinet/pull/16485#issuecomment-380438527),
+		// As documented [here](https://github.com/juchain/go-juchain/pull/16485#issuecomment-380438527),
 		// and in the Finalise-method, there is a case where an object is in the journal but not
 		// in the stateObjects: OOG after touch on ripeMD prior to Byzantium. Thus, we need to check for
 		// nil

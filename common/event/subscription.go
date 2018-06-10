@@ -21,7 +21,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/infinetio/go-infinet/common/mclock"
+	"github.com/juchain/go-juchain/common/mclock"
 )
 
 // Subscription represents a stream of events. The carrier of the events is typically a

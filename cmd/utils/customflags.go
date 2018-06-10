@@ -27,7 +27,7 @@ import (
 	"path"
 	"strings"
 
-	"github.com/infinetio/go-infinet/common/math"
+	"github.com/juchain/go-juchain/common/math"
 	"gopkg.in/urfave/cli.v1"
 )
 

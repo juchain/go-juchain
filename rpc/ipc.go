@@ -20,8 +20,8 @@ import (
 	"context"
 	"net"
 
-	"github.com/infinetio/go-infinet/common/log"
-	"github.com/infinetio/go-infinet/p2p/netutil"
+	"github.com/juchain/go-juchain/common/log"
+	"github.com/juchain/go-juchain/p2p/netutil"
 )
 
 // ServeListener accepts connections on l, serving JSON-RPC on them.

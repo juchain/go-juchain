@@ -25,9 +25,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/infinetio/go-infinet/cmd/utils"
-	"github.com/infinetio/go-infinet/node"
-	"github.com/infinetio/go-infinet/rpc"
+	"github.com/juchain/go-juchain/cmd/utils"
+	"github.com/juchain/go-juchain/node"
+	"github.com/juchain/go-juchain/rpc"
 	"github.com/gizak/termui"
 	"gopkg.in/urfave/cli.v1"
 )

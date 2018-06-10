@@ -37,7 +37,7 @@ import (
 	"sync"
 	"unsafe"
 
-	"github.com/infinetio/go-infinet/common/math"
+	"github.com/juchain/go-juchain/common/math"
 )
 
 /*

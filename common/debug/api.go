@@ -33,7 +33,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/infinetio/go-infinet/common/log"
+	"github.com/juchain/go-juchain/common/log"
 )
 
 // Handler is the global debugging handler.

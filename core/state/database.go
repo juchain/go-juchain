@@ -20,9 +20,9 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/infinetio/go-infinet/common"
-	"github.com/infinetio/go-infinet/core/store"
-	"github.com/infinetio/go-infinet/core/trie"
+	"github.com/juchain/go-juchain/common"
+	"github.com/juchain/go-juchain/core/store"
+	"github.com/juchain/go-juchain/core/trie"
 	lru "github.com/hashicorp/golang-lru"
 )
 

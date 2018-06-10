@@ -19,9 +19,9 @@ package vm
 import (
 	"math/big"
 
-	"github.com/infinetio/go-infinet/common"
-	"github.com/infinetio/go-infinet/common/math"
-	"github.com/infinetio/go-infinet/config"
+	"github.com/juchain/go-juchain/common"
+	"github.com/juchain/go-juchain/common/math"
+	"github.com/juchain/go-juchain/config"
 )
 
 // memoryGasCosts calculates the quadratic gas for memory expansion. It does so

@@ -19,7 +19,7 @@ package trie
 import (
 	"fmt"
 
-	"github.com/infinetio/go-infinet/common"
+	"github.com/juchain/go-juchain/common"
 )
 
 // MissingNodeError is returned by the trie functions (TryGet, TryUpdate, TryDelete)

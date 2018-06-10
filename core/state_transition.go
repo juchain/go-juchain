@@ -21,10 +21,10 @@ import (
 	"math"
 	"math/big"
 
-	"github.com/infinetio/go-infinet/common"
-	"github.com/infinetio/go-infinet/vm/solc"
-	"github.com/infinetio/go-infinet/common/log"
-	"github.com/infinetio/go-infinet/config"
+	"github.com/juchain/go-juchain/common"
+	"github.com/juchain/go-juchain/vm/solc"
+	"github.com/juchain/go-juchain/common/log"
+	"github.com/juchain/go-juchain/config"
 )
 
 var (

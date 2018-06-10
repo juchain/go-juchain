@@ -19,7 +19,7 @@ package bloombits
 import (
 	"errors"
 
-	"github.com/infinetio/go-infinet/core/types"
+	"github.com/juchain/go-juchain/core/types"
 )
 
 // errSectionOutOfBounds is returned if the user tried to add more bloom filters

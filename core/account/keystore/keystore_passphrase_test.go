@@ -20,7 +20,7 @@ import (
 	"io/ioutil"
 	"testing"
 
-	"github.com/infinetio/go-infinet/common"
+	"github.com/juchain/go-juchain/common"
 )
 
 const (

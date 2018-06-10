@@ -19,7 +19,7 @@ package state
 import (
 	"sync"
 
-	"github.com/infinetio/go-infinet/common"
+	"github.com/juchain/go-juchain/common"
 )
 
 type account struct {

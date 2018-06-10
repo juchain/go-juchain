@@ -21,7 +21,7 @@ import (
 	"math/rand"
 	"testing"
 
-	"github.com/infinetio/go-infinet/core/types"
+	"github.com/juchain/go-juchain/core/types"
 )
 
 // Tests that batched bloom bits are correctly rotated from the input bloom

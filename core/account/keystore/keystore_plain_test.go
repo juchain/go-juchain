@@ -27,8 +27,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/infinetio/go-infinet/common"
-	"github.com/infinetio/go-infinet/common/crypto"
+	"github.com/juchain/go-juchain/common"
+	"github.com/juchain/go-juchain/common/crypto"
 )
 
 func tmpKeyStoreIface(t *testing.T, encrypted bool) (dir string, ks keyStore) {

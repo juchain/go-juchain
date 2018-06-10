@@ -19,9 +19,9 @@ package core
 import (
 	"fmt"
 
-	"github.com/infinetio/go-infinet/core/state"
-	"github.com/infinetio/go-infinet/core/types"
-	"github.com/infinetio/go-infinet/config"
+	"github.com/juchain/go-juchain/core/state"
+	"github.com/juchain/go-juchain/core/types"
+	"github.com/juchain/go-juchain/config"
 )
 
 // BlockValidator is responsible for validating block headers, uncles and

@@ -22,12 +22,12 @@ import (
 	"testing"
 	"time"
 
-	"github.com/infinetio/go-infinet/core/account/abi/bind"
-	"github.com/infinetio/go-infinet/core/account/abi/bind/backends"
-	"github.com/infinetio/go-infinet/common"
-	"github.com/infinetio/go-infinet/core"
-	"github.com/infinetio/go-infinet/core/types"
-	"github.com/infinetio/go-infinet/common/crypto"
+	"github.com/juchain/go-juchain/core/account/abi/bind"
+	"github.com/juchain/go-juchain/core/account/abi/bind/backends"
+	"github.com/juchain/go-juchain/common"
+	"github.com/juchain/go-juchain/core"
+	"github.com/juchain/go-juchain/core/types"
+	"github.com/juchain/go-juchain/common/crypto"
 )
 
 var testKey, _ = crypto.HexToECDSA("b71c71a67e1177ad4e901695e1b4b9ee17ae16c6668d313eac2f96dbcda3f291")

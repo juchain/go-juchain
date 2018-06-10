@@ -4,8 +4,8 @@ import (
 	"math/big"
 	"testing"
 
-	"github.com/infinetio/go-infinet/common"
-	"github.com/infinetio/go-infinet/params"
+	"github.com/juchain/go-juchain/common"
+	"github.com/juchain/go-juchain/params"
 )
 
 func TestByteOp(t *testing.T) {

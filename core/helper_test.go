@@ -20,9 +20,9 @@ import (
 	"container/list"
 	"fmt"
 
-	"github.com/infinetio/go-infinet/core/types"
-	"github.com/infinetio/go-infinet/core/store"
-	"github.com/infinetio/go-infinet/common/event"
+	"github.com/juchain/go-juchain/core/types"
+	"github.com/juchain/go-juchain/core/store"
+	"github.com/juchain/go-juchain/common/event"
 )
 
 // Implement our EthTest Manager

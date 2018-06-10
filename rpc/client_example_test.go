@@ -22,7 +22,7 @@ import (
 	"math/big"
 	"time"
 
-	"github.com/infinetio/go-infinet/rpc"
+	"github.com/juchain/go-juchain/rpc"
 )
 
 // In this example, our client whishes to track the latest 'block number'

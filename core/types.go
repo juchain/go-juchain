@@ -17,9 +17,9 @@
 package core
 
 import (
-	"github.com/infinetio/go-infinet/core/state"
-	"github.com/infinetio/go-infinet/core/types"
-	"github.com/infinetio/go-infinet/vm/solc"
+	"github.com/juchain/go-juchain/core/state"
+	"github.com/juchain/go-juchain/core/types"
+	"github.com/juchain/go-juchain/vm/solc"
 )
 
 // Validator is an interface which defines the standard for block validation. It

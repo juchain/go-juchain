@@ -7,8 +7,8 @@ import (
 	"errors"
 	"math/big"
 
-	"github.com/infinetio/go-infinet/common"
-	"github.com/infinetio/go-infinet/common/hexutil"
+	"github.com/juchain/go-juchain/common"
+	"github.com/juchain/go-juchain/common/hexutil"
 )
 
 var _ = (*headerMarshaling)(nil)

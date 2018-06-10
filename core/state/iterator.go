@@ -20,9 +20,9 @@ import (
 	"bytes"
 	"fmt"
 
-	"github.com/infinetio/go-infinet/common"
-	"github.com/infinetio/go-infinet/common/rlp"
-	"github.com/infinetio/go-infinet/core/trie"
+	"github.com/juchain/go-juchain/common"
+	"github.com/juchain/go-juchain/common/rlp"
+	"github.com/juchain/go-juchain/core/trie"
 )
 
 // NodeIterator is an iterator to traverse the entire state trie post-order,

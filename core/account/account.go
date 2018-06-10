@@ -20,10 +20,10 @@ package account
 import (
 	"math/big"
 
-	infinet "github.com/infinetio/go-infinet"
-	"github.com/infinetio/go-infinet/common"
-	"github.com/infinetio/go-infinet/core/types"
-	"github.com/infinetio/go-infinet/common/event"
+	infinet "github.com/juchain/go-juchain"
+	"github.com/juchain/go-juchain/common"
+	"github.com/juchain/go-juchain/core/types"
+	"github.com/juchain/go-juchain/common/event"
 )
 
 // Account represents an Ethereum account located at a specific location defined

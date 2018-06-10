@@ -21,10 +21,10 @@ import (
 	"io"
 	"os"
 
-	"github.com/infinetio/go-infinet/common"
-	"github.com/infinetio/go-infinet/core/types"
-	"github.com/infinetio/go-infinet/common/log"
-	"github.com/infinetio/go-infinet/common/rlp"
+	"github.com/juchain/go-juchain/common"
+	"github.com/juchain/go-juchain/core/types"
+	"github.com/juchain/go-juchain/common/log"
+	"github.com/juchain/go-juchain/common/rlp"
 )
 
 // errNoActiveJournal is returned if a transaction is attempted to be inserted

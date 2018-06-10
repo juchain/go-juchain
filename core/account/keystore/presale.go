@@ -25,8 +25,8 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/infinetio/go-infinet/core/account"
-	"github.com/infinetio/go-infinet/common/crypto"
+	"github.com/juchain/go-juchain/core/account"
+	"github.com/juchain/go-juchain/common/crypto"
 	"github.com/pborman/uuid"
 	"golang.org/x/crypto/pbkdf2"
 )

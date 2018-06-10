@@ -23,8 +23,8 @@ import (
 	"os"
 	"strings"
 
-	"github.com/infinetio/go-infinet/common/math"
-	"github.com/infinetio/go-infinet/vm/solc"
+	"github.com/juchain/go-juchain/common/math"
+	"github.com/juchain/go-juchain/vm/solc"
 )
 
 // Compiler contains information about the parsed source

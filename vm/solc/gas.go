@@ -19,7 +19,7 @@ package vm
 import (
 	"math/big"
 
-	"github.com/infinetio/go-infinet/params"
+	"github.com/juchain/go-juchain/params"
 )
 
 const (

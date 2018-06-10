@@ -26,13 +26,13 @@ import (
 	"testing"
 	"time"
 
-	"github.com/infinetio/go-infinet/common"
-	"github.com/infinetio/go-infinet/core/state"
-	"github.com/infinetio/go-infinet/core/types"
-	"github.com/infinetio/go-infinet/common/crypto"
-	"github.com/infinetio/go-infinet/core/store"
-	"github.com/infinetio/go-infinet/common/event"
-	"github.com/infinetio/go-infinet/config"
+	"github.com/juchain/go-juchain/common"
+	"github.com/juchain/go-juchain/core/state"
+	"github.com/juchain/go-juchain/core/types"
+	"github.com/juchain/go-juchain/common/crypto"
+	"github.com/juchain/go-juchain/core/store"
+	"github.com/juchain/go-juchain/common/event"
+	"github.com/juchain/go-juchain/config"
 )
 
 // testTxPoolConfig is a transaction pool configuration without stateful disk

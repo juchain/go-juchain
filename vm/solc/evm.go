@@ -20,9 +20,9 @@ import (
 	"math/big"
 	"sync/atomic"
 
-	"github.com/infinetio/go-infinet/common"
-	"github.com/infinetio/go-infinet/common/crypto"
-	"github.com/infinetio/go-infinet/config"
+	"github.com/juchain/go-juchain/common"
+	"github.com/juchain/go-juchain/common/crypto"
+	"github.com/juchain/go-juchain/config"
 )
 
 // emptyCodeHash is used by create to ensure deployment is disallowed to already

@@ -5,7 +5,7 @@ import (
 	"math/big"
 	"testing"
 
-	"github.com/infinetio/go-infinet/common"
+	"github.com/juchain/go-juchain/common"
 )
 
 // precompiledTest defines the input/output pairs for precompiled contract tests.

@@ -19,8 +19,8 @@ package state
 import (
 	"testing"
 
-	"github.com/infinetio/go-infinet/common"
-	"github.com/infinetio/go-infinet/core/store"
+	"github.com/juchain/go-juchain/common"
+	"github.com/juchain/go-juchain/core/store"
 )
 
 var addr = common.BytesToAddress([]byte("test"))

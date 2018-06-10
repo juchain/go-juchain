@@ -26,12 +26,12 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/infinetio/go-infinet/common"
-	"github.com/infinetio/go-infinet/core/types"
-	"github.com/infinetio/go-infinet/core/store"
-	"github.com/infinetio/go-infinet/common/log"
-	"github.com/infinetio/go-infinet/config"
-	"github.com/infinetio/go-infinet/consensus"
+	"github.com/juchain/go-juchain/common"
+	"github.com/juchain/go-juchain/core/types"
+	"github.com/juchain/go-juchain/core/store"
+	"github.com/juchain/go-juchain/common/log"
+	"github.com/juchain/go-juchain/config"
+	"github.com/juchain/go-juchain/consensus"
 	"github.com/hashicorp/golang-lru"
 )
 

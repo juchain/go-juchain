@@ -26,8 +26,8 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/infinetio/go-infinet/common/bitutil"
-	"github.com/infinetio/go-infinet/common/crypto"
+	"github.com/juchain/go-juchain/common/bitutil"
+	"github.com/juchain/go-juchain/common/crypto"
 )
 
 // bloomIndexes represents the bit indexes inside the bloom filter that belong

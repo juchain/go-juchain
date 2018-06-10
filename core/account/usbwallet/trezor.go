@@ -27,12 +27,12 @@ import (
 	"io"
 	"math/big"
 
-	"github.com/infinetio/go-infinet/core/account"
-	"github.com/infinetio/go-infinet/core/account/usbwallet/internal/trezor"
-	"github.com/infinetio/go-infinet/common"
-	"github.com/infinetio/go-infinet/common/hexutil"
-	"github.com/infinetio/go-infinet/core/types"
-	"github.com/infinetio/go-infinet/common/log"
+	"github.com/juchain/go-juchain/core/account"
+	"github.com/juchain/go-juchain/core/account/usbwallet/internal/trezor"
+	"github.com/juchain/go-juchain/common"
+	"github.com/juchain/go-juchain/common/hexutil"
+	"github.com/juchain/go-juchain/core/types"
+	"github.com/juchain/go-juchain/common/log"
 	"github.com/golang/protobuf/proto"
 )
 

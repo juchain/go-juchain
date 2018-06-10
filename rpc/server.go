@@ -25,7 +25,7 @@ import (
 	"sync"
 	"sync/atomic"
 
-	"github.com/infinetio/go-infinet/common/log"
+	"github.com/juchain/go-juchain/common/log"
 	"gopkg.in/fatih/set.v0"
 )
 

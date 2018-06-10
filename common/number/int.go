@@ -19,7 +19,7 @@ package number
 import (
 	"math/big"
 
-	"github.com/infinetio/go-infinet/common"
+	"github.com/juchain/go-juchain/common"
 )
 
 var tt256 = new(big.Int).Lsh(big.NewInt(1), 256)

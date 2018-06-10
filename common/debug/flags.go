@@ -24,8 +24,8 @@ import (
 	"os"
 	"runtime"
 
-	"github.com/infinetio/go-infinet/common/log"
-	"github.com/infinetio/go-infinet/common/log/term"
+	"github.com/juchain/go-juchain/common/log"
+	"github.com/juchain/go-juchain/common/log/term"
 	colorable "github.com/mattn/go-colorable"
 	"gopkg.in/urfave/cli.v1"
 )

@@ -22,10 +22,10 @@ import (
 	"testing"
 
 	"github.com/davecgh/go-spew/spew"
-	"github.com/infinetio/go-infinet/common"
-	"github.com/infinetio/go-infinet/vm/solc"
-	"github.com/infinetio/go-infinet/core/store"
-	"github.com/infinetio/go-infinet/config"
+	"github.com/juchain/go-juchain/common"
+	"github.com/juchain/go-juchain/vm/solc"
+	"github.com/juchain/go-juchain/core/store"
+	"github.com/juchain/go-juchain/config"
 )
 
 func TestDefaultGenesisBlock(t *testing.T) {

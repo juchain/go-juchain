@@ -25,7 +25,7 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/infinetio/go-infinet/core/store"
+	"github.com/juchain/go-juchain/core/store"
 )
 
 func newTestLDB() (*store.LDBDatabase, func()) {

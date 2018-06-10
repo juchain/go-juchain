@@ -19,9 +19,9 @@ package runtime
 import (
 	"math/big"
 
-	"github.com/infinetio/go-infinet/common"
-	"github.com/infinetio/go-infinet/core"
-	"github.com/infinetio/go-infinet/core/vm"
+	"github.com/juchain/go-juchain/common"
+	"github.com/juchain/go-juchain/core"
+	"github.com/juchain/go-juchain/core/vm"
 )
 
 func NewEnv(cfg *Config) *vm.EVM {

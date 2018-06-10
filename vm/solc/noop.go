@@ -19,8 +19,8 @@ package vm
 import (
 	"math/big"
 
-	"github.com/infinetio/go-infinet/common"
-	"github.com/infinetio/go-infinet/core/types"
+	"github.com/juchain/go-juchain/common"
+	"github.com/juchain/go-juchain/core/types"
 )
 
 func NoopCanTransfer(db StateDB, from common.Address, balance *big.Int) bool {

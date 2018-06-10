@@ -21,7 +21,7 @@ import (
 	"encoding/hex"
 	"fmt"
 
-	"github.com/infinetio/go-infinet/vm/solc"
+	"github.com/juchain/go-juchain/vm/solc"
 )
 
 // Iterator for disassembled EVM instructions

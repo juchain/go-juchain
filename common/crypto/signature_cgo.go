@@ -23,8 +23,8 @@ import (
 	"crypto/elliptic"
 	"fmt"
 
-	"github.com/infinetio/go-infinet/common/math"
-	"github.com/infinetio/go-infinet/common/crypto/secp256k1"
+	"github.com/juchain/go-juchain/common/math"
+	"github.com/juchain/go-juchain/common/crypto/secp256k1"
 )
 
 func Ecrecover(hash, sig []byte) ([]byte, error) {

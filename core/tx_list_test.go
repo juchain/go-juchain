@@ -20,8 +20,8 @@ import (
 	"math/rand"
 	"testing"
 
-	"github.com/infinetio/go-infinet/core/types"
-	"github.com/infinetio/go-infinet/common/crypto"
+	"github.com/juchain/go-juchain/core/types"
+	"github.com/juchain/go-juchain/common/crypto"
 )
 
 // Tests that transactions can be added to strict lists and list contents and

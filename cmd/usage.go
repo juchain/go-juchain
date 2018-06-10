@@ -23,8 +23,8 @@ import (
 
 	"strings"
 
-	"github.com/infinetio/go-infinet/cmd/utils"
-	"github.com/infinetio/go-infinet/common/debug"
+	"github.com/juchain/go-juchain/cmd/utils"
+	"github.com/juchain/go-juchain/common/debug"
 	"gopkg.in/urfave/cli.v1"
 )
 

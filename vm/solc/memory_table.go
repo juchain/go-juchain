@@ -19,7 +19,7 @@ package vm
 import (
 	"math/big"
 
-	"github.com/infinetio/go-infinet/common/math"
+	"github.com/juchain/go-juchain/common/math"
 )
 
 func memorySha3(stack *Stack) *big.Int {

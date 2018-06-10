@@ -30,9 +30,9 @@ import (
 
 	check "gopkg.in/check.v1"
 
-	"github.com/infinetio/go-infinet/common"
-	"github.com/infinetio/go-infinet/core/types"
-	"github.com/infinetio/go-infinet/core/store"
+	"github.com/juchain/go-juchain/common"
+	"github.com/juchain/go-juchain/core/types"
+	"github.com/juchain/go-juchain/core/store"
 )
 
 // Tests that updating a state trie does not leak any database writes prior to
@@ -119,7 +119,7 @@ func TestIntermediateLeaks(t *testing.T) {
 
 // TestCopy tests that copying a statedb object indeed makes the original and
 // the copy independent of each other. This test is a regression test against
-// https://github.com/infinetio/go-infinet/pull/15549.
+// https://github.com/juchain/go-juchain/pull/15549.
 func TestCopy(t *testing.T) {
 	// Create a random state test to copy and modify "independently"
 	db, _ := store.NewMemDatabase()
@@ -424,7 +424,7 @@ func (s *StateSuite) TestTouchDelete(c *check.C) {
 }
 
 // TestCopyOfCopy tests that modified objects are carried over to the copy, and the copy of the copy.
-// See https://github.com/infinetio/go-infinet/pull/15225#issuecomment-380191512
+// See https://github.com/juchain/go-juchain/pull/15225#issuecomment-380191512
 func TestCopyOfCopy(t *testing.T) {
 	db, _ := store.NewMemDatabase()
 	sdb, _ := New(common.Hash{}, NewDatabase(db))

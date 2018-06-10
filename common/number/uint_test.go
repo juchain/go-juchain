@@ -20,7 +20,7 @@ import (
 	"math/big"
 	"testing"
 
-	"github.com/infinetio/go-infinet/common"
+	"github.com/juchain/go-juchain/common"
 )
 
 func TestSet(t *testing.T) {

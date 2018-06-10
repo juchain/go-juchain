@@ -21,8 +21,8 @@ import (
 	"io"
 	"strings"
 
-	"github.com/infinetio/go-infinet/common"
-	"github.com/infinetio/go-infinet/common/rlp"
+	"github.com/juchain/go-juchain/common"
+	"github.com/juchain/go-juchain/common/rlp"
 )
 
 var indices = []string{"0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "a", "b", "c", "d", "e", "f", "[17]"}

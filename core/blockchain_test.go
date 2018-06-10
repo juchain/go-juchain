@@ -24,13 +24,13 @@ import (
 	"testing"
 	"time"
 
-	"github.com/infinetio/go-infinet/common"
-	"github.com/infinetio/go-infinet/core/state"
-	"github.com/infinetio/go-infinet/core/types"
-	"github.com/infinetio/go-infinet/vm/solc"
-	"github.com/infinetio/go-infinet/common/crypto"
-	"github.com/infinetio/go-infinet/core/store"
-	"github.com/infinetio/go-infinet/config"
+	"github.com/juchain/go-juchain/common"
+	"github.com/juchain/go-juchain/core/state"
+	"github.com/juchain/go-juchain/core/types"
+	"github.com/juchain/go-juchain/vm/solc"
+	"github.com/juchain/go-juchain/common/crypto"
+	"github.com/juchain/go-juchain/core/store"
+	"github.com/juchain/go-juchain/config"
 	"github.com/ethereum/go-ethereum/consensus/ethash"
 )
 
@@ -1186,7 +1186,7 @@ func TestEIP161AccountRemoval(t *testing.T) {
 // tests that under weird reorg conditions the blockchain and its internal header-
 // chain return the same latest block/header.
 //
-// https://github.com/infinetio/go-infinet/pull/15941
+// https://github.com/juchain/go-juchain/pull/15941
 func TestBlockchainHeaderchainReorgConsistency(t *testing.T) {
 	// Generate a canonical chain to act as the main dataset
 	engine := nil;

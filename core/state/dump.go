@@ -20,9 +20,9 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/infinetio/go-infinet/common"
-	"github.com/infinetio/go-infinet/common/rlp"
-	"github.com/infinetio/go-infinet/core/trie"
+	"github.com/juchain/go-juchain/common"
+	"github.com/juchain/go-juchain/common/rlp"
+	"github.com/juchain/go-juchain/core/trie"
 )
 
 type DumpAccount struct {

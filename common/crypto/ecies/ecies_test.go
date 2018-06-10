@@ -40,7 +40,7 @@ import (
 	"math/big"
 	"testing"
 
-	"github.com/infinetio/go-infinet/crypto"
+	"github.com/juchain/go-juchain/crypto"
 )
 
 var dumpEnc bool

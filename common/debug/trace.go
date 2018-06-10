@@ -23,7 +23,7 @@ import (
 	"os"
 	"runtime/trace"
 
-	"github.com/infinetio/go-infinet/common/log"
+	"github.com/juchain/go-juchain/common/log"
 )
 
 // StartGoTrace turns on tracing, writing to the given file.

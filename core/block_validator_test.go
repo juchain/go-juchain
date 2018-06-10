@@ -21,10 +21,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/infinetio/go-infinet/core/types"
-	"github.com/infinetio/go-infinet/vm/solc"
-	"github.com/infinetio/go-infinet/core/store"
-	"github.com/infinetio/go-infinet/config"
+	"github.com/juchain/go-juchain/core/types"
+	"github.com/juchain/go-juchain/vm/solc"
+	"github.com/juchain/go-juchain/core/store"
+	"github.com/juchain/go-juchain/config"
 )
 
 // Tests that simple header verification works, for both good and bad blocks.

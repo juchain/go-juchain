@@ -20,7 +20,7 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/infinetio/go-infinet/common/hexutil"
+	"github.com/juchain/go-juchain/common/hexutil"
 )
 
 type MyType [5]byte

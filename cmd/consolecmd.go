@@ -24,10 +24,10 @@ import (
 	"strings"
 	"syscall"
 
-	"github.com/infinetio/go-infinet/cmd/utils"
-	"github.com/infinetio/go-infinet/cmd/console"
-	"github.com/infinetio/go-infinet/p2p/node"
-	"github.com/infinetio/go-infinet/rpc"
+	"github.com/juchain/go-juchain/cmd/utils"
+	"github.com/juchain/go-juchain/cmd/console"
+	"github.com/juchain/go-juchain/p2p/node"
+	"github.com/juchain/go-juchain/rpc"
 	"gopkg.in/urfave/cli.v1"
 )
 
@@ -43,7 +43,7 @@ var (
 		Description: `
 The Geth console is an interactive shell for the JavaScript runtime environment
 which exposes a node admin interface as well as the Ðapp JavaScript API.
-See https://github.com/infinetio/go-infinet/wiki/JavaScript-Console.`,
+See https://github.com/juchain/go-juchain/wiki/JavaScript-Console.`,
 	}
 
 	attachCommand = cli.Command{
@@ -56,7 +56,7 @@ See https://github.com/infinetio/go-infinet/wiki/JavaScript-Console.`,
 		Description: `
 The Geth console is an interactive shell for the JavaScript runtime environment
 which exposes a node admin interface as well as the Ðapp JavaScript API.
-See https://github.com/infinetio/go-infinet/wiki/JavaScript-Console.
+See https://github.com/juchain/go-juchain/wiki/JavaScript-Console.
 This command allows to open a console on a running geth node.`,
 	}
 
@@ -69,7 +69,7 @@ This command allows to open a console on a running geth node.`,
 		Category:  "CONSOLE COMMANDS",
 		Description: `
 The JavaScript VM exposes a node admin interface as well as the Ðapp
-JavaScript API. See https://github.com/infinetio/go-infinet/wiki/JavaScript-Console`,
+JavaScript API. See https://github.com/juchain/go-juchain/wiki/JavaScript-Console`,
 	}
 )
 

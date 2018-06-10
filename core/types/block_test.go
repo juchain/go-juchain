@@ -23,8 +23,8 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/infinetio/go-infinet/common"
-	"github.com/infinetio/go-infinet/common/rlp"
+	"github.com/juchain/go-juchain/common"
+	"github.com/juchain/go-juchain/common/rlp"
 )
 
 // from bcValidBlockTest.json, "SimpleTx"

@@ -23,9 +23,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/infinetio/go-infinet/accounts/usbwallet"
-	"github.com/infinetio/go-infinet/common/log"
-	"github.com/infinetio/go-infinet/rpc"
+	"github.com/juchain/go-juchain/accounts/usbwallet"
+	"github.com/juchain/go-juchain/common/log"
+	"github.com/juchain/go-juchain/rpc"
 	"github.com/robertkrimen/otto"
 )
 

@@ -22,8 +22,8 @@ import (
 	"errors"
 	"math/big"
 
-	"github.com/infinetio/go-infinet/common"
-	"github.com/infinetio/go-infinet/core/types"
+	"github.com/juchain/go-juchain/common"
+	"github.com/juchain/go-juchain/core/types"
 )
 
 // NotFound is returned by API methods if the requested item does not exist.

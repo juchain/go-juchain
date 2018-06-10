@@ -20,13 +20,13 @@ import (
 	"fmt"
 	"math/big"
 
-	"github.com/infinetio/go-infinet/common"
-	"github.com/infinetio/go-infinet/core/state"
-	"github.com/infinetio/go-infinet/core/types"
-	"github.com/infinetio/go-infinet/vm/solc"
-	"github.com/infinetio/go-infinet/core/store"
-	"github.com/infinetio/go-infinet/config"
-	"github.com/infinetio/go-infinet/consensus"
+	"github.com/juchain/go-juchain/common"
+	"github.com/juchain/go-juchain/core/state"
+	"github.com/juchain/go-juchain/core/types"
+	"github.com/juchain/go-juchain/vm/solc"
+	"github.com/juchain/go-juchain/core/store"
+	"github.com/juchain/go-juchain/config"
+	"github.com/juchain/go-juchain/consensus"
 )
 
 // So we can deterministically seed different blockchains

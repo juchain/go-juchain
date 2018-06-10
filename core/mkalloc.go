@@ -34,8 +34,8 @@ import (
 	"sort"
 	"strconv"
 
-	"github.com/infinetio/go-infinet/core"
-	"github.com/infinetio/go-infinet/rlp"
+	"github.com/juchain/go-juchain/core"
+	"github.com/juchain/go-juchain/rlp"
 )
 
 type allocItem struct{ Addr, Balance *big.Int }

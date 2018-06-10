@@ -7,9 +7,9 @@ import (
 	"errors"
 	"math/big"
 
-	"github.com/infinetio/go-infinet/common"
-	"github.com/infinetio/go-infinet/common/hexutil"
-	"github.com/infinetio/go-infinet/common/math"
+	"github.com/juchain/go-juchain/common"
+	"github.com/juchain/go-juchain/common/hexutil"
+	"github.com/juchain/go-juchain/common/math"
 )
 
 var _ = (*genesisAccountMarshaling)(nil)

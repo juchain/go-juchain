@@ -21,11 +21,11 @@ import (
 	"fmt"
 	"math/big"
 
-	"github.com/infinetio/go-infinet/common"
-	"github.com/infinetio/go-infinet/common/math"
-	"github.com/infinetio/go-infinet/core/types"
-	"github.com/infinetio/go-infinet/crypto"
-	"github.com/infinetio/go-infinet/params"
+	"github.com/juchain/go-juchain/common"
+	"github.com/juchain/go-juchain/common/math"
+	"github.com/juchain/go-juchain/core/types"
+	"github.com/juchain/go-juchain/crypto"
+	"github.com/juchain/go-juchain/params"
 )
 
 var (

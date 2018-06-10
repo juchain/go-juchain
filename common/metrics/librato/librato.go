@@ -7,7 +7,7 @@ import (
 	"regexp"
 	"time"
 
-	"github.com/infinetio/go-infinet/metrics"
+	"github.com/juchain/go-juchain/metrics"
 )
 
 // a regexp for extracting the unit from time.Duration.String

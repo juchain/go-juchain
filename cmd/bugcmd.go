@@ -27,9 +27,9 @@ import (
 	"strings"
 	"os"
 
-	"github.com/infinetio/go-infinet/config"
+	"github.com/juchain/go-juchain/config"
 
-	"github.com/infinetio/go-infinet/cmd/utils"
+	"github.com/juchain/go-juchain/cmd/utils"
 	cli "gopkg.in/urfave/cli.v1"
 )
 
@@ -41,7 +41,7 @@ var bugCommand = cli.Command{
 	Category:  "MISCELLANEOUS COMMANDS",
 }
 
-const issueUrl = "https://github.com/infinetio/go-infinet/issues/new"
+const issueUrl = "https://github.com/juchain/go-juchain/issues/new"
 
 // reportBug reports a bug by opening a new URL to the go-ethereum GH issue
 // tracker and setting default values as the issue body.

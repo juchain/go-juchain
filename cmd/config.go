@@ -27,10 +27,10 @@ import (
 
 	cli "gopkg.in/urfave/cli.v1"
 
-	"github.com/infinetio/go-infinet/cmd/utils"
-	"github.com/infinetio/go-infinet/p2p/protocol"
-	"github.com/infinetio/go-infinet/p2p/node"
-	"github.com/infinetio/go-infinet/config"
+	"github.com/juchain/go-juchain/cmd/utils"
+	"github.com/juchain/go-juchain/p2p/protocol"
+	"github.com/juchain/go-juchain/p2p/node"
+	"github.com/juchain/go-juchain/config"
 	"github.com/naoina/toml"
 )
 

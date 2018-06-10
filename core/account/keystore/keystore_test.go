@@ -26,9 +26,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/infinetio/go-infinet/core/account"
-	"github.com/infinetio/go-infinet/common"
-	"github.com/infinetio/go-infinet/common/event"
+	"github.com/juchain/go-juchain/core/account"
+	"github.com/juchain/go-juchain/common"
+	"github.com/juchain/go-juchain/common/event"
 )
 
 var testSigData = make([]byte, 32)

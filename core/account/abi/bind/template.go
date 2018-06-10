@@ -16,7 +16,7 @@
 
 package bind
 
-import "github.com/infinetio/go-infinet/core/account/abi"
+import "github.com/juchain/go-juchain/core/account/abi"
 
 // tmplData is the data structure required to fill the binding template.
 type tmplData struct {

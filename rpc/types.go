@@ -23,7 +23,7 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/infinetio/go-infinet/common/hexutil"
+	"github.com/juchain/go-juchain/common/hexutil"
 	"gopkg.in/fatih/set.v0"
 )
 

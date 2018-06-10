@@ -42,7 +42,7 @@ import (
 	"fmt"
 	"hash"
 
-	ethcrypto "github.com/infinetio/go-infinet/crypto"
+	ethcrypto "github.com/juchain/go-juchain/crypto"
 )
 
 var (

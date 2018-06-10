@@ -19,7 +19,7 @@ package vm
 import (
 	"math/big"
 
-	"github.com/infinetio/go-infinet/common"
+	"github.com/juchain/go-juchain/common"
 )
 
 // ContractRef is a reference to the contract's backing object

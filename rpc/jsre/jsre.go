@@ -26,8 +26,8 @@ import (
 	"math/rand"
 	"time"
 
-	"github.com/infinetio/go-infinet/common"
-	"github.com/infinetio/go-infinet/internal/jsre/deps"
+	"github.com/juchain/go-juchain/common"
+	"github.com/juchain/go-juchain/internal/jsre/deps"
 	"github.com/robertkrimen/otto"
 )
 

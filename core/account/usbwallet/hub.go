@@ -22,9 +22,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/infinetio/go-infinet/core/account"
-	"github.com/infinetio/go-infinet/common/event"
-	"github.com/infinetio/go-infinet/common/log"
+	"github.com/juchain/go-juchain/core/account"
+	"github.com/juchain/go-juchain/common/event"
+	"github.com/juchain/go-juchain/common/log"
 	"github.com/karalabe/hid"
 )
 

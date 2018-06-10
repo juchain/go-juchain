@@ -54,7 +54,7 @@ func TestBloom(t *testing.T) {
 import (
 	"testing"
 
-	"github.com/infinetio/go-infinet/core/state"
+	"github.com/juchain/go-juchain/core/state"
 )
 
 func TestBloom9(t *testing.T) {

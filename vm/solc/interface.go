@@ -19,8 +19,8 @@ package vm
 import (
 	"math/big"
 
-	"github.com/infinetio/go-infinet/common"
-	"github.com/infinetio/go-infinet/core/types"
+	"github.com/juchain/go-juchain/common"
+	"github.com/juchain/go-juchain/core/types"
 )
 
 // StateDB is an EVM database for full state querying.

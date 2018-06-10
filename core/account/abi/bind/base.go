@@ -22,12 +22,12 @@ import (
 	"fmt"
 	"math/big"
 
-	"github.com/infinetio/go-infinet"
-	"github.com/infinetio/go-infinet/core/account/abi"
-	"github.com/infinetio/go-infinet/common"
-	"github.com/infinetio/go-infinet/core/types"
-	"github.com/infinetio/go-infinet/common/crypto"
-	"github.com/infinetio/go-infinet/common/event"
+	"github.com/juchain/go-juchain"
+	"github.com/juchain/go-juchain/core/account/abi"
+	"github.com/juchain/go-juchain/common"
+	"github.com/juchain/go-juchain/core/types"
+	"github.com/juchain/go-juchain/common/crypto"
+	"github.com/juchain/go-juchain/common/event"
 )
 
 // SignerFn is a signer function callback when a contract requires a method to

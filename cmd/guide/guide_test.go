@@ -30,8 +30,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/infinetio/go-infinet/core/account/keystore"
-	"github.com/infinetio/go-infinet/core/types"
+	"github.com/juchain/go-juchain/core/account/keystore"
+	"github.com/juchain/go-juchain/core/types"
 )
 
 // Tests that the account management snippets work correctly.

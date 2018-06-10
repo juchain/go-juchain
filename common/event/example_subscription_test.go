@@ -19,7 +19,7 @@ package event_test
 import (
 	"fmt"
 
-	"github.com/infinetio/go-infinet/event"
+	"github.com/juchain/go-juchain/event"
 )
 
 func ExampleNewSubscription() {

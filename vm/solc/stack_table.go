@@ -19,7 +19,7 @@ package vm
 import (
 	"fmt"
 
-	"github.com/infinetio/go-infinet/params"
+	"github.com/juchain/go-juchain/params"
 )
 
 func makeStackFunc(pop, push int) stackValidationFunc {

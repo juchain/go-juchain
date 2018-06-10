@@ -26,11 +26,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/infinetio/go-infinet/common"
-	"github.com/infinetio/go-infinet/core"
-	"github.com/infinetio/go-infinet/p2p/protocol"
-	"github.com/infinetio/go-infinet/rpc/jsre"
-	"github.com/infinetio/go-infinet/p2p/node"
+	"github.com/juchain/go-juchain/common"
+	"github.com/juchain/go-juchain/core"
+	"github.com/juchain/go-juchain/p2p/protocol"
+	"github.com/juchain/go-juchain/rpc/jsre"
+	"github.com/juchain/go-juchain/p2p/node"
 )
 
 const (

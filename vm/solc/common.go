@@ -19,8 +19,8 @@ package vm
 import (
 	"math/big"
 
-	"github.com/infinetio/go-infinet/common"
-	"github.com/infinetio/go-infinet/common/math"
+	"github.com/juchain/go-juchain/common"
+	"github.com/juchain/go-juchain/common/math"
 )
 
 // calculates the memory size required for a step

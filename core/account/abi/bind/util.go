@@ -21,9 +21,9 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/infinetio/go-infinet/common"
-	"github.com/infinetio/go-infinet/core/types"
-	"github.com/infinetio/go-infinet/common/log"
+	"github.com/juchain/go-juchain/common"
+	"github.com/juchain/go-juchain/core/types"
+	"github.com/juchain/go-juchain/common/log"
 )
 
 // WaitMined waits for tx to be mined on the blockchain.

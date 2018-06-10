@@ -24,8 +24,8 @@ import (
 	"encoding/hex"
 	"testing"
 
-	"github.com/infinetio/go-infinet/common/math"
-	"github.com/infinetio/go-infinet/crypto/randentropy"
+	"github.com/juchain/go-juchain/common/math"
+	"github.com/juchain/go-juchain/crypto/randentropy"
 )
 
 const TestCount = 1000

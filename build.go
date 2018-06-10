@@ -58,7 +58,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/infinetio/go-infinet/cmd/build"
+	"github.com/juchain/go-juchain/cmd/build"
 )
 
 var (

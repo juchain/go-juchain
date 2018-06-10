@@ -22,9 +22,9 @@ import (
 	"math/big"
 	"reflect"
 
-	"github.com/infinetio/go-infinet/core/account/abi"
-	"github.com/infinetio/go-infinet/common"
-	"github.com/infinetio/go-infinet/common/crypto"
+	"github.com/juchain/go-juchain/core/account/abi"
+	"github.com/juchain/go-juchain/common"
+	"github.com/juchain/go-juchain/common/crypto"
 )
 
 // makeTopics converts a filter query argument list into a filter topic set.

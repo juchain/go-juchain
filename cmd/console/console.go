@@ -28,9 +28,9 @@ import (
 	"strings"
 	"syscall"
 
-	"github.com/infinetio/go-infinet/rpc/jsre"
-	"github.com/infinetio/go-infinet/rpc/web3ext"
-	"github.com/infinetio/go-infinet/rpc"
+	"github.com/juchain/go-juchain/rpc/jsre"
+	"github.com/juchain/go-juchain/rpc/web3ext"
+	"github.com/juchain/go-juchain/rpc"
 	"github.com/mattn/go-colorable"
 	"github.com/peterh/liner"
 	"github.com/robertkrimen/otto"

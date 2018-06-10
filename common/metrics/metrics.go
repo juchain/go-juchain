@@ -11,7 +11,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/infinetio/go-infinet/common/log"
+	"github.com/juchain/go-juchain/common/log"
 )
 
 // Enabled is checked by the constructor functions for all of the

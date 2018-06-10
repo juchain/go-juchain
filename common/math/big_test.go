@@ -23,7 +23,7 @@ import (
 	"math/big"
 	"testing"
 
-	"github.com/infinetio/go-infinet/common"
+	"github.com/juchain/go-juchain/common"
 )
 
 func TestHexOrDecimal256(t *testing.T) {

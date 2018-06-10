@@ -17,8 +17,8 @@
 package core
 
 import (
-	"github.com/infinetio/go-infinet/common"
-	"github.com/infinetio/go-infinet/core/types"
+	"github.com/juchain/go-juchain/common"
+	"github.com/juchain/go-juchain/core/types"
 )
 
 // TxPreEvent is posted when a transaction enters the transaction pool.

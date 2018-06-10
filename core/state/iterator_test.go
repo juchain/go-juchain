@@ -20,8 +20,8 @@ import (
 	"bytes"
 	"testing"
 
-	"github.com/infinetio/go-infinet/common"
-	"github.com/infinetio/go-infinet/core/store"
+	"github.com/juchain/go-juchain/common"
+	"github.com/juchain/go-juchain/core/store"
 )
 
 // Tests that the node iterator indeed walks over the entire database contents.

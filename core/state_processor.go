@@ -17,12 +17,12 @@
 package core
 
 import (
-	"github.com/infinetio/go-infinet/common"
-	"github.com/infinetio/go-infinet/core/state"
-	"github.com/infinetio/go-infinet/core/types"
-	"github.com/infinetio/go-infinet/vm/solc"
-	"github.com/infinetio/go-infinet/common/crypto"
-	"github.com/infinetio/go-infinet/config"
+	"github.com/juchain/go-juchain/common"
+	"github.com/juchain/go-juchain/core/state"
+	"github.com/juchain/go-juchain/core/types"
+	"github.com/juchain/go-juchain/vm/solc"
+	"github.com/juchain/go-juchain/common/crypto"
+	"github.com/juchain/go-juchain/config"
 )
 
 // StateProcessor is a basic Processor, which takes care of transitioning
