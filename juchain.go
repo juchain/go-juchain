@@ -15,7 +15,7 @@
 // along with the go-juchain library. If not, see <http://www.gnu.org/licenses/>.
 
 // Package infinet defines interfaces for interacting with Infinet.
-package infinet
+package juchain
 
 import (
 	"context"

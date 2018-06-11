@@ -28,7 +28,10 @@ import (
 	"github.com/juchain/go-juchain/common/log/term"
 	colorable "github.com/mattn/go-colorable"
 	"gopkg.in/urfave/cli.v1"
+	"github.com/fjl/memsize/memsizeui"
 )
+
+var Memsize memsizeui.Handler
 
 var (
 	verbosityFlag = cli.IntFlag{

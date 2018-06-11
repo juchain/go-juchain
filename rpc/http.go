@@ -48,7 +48,7 @@ type httpConn struct {
 	closed    chan struct{}
 }
 
-// httpConn is treated specially by Client.
+// httpConn is treated specially by EthClient.
 func (hc *httpConn) LocalAddr() net.Addr              { return nullAddr }
 func (hc *httpConn) RemoteAddr() net.Addr             { return nullAddr }
 func (hc *httpConn) SetReadDeadline(time.Time) error  { return nil }
@@ -67,7 +67,7 @@ func (hc *httpConn) Close() error {
 }
 
 // DialHTTPWithClient creates a new RPC client that connects to an RPC server over HTTP
-// using the provided HTTP Client.
+// using the provided HTTP EthClient.
 func DialHTTPWithClient(endpoint string, client *http.Client) (*Client, error) {
 	req, err := http.NewRequest(http.MethodPost, endpoint, nil)
 	if err != nil {

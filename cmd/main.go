@@ -33,8 +33,8 @@ import (
 	"github.com/juchain/go-juchain/common/log"
 	"github.com/juchain/go-juchain/common/metrics"
 	"github.com/juchain/go-juchain/p2p/node"
+	"github.com/juchain/go-juchain/rpc"
 	"gopkg.in/urfave/cli.v1"
-	"github.com/ethereum/go-ethereum/ethclient"
 )
 
 const (
@@ -228,7 +228,7 @@ func StartNode(ctx *cli.Context, stack *node.Node) {
 		if err != nil {
 			utils.Fatalf("Failed to attach to self: %v", err)
 		}
-		stateReader := ethclient.NewClient(rpcClient)
+		stateReader := rpc.NewClient(rpcClient)
 
 		// Open any wallets already attached
 		for _, wallet := range stack.AccountManager().Wallets() {

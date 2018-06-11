@@ -323,7 +323,7 @@ func TestClientSubscribeClose(t *testing.T) {
 	}
 }
 
-// This test checks that Client doesn't lock up when a single subscriber
+// This test checks that EthClient doesn't lock up when a single subscriber
 // doesn't read subscription events.
 func TestClientNotificationStorm(t *testing.T) {
 	server := newTestServer("eth", new(NotificationTestService))
