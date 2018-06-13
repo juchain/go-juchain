@@ -48,7 +48,7 @@ import (
 	"github.com/juchain/go-juchain/p2p/netutil"
 	"github.com/juchain/go-juchain/config"
 	"github.com/juchain/go-juchain/consensus"
-	"github.com/juchain/go-juchain/consensus/clique"
+	"github.com/juchain/go-juchain/consensus/solo"
 
 	"gopkg.in/urfave/cli.v1"
 )

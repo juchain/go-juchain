@@ -32,13 +32,13 @@ import (
 )
 
 // creates a Key and stores that in the given KeyStore by decrypting a presale key JSON
-func importPreSaleKey(keyStore keyStore, keyJSON []byte, password string) (accounts.Account, *Key, error) {
+func importPreSaleKey(keyStore keyStore, keyJSON []byte, password string) (account.Account, *Key, error) {
 	key, err := decryptPreSaleKey(keyJSON, password)
 	if err != nil {
-		return accounts.Account{}, nil, err
+		return account.Account{}, nil, err
 	}
 	key.Id = uuid.NewRandom()
-	a := accounts.Account{Address: key.Address, URL: accounts.URL{Scheme: KeyStoreScheme, Path: keyStore.JoinPath(keyFileName(key.Address))}}
+	a := account.Account{Address: key.Address, URL: account.URL{Scheme: KeyStoreScheme, Path: keyStore.JoinPath(keyFileName(key.Address))}}
 	err = keyStore.StoreKey(a.URL.Path, key, password)
 	return a, key, err
 }

@@ -84,7 +84,7 @@ type wallet struct {
 
 	deriveNextPath account.DerivationPath   // Next derivation path for account auto-discovery
 	deriveNextAddr common.Address            // Next derived account address for auto-discovery
-	deriveChain    infinet.ChainStateReader // Blockchain state reader to discover used account with
+	deriveChain    juchain.ChainStateReader // Blockchain state reader to discover used account with
 	deriveReq      chan chan struct{}        // Channel to request a self-derivation on
 	deriveQuit     chan chan error           // Channel to terminate the self-deriver with
 
@@ -484,7 +484,7 @@ func (w *wallet) Derive(path account.DerivationPath, pin bool) (account.Account,
 // user used previously (based on the chain state), but ones that he/she did not
 // explicitly pin to the wallet manually. To avoid chain head monitoring, self
 // derivation only runs during account listing (and even then throttled).
-func (w *wallet) SelfDerive(base account.DerivationPath, chain infinet.ChainStateReader) {
+func (w *wallet) SelfDerive(base account.DerivationPath, chain juchain.ChainStateReader) {
 	w.stateLock.Lock()
 	defer w.stateLock.Unlock()
 
