@@ -21,7 +21,7 @@ package keystore
 import (
 	"time"
 
-	"github.com/ethereum/go-juchain/log"
+	"github.com/juchain/go-juchain/common/log"
 	"github.com/rjeczalik/notify"
 )
 

@@ -1542,3 +1542,6 @@ func (bc *BlockChain) SubscribeChainSideEvent(ch chan<- ChainSideEvent) event.Su
 func (bc *BlockChain) SubscribeLogsEvent(ch chan<- []*types.Log) event.Subscription {
 	return bc.scope.Track(bc.logsFeed.Subscribe(ch))
 }
+
+// Engine retrieves the blockchain's consensus engine.
+func (bc *BlockChain) Engine() consensus.Engine { return bc.engine }

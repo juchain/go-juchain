@@ -23,7 +23,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/juchain/go-juchain/accounts/usbwallet"
+	"github.com/juchain/go-juchain/core/account/usbwallet"
 	"github.com/juchain/go-juchain/common/log"
 	"github.com/juchain/go-juchain/rpc"
 	"github.com/robertkrimen/otto"
