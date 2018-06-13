@@ -21,12 +21,11 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/juchain/go-juchain/accounts/abi"
+	"github.com/juchain/go-juchain/core/account/abi"
 	"github.com/juchain/go-juchain/common"
 	"github.com/juchain/go-juchain/core/state"
 	"github.com/juchain/go-juchain/vm/solc"
 	"github.com/juchain/go-juchain/core/store"
-	"github.com/juchain/go-juchain/ethdb"
 )
 
 func TestDefaults(t *testing.T) {
@@ -95,7 +94,7 @@ func TestExecute(t *testing.T) {
 }
 
 func TestCall(t *testing.T) {
-	db, _ := ethdb.NewMemDatabase()
+	db, _ := store.NewMemDatabase()
 	state, _ := state.New(common.Hash{}, state.NewDatabase(db))
 	address := common.HexToAddress("0x0a")
 	state.SetCode(address, []byte{

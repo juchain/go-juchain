@@ -22,8 +22,8 @@ import (
 
 	"github.com/juchain/go-juchain/common"
 	"github.com/juchain/go-juchain/common/math"
-	"github.com/juchain/go-juchain/crypto"
-	"github.com/juchain/go-juchain/params"
+	"github.com/juchain/go-juchain/common/crypto"
+	"github.com/juchain/go-juchain/config"
 )
 
 // Config are the configuration options for the Interpreter
@@ -56,7 +56,7 @@ type Config struct {
 type Interpreter struct {
 	evm      *EVM
 	cfg      Config
-	gasTable params.GasTable
+	gasTable config.GasTable
 	intPool  *intPool
 
 	readOnly   bool   // Whether to throw on stateful modifications

@@ -34,7 +34,7 @@ import (
 	"github.com/juchain/go-juchain/common/crypto"
 	"github.com/juchain/go-juchain/core/store"
 	"github.com/juchain/go-juchain/common/rlp"
-	"github.com/ethereum/go-ethereum/ethdb"
+	"github.com/juchain/go-juchain/ethdb"
 )
 
 func init() {

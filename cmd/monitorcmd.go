@@ -26,7 +26,7 @@ import (
 	"time"
 
 	"github.com/juchain/go-juchain/cmd/utils"
-	"github.com/juchain/go-juchain/node"
+	"github.com/juchain/go-juchain/p2p/node"
 	"github.com/juchain/go-juchain/rpc"
 	"github.com/gizak/termui"
 	"gopkg.in/urfave/cli.v1"

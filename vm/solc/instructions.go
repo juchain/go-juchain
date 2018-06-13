@@ -24,8 +24,8 @@ import (
 	"github.com/juchain/go-juchain/common"
 	"github.com/juchain/go-juchain/common/math"
 	"github.com/juchain/go-juchain/core/types"
-	"github.com/juchain/go-juchain/crypto"
-	"github.com/juchain/go-juchain/params"
+	"github.com/juchain/go-juchain/common/crypto"
+	"github.com/juchain/go-juchain/config"
 )
 
 var (
@@ -618,7 +618,7 @@ func opCall(pc *uint64, evm *EVM, contract *Contract, memory *Memory, stack *Sta
 	args := memory.Get(inOffset.Int64(), inSize.Int64())
 
 	if value.Sign() != 0 {
-		gas += params.CallStipend
+		gas += config.CallStipend
 	}
 	ret, returnGas, err := evm.Call(contract, address, args, gas, value)
 	if err != nil {
@@ -651,7 +651,7 @@ func opCallCode(pc *uint64, evm *EVM, contract *Contract, memory *Memory, stack 
 	args := memory.Get(inOffset.Int64(), inSize.Int64())
 
 	if value.Sign() != 0 {
-		gas += params.CallStipend
+		gas += config.CallStipend
 	}
 
 	ret, returnGas, err := evm.CallCode(contract, address, args, gas, value)

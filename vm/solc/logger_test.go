@@ -21,7 +21,7 @@ import (
 	"testing"
 
 	"github.com/juchain/go-juchain/common"
-	"github.com/juchain/go-juchain/params"
+	"github.com/juchain/go-juchain/config"
 )
 
 type dummyContractRef struct {
@@ -48,7 +48,7 @@ type dummyStateDB struct {
 
 func TestStoreCapture(t *testing.T) {
 	var (
-		env      = NewEVM(Context{}, nil, params.TestChainConfig, Config{EnableJit: false, ForceJit: false})
+		env      = NewEVM(Context{}, nil, config.TestChainConfig, Config{EnableJit: false, ForceJit: false})
 		logger   = NewStructLogger(nil)
 		mem      = NewMemory()
 		stack    = newstack()

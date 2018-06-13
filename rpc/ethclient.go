@@ -1,20 +1,20 @@
-// Copyright 2016 The go-ethereum Authors
-// This file is part of the go-ethereum library.
+// Copyright 2016 The go-juchain Authors
+// This file is part of the go-juchain library.
 //
-// The go-ethereum library is free software: you can redistribute it and/or modify
+// The go-juchain library is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Lesser General Public License as published by
 // the Free Software Foundation, either version 3 of the License, or
 // (at your option) any later version.
 //
-// The go-ethereum library is distributed in the hope that it will be useful,
+// The go-juchain library is distributed in the hope that it will be useful,
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
 // MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
 // GNU Lesser General Public License for more details.
 //
 // You should have received a copy of the GNU Lesser General Public License
-// along with the go-ethereum library. If not, see <http://www.gnu.org/licenses/>.
+// along with the go-juchain library. If not, see <http://www.gnu.org/licenses/>.
 
-// Package ethclient provides a client for the Ethereum RPC API.
+// Package ethclient provides a client for the juchain RPC API.
 package rpc
 
 import (
@@ -28,6 +28,7 @@ import (
 	"github.com/juchain/go-juchain/common/hexutil"
 	"github.com/juchain/go-juchain/core/types"
 	"github.com/juchain/go-juchain/common/rlp"
+	"github.com/juchain/go-juchain"
 )
 
 // EthClient defines typed wrappers for the Juchain RPC API.
@@ -75,7 +76,7 @@ func (ec *EthClient) getBlock(ctx context.Context, method string, args ...interf
 	if err != nil {
 		return nil, err
 	} else if len(raw) == 0 {
-		return nil, ethereum.NotFound
+		return nil, juchain.NotFound
 	}
 	// Decode header and transactions.
 	var head *types.Header
@@ -137,7 +138,7 @@ func (ec *EthClient) HeaderByHash(ctx context.Context, hash common.Hash) (*types
 	var head *types.Header
 	err := ec.c.CallContext(ctx, &head, "eth_getBlockByHash", hash, false)
 	if err == nil && head == nil {
-		err = ethereum.NotFound
+		err = juchain.NotFound
 	}
 	return head, err
 }
@@ -148,7 +149,7 @@ func (ec *EthClient) HeaderByNumber(ctx context.Context, number *big.Int) (*type
 	var head *types.Header
 	err := ec.c.CallContext(ctx, &head, "eth_getBlockByNumber", toBlockNumArg(number), false)
 	if err == nil && head == nil {
-		err = ethereum.NotFound
+		err = juchain.NotFound
 	}
 	return head, err
 }
@@ -178,7 +179,7 @@ func (ec *EthClient) TransactionByHash(ctx context.Context, hash common.Hash) (t
 	if err != nil {
 		return nil, false, err
 	} else if json == nil {
-		return nil, false, ethereum.NotFound
+		return nil, false, juchain.NotFound
 	} else if _, r, _ := json.tx.RawSignatureValues(); r == nil {
 		return nil, false, fmt.Errorf("server returned transaction without signature")
 	}
@@ -224,7 +225,7 @@ func (ec *EthClient) TransactionInBlock(ctx context.Context, blockHash common.Ha
 	err := ec.c.CallContext(ctx, &json, "eth_getTransactionByBlockHashAndIndex", blockHash, hexutil.Uint64(index))
 	if err == nil {
 		if json == nil {
-			return nil, ethereum.NotFound
+			return nil, juchain.NotFound
 		} else if _, r, _ := json.tx.RawSignatureValues(); r == nil {
 			return nil, fmt.Errorf("server returned transaction without signature")
 		}
@@ -240,7 +241,7 @@ func (ec *EthClient) TransactionReceipt(ctx context.Context, txHash common.Hash)
 	err := ec.c.CallContext(ctx, &r, "eth_getTransactionReceipt", txHash)
 	if err == nil {
 		if r == nil {
-			return nil, ethereum.NotFound
+			return nil, juchain.NotFound
 		}
 	}
 	return r, err
@@ -263,7 +264,7 @@ type rpcProgress struct {
 
 // SyncProgress retrieves the current progress of the sync algorithm. If there's
 // no sync currently running, it returns nil.
-func (ec *EthClient) SyncProgress(ctx context.Context) (*ethereum.SyncProgress, error) {
+func (ec *EthClient) SyncProgress(ctx context.Context) (*juchain.SyncProgress, error) {
 	var raw json.RawMessage
 	if err := ec.c.CallContext(ctx, &raw, "eth_syncing"); err != nil {
 		return nil, err
@@ -277,7 +278,7 @@ func (ec *EthClient) SyncProgress(ctx context.Context) (*ethereum.SyncProgress, 
 	if err := json.Unmarshal(raw, &progress); err != nil {
 		return nil, err
 	}
-	return &ethereum.SyncProgress{
+	return &juchain.SyncProgress{
 		StartingBlock: uint64(progress.StartingBlock),
 		CurrentBlock:  uint64(progress.CurrentBlock),
 		HighestBlock:  uint64(progress.HighestBlock),
@@ -288,7 +289,7 @@ func (ec *EthClient) SyncProgress(ctx context.Context) (*ethereum.SyncProgress, 
 
 // SubscribeNewHead subscribes to notifications about the current blockchain head
 // on the given channel.
-func (ec *EthClient) SubscribeNewHead(ctx context.Context, ch chan<- *types.Header) (ethereum.Subscription, error) {
+func (ec *EthClient) SubscribeNewHead(ctx context.Context, ch chan<- *types.Header) (juchain.Subscription, error) {
 	return ec.c.EthSubscribe(ctx, ch, "newHeads")
 }
 
@@ -342,18 +343,18 @@ func (ec *EthClient) NonceAt(ctx context.Context, account common.Address, blockN
 // Filters
 
 // FilterLogs executes a filter query.
-func (ec *EthClient) FilterLogs(ctx context.Context, q ethereum.FilterQuery) ([]types.Log, error) {
+func (ec *EthClient) FilterLogs(ctx context.Context, q juchain.FilterQuery) ([]types.Log, error) {
 	var result []types.Log
 	err := ec.c.CallContext(ctx, &result, "eth_getLogs", toFilterArg(q))
 	return result, err
 }
 
 // SubscribeFilterLogs subscribes to the results of a streaming filter query.
-func (ec *EthClient) SubscribeFilterLogs(ctx context.Context, q ethereum.FilterQuery, ch chan<- types.Log) (ethereum.Subscription, error) {
+func (ec *EthClient) SubscribeFilterLogs(ctx context.Context, q juchain.FilterQuery, ch chan<- types.Log) (juchain.Subscription, error) {
 	return ec.c.EthSubscribe(ctx, ch, "logs", toFilterArg(q))
 }
 
-func toFilterArg(q ethereum.FilterQuery) interface{} {
+func toFilterArg(q juchain.FilterQuery) interface{} {
 	arg := map[string]interface{}{
 		"fromBlock": toBlockNumArg(q.FromBlock),
 		"toBlock":   toBlockNumArg(q.ToBlock),
@@ -414,7 +415,7 @@ func (ec *EthClient) PendingTransactionCount(ctx context.Context) (uint, error) 
 // blockNumber selects the block height at which the call runs. It can be nil, in which
 // case the code is taken from the latest known block. Note that state from very old
 // blocks might not be available.
-func (ec *EthClient) CallContract(ctx context.Context, msg ethereum.CallMsg, blockNumber *big.Int) ([]byte, error) {
+func (ec *EthClient) CallContract(ctx context.Context, msg juchain.CallMsg, blockNumber *big.Int) ([]byte, error) {
 	var hex hexutil.Bytes
 	err := ec.c.CallContext(ctx, &hex, "eth_call", toCallArg(msg), toBlockNumArg(blockNumber))
 	if err != nil {
@@ -425,7 +426,7 @@ func (ec *EthClient) CallContract(ctx context.Context, msg ethereum.CallMsg, blo
 
 // PendingCallContract executes a message call transaction using the EVM.
 // The state seen by the contract call is the pending state.
-func (ec *EthClient) PendingCallContract(ctx context.Context, msg ethereum.CallMsg) ([]byte, error) {
+func (ec *EthClient) PendingCallContract(ctx context.Context, msg juchain.CallMsg) ([]byte, error) {
 	var hex hexutil.Bytes
 	err := ec.c.CallContext(ctx, &hex, "eth_call", toCallArg(msg), "pending")
 	if err != nil {
@@ -448,7 +449,7 @@ func (ec *EthClient) SuggestGasPrice(ctx context.Context) (*big.Int, error) {
 // the current pending state of the backend blockchain. There is no guarantee that this is
 // the true gas limit requirement as other transactions may be added or removed by miners,
 // but it should provide a basis for setting a reasonable default.
-func (ec *EthClient) EstimateGas(ctx context.Context, msg ethereum.CallMsg) (uint64, error) {
+func (ec *EthClient) EstimateGas(ctx context.Context, msg juchain.CallMsg) (uint64, error) {
 	var hex hexutil.Uint64
 	err := ec.c.CallContext(ctx, &hex, "eth_estimateGas", toCallArg(msg))
 	if err != nil {
@@ -469,7 +470,7 @@ func (ec *EthClient) SendTransaction(ctx context.Context, tx *types.Transaction)
 	return ec.c.CallContext(ctx, nil, "eth_sendRawTransaction", common.ToHex(data))
 }
 
-func toCallArg(msg ethereum.CallMsg) interface{} {
+func toCallArg(msg juchain.CallMsg) interface{} {
 	arg := map[string]interface{}{
 		"from": msg.From,
 		"to":   msg.To,

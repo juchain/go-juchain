@@ -30,7 +30,7 @@ import (
 	"github.com/juchain/go-juchain/common/crypto"
 	"github.com/juchain/go-juchain/core/store"
 	"github.com/juchain/go-juchain/config"
-	"github.com/ethereum/go-ethereum/consensus/ethash"
+	"github.com/juchain/go-juchain/consensus/ethash"
 )
 
 func BenchmarkInsertChain_empty_memdb(b *testing.B) {

@@ -21,7 +21,7 @@ import (
 
 	"github.com/juchain/go-juchain/common"
 	"github.com/juchain/go-juchain/core"
-	"github.com/juchain/go-juchain/core/vm"
+	"github.com/juchain/go-juchain/vm/solc"
 )
 
 func NewEnv(cfg *Config) *vm.EVM {

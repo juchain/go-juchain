@@ -21,7 +21,7 @@ import (
 	"bytes"
 	"errors"
 
-	"github.com/juchain/go-juchain/crypto"
+	"github.com/juchain/go-juchain/common/crypto"
 )
 
 const (
