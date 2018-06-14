@@ -73,7 +73,7 @@ type ethstatsConfig struct {
 }
 
 type gethConfig struct {
-	Eth       eth.Config
+	Eth       protocol.Config
 	Node      node.Config
 	Ethstats  ethstatsConfig
 }
@@ -106,7 +106,7 @@ func defaultNodeConfig() node.Config {
 func makeConfigNode(ctx *cli.Context) (*node.Node, gethConfig) {
 	// Load defaults.
 	cfg := gethConfig{
-		Eth:       eth.DefaultConfig,
+		Eth:       protocol.DefaultConfig,
 		Node:      defaultNodeConfig(),
 	}
 

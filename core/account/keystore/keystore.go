@@ -142,12 +142,12 @@ func (ks *KeyStore) refreshWallets() {
 
 	for _, acc := range accs {
 		// Drop wallets while they were in front of the next account
-		for len(ks.wallets) > 0 && ks.wallets[0].URL().Cmp(account.URL) < 0 {
+		for len(ks.wallets) > 0 && ks.wallets[0].URL().Cmp(acc.URL) < 0 {
 			events = append(events, account.WalletEvent{Wallet: ks.wallets[0], Kind: account.WalletDropped})
 			ks.wallets = ks.wallets[1:]
 		}
 		// If there are no more wallets or the account is before the next, wrap new wallet
-		if len(ks.wallets) == 0 || ks.wallets[0].URL().Cmp(account.URL) > 0 {
+		if len(ks.wallets) == 0 || ks.wallets[0].URL().Cmp(acc.URL) > 0 {
 			wallet := &keystoreWallet{account: acc, keystore: ks}
 
 			events = append(events, account.WalletEvent{Wallet: wallet, Kind: account.WalletArrived})

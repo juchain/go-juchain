@@ -81,11 +81,11 @@ func makecache(ctx *cli.Context) error {
 	if len(args) != 2 {
 		utils.Fatalf(`Usage: geth makecache <block number> <outputdir>`)
 	}
-	block, err := strconv.ParseUint(args[0], 0, 64)
+	_, err := strconv.ParseUint(args[0], 0, 64)
 	if err != nil {
 		utils.Fatalf("Invalid block number: %v", err)
 	}
-	ethash.MakeCache(block, args[1])
+	//ethash.MakeCache(block, args[1])
 
 	return nil
 }
@@ -96,11 +96,11 @@ func makedag(ctx *cli.Context) error {
 	if len(args) != 2 {
 		utils.Fatalf(`Usage: geth makedag <block number> <outputdir>`)
 	}
-	block, err := strconv.ParseUint(args[0], 0, 64)
+	_, err := strconv.ParseUint(args[0], 0, 64)
 	if err != nil {
 		utils.Fatalf("Invalid block number: %v", err)
 	}
-	ethash.MakeDataset(block, args[1])
+	//ethash.MakeDataset(block, args[1])
 
 	return nil
 }
@@ -112,8 +112,8 @@ func version(ctx *cli.Context) error {
 		fmt.Println("Git Commit:", gitCommit)
 	}
 	fmt.Println("Architecture:", runtime.GOARCH)
-	fmt.Println("Protocol Versions:", eth.ProtocolVersions)
-	fmt.Println("Network Id:", eth.DefaultConfig.NetworkId)
+	fmt.Println("Protocol Versions:", protocol.ProtocolVersions)
+	fmt.Println("Network Id:", protocol.DefaultConfig.NetworkId)
 	fmt.Println("Go Version:", runtime.Version())
 	fmt.Println("Operating System:", runtime.GOOS)
 	fmt.Printf("GOPATH=%s\n", os.Getenv("GOPATH"))

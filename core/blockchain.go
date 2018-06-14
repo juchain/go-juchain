@@ -165,7 +165,7 @@ func NewBlockChain(db store.Database, cacheConfig *CacheConfig, chainConfig *con
 	bc.SetProcessor(NewStateProcessor(chainConfig, bc))
 
 	var err error
-	bc.hc, err = NewHeaderChain(db, chainConfig, bc.getProcInterrupt)
+	bc.hc, err = NewHeaderChain(db, chainConfig, engine, bc.getProcInterrupt)
 	if err != nil {
 		return nil, err
 	}

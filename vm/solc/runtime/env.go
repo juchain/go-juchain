@@ -17,8 +17,6 @@
 package runtime
 
 import (
-	"math/big"
-
 	"github.com/juchain/go-juchain/common"
 	"github.com/juchain/go-juchain/core"
 	"github.com/juchain/go-juchain/vm/solc"
@@ -35,7 +33,7 @@ func NewEnv(cfg *Config) *vm.EVM {
 		BlockNumber: cfg.BlockNumber,
 		Time:        cfg.Time,
 		Difficulty:  cfg.Difficulty,
-		GasLimit:    new(big.Int).SetUint64(cfg.GasLimit),
+		GasLimit:    cfg.GasLimit,
 		GasPrice:    cfg.GasPrice,
 	}
 

@@ -69,7 +69,7 @@ type HeaderChain struct {
 //  getValidator should return the parent's validator
 //  procInterrupt points to the parent's interrupt semaphore
 //  wg points to the parent's shutdown wait group
-func NewHeaderChain(chainDb store.Database, config *config.ChainConfig, procInterrupt func() bool) (*HeaderChain, error) {
+func NewHeaderChain(chainDb store.Database, config *config.ChainConfig, engine consensus.Engine, procInterrupt func() bool) (*HeaderChain, error) {
 	headerCache, _ := lru.New(headerCacheLimit)
 	tdCache, _ := lru.New(tdCacheLimit)
 	numberCache, _ := lru.New(numberCacheLimit)
@@ -82,6 +82,7 @@ func NewHeaderChain(chainDb store.Database, config *config.ChainConfig, procInte
 
 	hc := &HeaderChain{
 		config:        config,
+		engine:        engine,
 		chainDb:       chainDb,
 		headerCache:   headerCache,
 		tdCache:       tdCache,

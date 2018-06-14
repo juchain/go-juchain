@@ -72,7 +72,6 @@ var AppHelpFlagGroups = []flagGroup{
 			utils.NoUSBFlag,
 			utils.NetworkIdFlag,
 			utils.TestnetFlag,
-			utils.RinkebyFlag,
 			utils.SyncModeFlag,
 			utils.GCModeFlag,
 			utils.EthStatsURLFlag,
@@ -88,6 +87,7 @@ var AppHelpFlagGroups = []flagGroup{
 			utils.DeveloperPeriodFlag,
 		},
 	},
+	/**
 	{
 		Name: "ETHASH",
 		Flags: []cli.Flag{
@@ -99,16 +99,17 @@ var AppHelpFlagGroups = []flagGroup{
 			utils.EthashDatasetsOnDiskFlag,
 		},
 	},
-	//{
-	//	Name: "DASHBOARD",
-	//	Flags: []cli.Flag{
-	//		utils.DashboardEnabledFlag,
-	//		utils.DashboardAddrFlag,
-	//		utils.DashboardPortFlag,
-	//		utils.DashboardRefreshFlag,
-	//		utils.DashboardAssetsFlag,
-	//	},
-	//},
+	{
+		Name: "DASHBOARD",
+		Flags: []cli.Flag{
+			utils.DashboardEnabledFlag,
+			utils.DashboardAddrFlag,
+			utils.DashboardPortFlag,
+			utils.DashboardRefreshFlag,
+			utils.DashboardAssetsFlag,
+		},
+	},
+	*/
 	{
 		Name: "TRANSACTION POOL",
 		Flags: []cli.Flag{
