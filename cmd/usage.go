@@ -32,8 +32,6 @@ import (
 var AppHelpTemplate = `NAME:
    {{.App.Name}} - {{.App.Usage}}
 
-   Copyright 2013-2018 The go-ethereum Authors
-
 USAGE:
    {{.App.HelpName}} [options]{{if .App.Commands}} command [command options]{{end}} {{if .App.ArgsUsage}}{{.App.ArgsUsage}}{{else}}[arguments...]{{end}}
    {{if .App.Version}}
@@ -64,7 +62,7 @@ type flagGroup struct {
 // AppHelpFlagGroups is the application flags, grouped by functionality.
 var AppHelpFlagGroups = []flagGroup{
 	{
-		Name: "ETHEREUM",
+		Name: "JUCHAIN",
 		Flags: []cli.Flag{
 			configFileFlag,
 			utils.DataDirFlag,
@@ -76,9 +74,6 @@ var AppHelpFlagGroups = []flagGroup{
 			utils.GCModeFlag,
 			utils.EthStatsURLFlag,
 			utils.IdentityFlag,
-			utils.LightServFlag,
-			utils.LightPeersFlag,
-			utils.LightKDFFlag,
 		},
 	},
 	{Name: "DEVELOPER CHAIN",
@@ -179,17 +174,6 @@ var AppHelpFlagGroups = []flagGroup{
 			utils.NodeKeyHexFlag,
 		},
 	},
-	//{
-	//	Name: "MINER",
-	//	Flags: []cli.Flag{
-	//		utils.MiningEnabledFlag,
-	//		utils.MinerThreadsFlag,
-	//		utils.EtherbaseFlag,
-	//		utils.TargetGasLimitFlag,
-	//		utils.GasPriceFlag,
-	//		utils.ExtraDataFlag,
-	//	},
-	//},
 	{
 		Name: "GAS PRICE ORACLE",
 		Flags: []cli.Flag{
@@ -207,7 +191,6 @@ var AppHelpFlagGroups = []flagGroup{
 		Name: "LOGGING AND DEBUGGING",
 		Flags: append([]cli.Flag{
 			utils.MetricsEnabledFlag,
-			utils.FakePoWFlag,
 			utils.NoCompactionFlag,
 		}, debug.Flags...),
 	},
@@ -215,7 +198,6 @@ var AppHelpFlagGroups = []flagGroup{
 		Name: "DEPRECATED",
 		Flags: []cli.Flag{
 			utils.FastSyncFlag,
-			utils.LightModeFlag,
 		},
 	},
 	{

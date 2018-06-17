@@ -38,14 +38,14 @@ import (
 )
 
 const (
-	clientIdentifier = "geth" // Client identifier to advertise over the network
+	clientIdentifier = "juchain" // Client identifier to advertise over the network
 )
 
 var (
 	// Git SHA1 commit hash of the release (set via linker flags)
 	gitCommit = ""
 	// The app that holds all commands and flags.
-	app = utils.NewApp(gitCommit, "the go-ethereum command line interface")
+	app = utils.NewApp(gitCommit, "the go-juchain command line interface")
 	// flags that configure the node
 	nodeFlags = []cli.Flag{
 		utils.IdentityFlag,
@@ -68,12 +68,8 @@ var (
 		utils.TxPoolGlobalQueueFlag,
 		utils.TxPoolLifetimeFlag,
 		utils.FastSyncFlag,
-		utils.LightModeFlag,
 		utils.SyncModeFlag,
 		utils.GCModeFlag,
-		utils.LightServFlag,
-		utils.LightPeersFlag,
-		utils.LightKDFFlag,
 		utils.CacheFlag,
 		utils.CacheDatabaseFlag,
 		utils.CacheGCFlag,
@@ -99,7 +95,6 @@ var (
 		utils.RPCVirtualHostsFlag,
 		utils.EthStatsURLFlag,
 		utils.MetricsEnabledFlag,
-		utils.FakePoWFlag,
 		utils.NoCompactionFlag,
 		utils.GpoBlocksFlag,
 		utils.GpoPercentileFlag,
@@ -125,16 +120,14 @@ var (
 
 func init() {
 	// Initialize the CLI app and start Geth
-	app.Action = geth
+	app.Action = juchain0
 	app.HideVersion = true // we have a command to print the version
-	app.Copyright = "Copyright 2013-2018 The go-ethereum Authors"
+	app.Copyright = "Copyright 2018 The go-juchain Authors"
 	app.Commands = []cli.Command{
 		// See chaincmd.go:
 		initCommand,
 		importCommand,
 		exportCommand,
-		importPreimagesCommand,
-		exportPreimagesCommand,
 		copydbCommand,
 		removedbCommand,
 		dumpCommand,
@@ -149,10 +142,8 @@ func init() {
 		javascriptCommand,
 		// See misccmd.go:
 		makecacheCommand,
-		makedagCommand,
 		versionCommand,
 		bugCommand,
-		licenseCommand,
 		// See config.go
 		dumpConfigCommand,
 	}
@@ -192,7 +183,7 @@ func main() {
 // geth is the main entry point into the system if no special subcommand is ran.
 // It creates a default node based on the command line arguments and runs it in
 // blocking mode, waiting for it to be shut down.
-func geth(ctx *cli.Context) error {
+func juchain0(ctx *cli.Context) error {
 	node := makeFullNode(ctx)
 	StartNode(ctx, node)
 	node.Wait()

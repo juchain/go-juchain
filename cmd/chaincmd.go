@@ -48,7 +48,6 @@ var (
 		ArgsUsage: "<genesisPath>",
 		Flags: []cli.Flag{
 			utils.DataDirFlag,
-			utils.LightModeFlag,
 		},
 		Category: "BLOCKCHAIN COMMANDS",
 		Description: `
@@ -66,7 +65,6 @@ It expects the genesis file as argument.`,
 		Flags: []cli.Flag{
 			utils.DataDirFlag,
 			utils.CacheFlag,
-			utils.LightModeFlag,
 			utils.GCModeFlag,
 			utils.CacheDatabaseFlag,
 			utils.CacheGCFlag,
@@ -87,7 +85,6 @@ processing will proceed even if an individual RLP-file import failure occurs.`,
 		Flags: []cli.Flag{
 			utils.DataDirFlag,
 			utils.CacheFlag,
-			utils.LightModeFlag,
 		},
 		Category: "BLOCKCHAIN COMMANDS",
 		Description: `
@@ -95,34 +92,6 @@ Requires a first argument of the file to write to.
 Optional second and third arguments control the first and
 last block to write. In this mode, the file will be appended
 if already existing.`,
-	}
-	importPreimagesCommand = cli.Command{
-		Action:    utils.MigrateFlags(importPreimages),
-		Name:      "import-preimages",
-		Usage:     "Import the preimage database from an RLP stream",
-		ArgsUsage: "<datafile>",
-		Flags: []cli.Flag{
-			utils.DataDirFlag,
-			utils.CacheFlag,
-			utils.LightModeFlag,
-		},
-		Category: "BLOCKCHAIN COMMANDS",
-		Description: `
-	The import-preimages command imports hash preimages from an RLP encoded stream.`,
-	}
-	exportPreimagesCommand = cli.Command{
-		Action:    utils.MigrateFlags(exportPreimages),
-		Name:      "export-preimages",
-		Usage:     "Export the preimage database into an RLP stream",
-		ArgsUsage: "<dumpfile>",
-		Flags: []cli.Flag{
-			utils.DataDirFlag,
-			utils.CacheFlag,
-			utils.LightModeFlag,
-		},
-		Category: "BLOCKCHAIN COMMANDS",
-		Description: `
-The export-preimages command export hash preimages to an RLP encoded stream`,
 	}
 	copydbCommand = cli.Command{
 		Action:    utils.MigrateFlags(copyDb),
@@ -133,7 +102,6 @@ The export-preimages command export hash preimages to an RLP encoded stream`,
 			utils.DataDirFlag,
 			utils.CacheFlag,
 			utils.SyncModeFlag,
-			utils.FakePoWFlag,
 			utils.TestnetFlag,
 		},
 		Category: "BLOCKCHAIN COMMANDS",
@@ -147,7 +115,6 @@ The first argument must be the directory containing the blockchain to download f
 		ArgsUsage: " ",
 		Flags: []cli.Flag{
 			utils.DataDirFlag,
-			utils.LightModeFlag,
 		},
 		Category: "BLOCKCHAIN COMMANDS",
 		Description: `
@@ -161,7 +128,6 @@ Remove blockchain and state databases`,
 		Flags: []cli.Flag{
 			utils.DataDirFlag,
 			utils.CacheFlag,
-			utils.LightModeFlag,
 		},
 		Category: "BLOCKCHAIN COMMANDS",
 		Description: `

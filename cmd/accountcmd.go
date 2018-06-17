@@ -32,7 +32,7 @@ import (
 var (
 	walletCommand = cli.Command{
 		Name:      "wallet",
-		Usage:     "Manage Ethereum presale wallets",
+		Usage:     "Manage Juchain presale wallets",
 		ArgsUsage: "",
 		Category:  "ACCOUNT COMMANDS",
 		Description: `
@@ -45,7 +45,7 @@ passwordfile as argument containing the wallet password in plaintext.`,
 			{
 
 				Name:      "import",
-				Usage:     "Import Ethereum presale wallet",
+				Usage:     "Import Juchain presale wallet",
 				ArgsUsage: "<keyFile>",
 				Action:    utils.MigrateFlags(importWallet),
 				Category:  "ACCOUNT COMMANDS",
@@ -53,7 +53,6 @@ passwordfile as argument containing the wallet password in plaintext.`,
 					utils.DataDirFlag,
 					utils.KeyStoreDirFlag,
 					utils.PasswordFileFlag,
-					utils.LightKDFFlag,
 				},
 				Description: `
 	geth wallet [options] /path/to/my/presale.wallet
@@ -109,7 +108,6 @@ Print a short summary of all accounts`,
 					utils.DataDirFlag,
 					utils.KeyStoreDirFlag,
 					utils.PasswordFileFlag,
-					utils.LightKDFFlag,
 				},
 				Description: `
     geth account new
@@ -134,7 +132,6 @@ password to file or expose in any other way.
 				Flags: []cli.Flag{
 					utils.DataDirFlag,
 					utils.KeyStoreDirFlag,
-					utils.LightKDFFlag,
 				},
 				Description: `
     geth account update <address>
@@ -163,7 +160,6 @@ changing your password is only possible interactively.
 					utils.DataDirFlag,
 					utils.KeyStoreDirFlag,
 					utils.PasswordFileFlag,
-					utils.LightKDFFlag,
 				},
 				ArgsUsage: "<keyFile>",
 				Description: `
