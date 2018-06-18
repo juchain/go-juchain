@@ -54,13 +54,13 @@ type LesServer interface {
 	SetBloomBitsIndexer(bbIndexer *core.ChainIndexer)
 }
 
-// Ethereum implements the Ethereum full node service.
+// Juchain implements the Juchain full node service.
 type Ethereum struct {
 	config      *Config
 	chainConfig *config.ChainConfig
 
 	// Channel for shutting down the service
-	shutdownChan  chan bool    // Channel for shutting down the Ethereum
+	shutdownChan  chan bool    // Channel for shutting down the Juchain
 	stopDbUpgrade func() error // stop chain store sequential key upgrade
 
 	// Handlers
@@ -89,8 +89,8 @@ type Ethereum struct {
 	lock sync.RWMutex // Protects the variadic fields (e.g. gas price and etherbase)
 }
 
-// New creates a new Ethereum object (including the
-// initialisation of the common Ethereum object)
+// New creates a new Juchain object (including the
+// initialisation of the common Juchain object)
 func New(ctx *node.ServiceContext, config0 *Config) (*Ethereum, error) {
 	if config0.SyncMode == downloader.LightSync {
 		return nil, errors.New("can't run eth.Ethereum in light sync mode, use les.LightEthereum")

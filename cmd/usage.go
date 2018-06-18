@@ -76,35 +76,6 @@ var AppHelpFlagGroups = []flagGroup{
 			utils.IdentityFlag,
 		},
 	},
-	{Name: "DEVELOPER CHAIN",
-		Flags: []cli.Flag{
-			utils.DeveloperFlag,
-			utils.DeveloperPeriodFlag,
-		},
-	},
-	/**
-	{
-		Name: "ETHASH",
-		Flags: []cli.Flag{
-			utils.EthashCacheDirFlag,
-			utils.EthashCachesInMemoryFlag,
-			utils.EthashCachesOnDiskFlag,
-			utils.EthashDatasetDirFlag,
-			utils.EthashDatasetsInMemoryFlag,
-			utils.EthashDatasetsOnDiskFlag,
-		},
-	},
-	{
-		Name: "DASHBOARD",
-		Flags: []cli.Flag{
-			utils.DashboardEnabledFlag,
-			utils.DashboardAddrFlag,
-			utils.DashboardPortFlag,
-			utils.DashboardRefreshFlag,
-			utils.DashboardAssetsFlag,
-		},
-	},
-	*/
 	{
 		Name: "TRANSACTION POOL",
 		Flags: []cli.Flag{
@@ -161,14 +132,11 @@ var AppHelpFlagGroups = []flagGroup{
 		Name: "NETWORKING",
 		Flags: []cli.Flag{
 			utils.BootnodesFlag,
-			utils.BootnodesV4Flag,
-			utils.BootnodesV5Flag,
 			utils.ListenPortFlag,
 			utils.MaxPeersFlag,
 			utils.MaxPendingPeersFlag,
 			utils.NATFlag,
 			utils.NoDiscoverFlag,
-			utils.DiscoveryV5Flag,
 			utils.NetrestrictFlag,
 			utils.NodeKeyFileFlag,
 			utils.NodeKeyHexFlag,
