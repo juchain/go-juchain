@@ -19,7 +19,7 @@ package event_test
 import (
 	"fmt"
 
-	"github.com/juchain/go-juchain/event"
+	"github.com/juchain/go-juchain/common/event"
 )
 
 func ExampleNewSubscription() {

@@ -31,7 +31,6 @@ import (
 	"github.com/juchain/go-juchain/common/crypto"
 	"github.com/juchain/go-juchain/core/store"
 	"github.com/juchain/go-juchain/config"
-	"github.com/juchain/go-juchain/consensus/ethash"
 )
 
 // Test fork of length N starting from block i
@@ -1189,10 +1188,9 @@ func TestEIP161AccountRemoval(t *testing.T) {
 // https://github.com/juchain/go-juchain/pull/15941
 func TestBlockchainHeaderchainReorgConsistency(t *testing.T) {
 	// Generate a canonical chain to act as the main dataset
-	engine := nil;
 	db, _ := store.NewMemDatabase()
 	genesis := new(Genesis).MustCommit(db)
-	blocks, _ := GenerateChain(config.TestChainConfig, genesis, engine, db, 64, func(i int, b *BlockGen) { b.SetCoinbase(common.Address{1}) })
+	blocks, _ := GenerateChain(config.TestChainConfig, genesis, nil, db, 64, func(i int, b *BlockGen) { b.SetCoinbase(common.Address{1}) })
 
 	// Generate a bunch of fork blocks, each side forking from the canonical chain
 	forks := make([]*types.Block, len(blocks))
@@ -1201,7 +1199,7 @@ func TestBlockchainHeaderchainReorgConsistency(t *testing.T) {
 		if i > 0 {
 			parent = blocks[i-1]
 		}
-		fork, _ := GenerateChain(config.TestChainConfig, parent, engine, db, 1, func(i int, b *BlockGen) { b.SetCoinbase(common.Address{2}) })
+		fork, _ := GenerateChain(config.TestChainConfig, parent, nil, db, 1, func(i int, b *BlockGen) { b.SetCoinbase(common.Address{2}) })
 		forks[i] = fork[0]
 	}
 	// Import the canonical and fork chain side by side, verifying the current block
@@ -1209,7 +1207,7 @@ func TestBlockchainHeaderchainReorgConsistency(t *testing.T) {
 	diskdb, _ := store.NewMemDatabase()
 	new(Genesis).MustCommit(diskdb)
 
-	chain, err := NewBlockChain(diskdb, nil, config.TestChainConfig, engine, vm.Config{})
+	chain, err := NewBlockChain(diskdb, nil, config.TestChainConfig, nil, vm.Config{})
 	if err != nil {
 		t.Fatalf("failed to create tester chain: %v", err)
 	}
@@ -1233,10 +1231,9 @@ func TestBlockchainHeaderchainReorgConsistency(t *testing.T) {
 // cache (which would eventually cause memory issues).
 func TestTrieForkGC(t *testing.T) {
 	// Generate a canonical chain to act as the main dataset
-	engine := nil;
 	db, _ := store.NewMemDatabase()
 	genesis := new(Genesis).MustCommit(db)
-	blocks, _ := GenerateChain(config.TestChainConfig, genesis, engine, db, 2*triesInMemory, func(i int, b *BlockGen) { b.SetCoinbase(common.Address{1}) })
+	blocks, _ := GenerateChain(config.TestChainConfig, genesis, nil, db, 2*triesInMemory, func(i int, b *BlockGen) { b.SetCoinbase(common.Address{1}) })
 
 	// Generate a bunch of fork blocks, each side forking from the canonical chain
 	forks := make([]*types.Block, len(blocks))
@@ -1245,14 +1242,14 @@ func TestTrieForkGC(t *testing.T) {
 		if i > 0 {
 			parent = blocks[i-1]
 		}
-		fork, _ := GenerateChain(config.TestChainConfig, parent, engine, db, 1, func(i int, b *BlockGen) { b.SetCoinbase(common.Address{2}) })
+		fork, _ := GenerateChain(config.TestChainConfig, parent, nil, db, 1, func(i int, b *BlockGen) { b.SetCoinbase(common.Address{2}) })
 		forks[i] = fork[0]
 	}
 	// Import the canonical and fork chain side by side, forcing the trie cache to cache both
 	diskdb, _ := store.NewMemDatabase()
 	new(Genesis).MustCommit(diskdb)
 
-	chain, err := NewBlockChain(diskdb, nil, config.TestChainConfig, engine, vm.Config{})
+	chain, err := NewBlockChain(diskdb, nil, config.TestChainConfig, nil, vm.Config{})
 	if err != nil {
 		t.Fatalf("failed to create tester chain: %v", err)
 	}
@@ -1278,20 +1275,18 @@ func TestTrieForkGC(t *testing.T) {
 // forking point is not available any more.
 func TestLargeReorgTrieGC(t *testing.T) {
 	// Generate the original common chain segment and the two competing forks
-	engine := nil
-
 	db, _ := store.NewMemDatabase()
 	genesis := new(Genesis).MustCommit(db)
 
-	shared, _ := GenerateChain(config.TestChainConfig, genesis, engine, db, 64, func(i int, b *BlockGen) { b.SetCoinbase(common.Address{1}) })
-	original, _ := GenerateChain(config.TestChainConfig, shared[len(shared)-1], engine, db, 2*triesInMemory, func(i int, b *BlockGen) { b.SetCoinbase(common.Address{2}) })
-	competitor, _ := GenerateChain(config.TestChainConfig, shared[len(shared)-1], engine, db, 2*triesInMemory+1, func(i int, b *BlockGen) { b.SetCoinbase(common.Address{3}) })
+	shared, _ := GenerateChain(config.TestChainConfig, genesis, nil, db, 64, func(i int, b *BlockGen) { b.SetCoinbase(common.Address{1}) })
+	original, _ := GenerateChain(config.TestChainConfig, shared[len(shared)-1], nil, db, 2*triesInMemory, func(i int, b *BlockGen) { b.SetCoinbase(common.Address{2}) })
+	competitor, _ := GenerateChain(config.TestChainConfig, shared[len(shared)-1], nil, db, 2*triesInMemory+1, func(i int, b *BlockGen) { b.SetCoinbase(common.Address{3}) })
 
 	// Import the shared chain and the original canonical one
 	diskdb, _ := store.NewMemDatabase()
 	new(Genesis).MustCommit(diskdb)
 
-	chain, err := NewBlockChain(diskdb, nil, config.TestChainConfig, engine, vm.Config{})
+	chain, err := NewBlockChain(diskdb, nil, config.TestChainConfig, nil, vm.Config{})
 	if err != nil {
 		t.Fatalf("failed to create tester chain: %v", err)
 	}
@@ -1347,7 +1342,6 @@ func benchmarkLargeNumberOfValueToNonexisting(b *testing.B, numTxs, numBlocks in
 		}
 	)
 	// Generate the original common chain segment and the two competing forks
-	engine := nil
 	db, _ := store.NewMemDatabase()
 	genesis := gspec.MustCommit(db)
 
@@ -1365,7 +1359,7 @@ func benchmarkLargeNumberOfValueToNonexisting(b *testing.B, numTxs, numBlocks in
 		}
 	}
 
-	shared, _ := GenerateChain(config.TestChainConfig, genesis, engine, db, numBlocks, blockGenerator)
+	shared, _ := GenerateChain(config.TestChainConfig, genesis, nil, db, numBlocks, blockGenerator)
 	b.StopTimer()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
@@ -1373,7 +1367,7 @@ func benchmarkLargeNumberOfValueToNonexisting(b *testing.B, numTxs, numBlocks in
 		diskdb, _ := store.NewMemDatabase()
 		gspec.MustCommit(diskdb)
 
-		chain, err := NewBlockChain(diskdb, nil, config.TestChainConfig, engine, vm.Config{})
+		chain, err := NewBlockChain(diskdb, nil, config.TestChainConfig, nil, vm.Config{})
 		if err != nil {
 			b.Fatalf("failed to create tester chain: %v", err)
 		}

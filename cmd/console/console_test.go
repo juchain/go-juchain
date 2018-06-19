@@ -74,7 +74,7 @@ func (p *hookedPrompter) SetWordCompleter(completer WordCompleter) {}
 type tester struct {
 	workspace string
 	stack     *node.Node
-	ethereum  *eth.Ethereum
+	ethereum  *protocol.Ethereum
 	console   *Console
 	input     *hookedPrompter
 	output    *bytes.Buffer
@@ -82,7 +82,7 @@ type tester struct {
 
 // newTester creates a test environment based on which the console can operate.
 // Please ensure you call Close() on the returned tester to avoid leaks.
-func newTester(t *testing.T, confOverride func(*eth.Config)) *tester {
+func newTester(t *testing.T, confOverride func(*protocol.Config)) *tester {
 	// Create a temporary storage for the node keys and initialize it
 	workspace, err := ioutil.TempDir("", "console-tester-")
 	if err != nil {
@@ -94,17 +94,14 @@ func newTester(t *testing.T, confOverride func(*eth.Config)) *tester {
 	if err != nil {
 		t.Fatalf("failed to create node: %v", err)
 	}
-	ethConf := &eth.Config{
+	ethConf := &protocol.Config{
 		Genesis:   core.DeveloperGenesisBlock(15, common.Address{}),
 		Etherbase: common.HexToAddress(testAddress),
-		Ethash: ethash.Config{
-			PowMode: ethash.ModeTest,
-		},
 	}
 	if confOverride != nil {
 		confOverride(ethConf)
 	}
-	if err = stack.Register(func(ctx *node.ServiceContext) (node.Service, error) { return eth.New(ctx, ethConf) }); err != nil {
+	if err = stack.Register(func(ctx *node.ServiceContext) (node.Service, error) { return protocol.New(ctx, ethConf) }); err != nil {
 		t.Fatalf("failed to register Ethereum protocol: %v", err)
 	}
 	// Start the node and assemble the JavaScript console around it
@@ -130,7 +127,7 @@ func newTester(t *testing.T, confOverride func(*eth.Config)) *tester {
 		t.Fatalf("failed to create JavaScript console: %v", err)
 	}
 	// Create the final tester and return
-	var ethereum *eth.Ethereum
+	var ethereum *protocol.Ethereum
 	stack.Service(&ethereum)
 
 	return &tester{

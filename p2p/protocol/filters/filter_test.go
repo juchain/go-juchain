@@ -24,13 +24,12 @@ import (
 	"testing"
 
 	"github.com/juchain/go-juchain/common"
-	"github.com/juchain/go-juchain/consensus/ethash"
 	"github.com/juchain/go-juchain/core"
 	"github.com/juchain/go-juchain/core/types"
-	"github.com/juchain/go-juchain/crypto"
-	"github.com/juchain/go-juchain/ethdb"
-	"github.com/juchain/go-juchain/event"
-	"github.com/juchain/go-juchain/params"
+	"github.com/juchain/go-juchain/common/crypto"
+	"github.com/juchain/go-juchain/core/store"
+	"github.com/juchain/go-juchain/common/event"
+	"github.com/juchain/go-juchain/config"
 )
 
 func makeReceipt(addr common.Address) *types.Receipt {
@@ -50,7 +49,7 @@ func BenchmarkFilters(b *testing.B) {
 	defer os.RemoveAll(dir)
 
 	var (
-		db, _      = ethdb.NewLDBDatabase(dir, 0, 0)
+		db, _      = store.NewLDBDatabase(dir, 0, 0)
 		mux        = new(event.TypeMux)
 		txFeed     = new(event.Feed)
 		rmLogsFeed = new(event.Feed)
@@ -66,7 +65,7 @@ func BenchmarkFilters(b *testing.B) {
 	defer db.Close()
 
 	genesis := core.GenesisBlockForTesting(db, addr1, big.NewInt(1000000))
-	chain, receipts := core.GenerateChain(params.TestChainConfig, genesis, ethash.NewFaker(), db, 100010, func(i int, gen *core.BlockGen) {
+	chain, receipts := core.GenerateChain(config.TestChainConfig, genesis, nil, db, 100010, func(i int, gen *core.BlockGen) {
 		switch i {
 		case 2403:
 			receipt := makeReceipt(addr1)
@@ -115,7 +114,7 @@ func TestFilters(t *testing.T) {
 	defer os.RemoveAll(dir)
 
 	var (
-		db, _      = ethdb.NewLDBDatabase(dir, 0, 0)
+		db, _      = store.NewLDBDatabase(dir, 0, 0)
 		mux        = new(event.TypeMux)
 		txFeed     = new(event.Feed)
 		rmLogsFeed = new(event.Feed)
@@ -133,7 +132,7 @@ func TestFilters(t *testing.T) {
 	defer db.Close()
 
 	genesis := core.GenesisBlockForTesting(db, addr, big.NewInt(1000000))
-	chain, receipts := core.GenerateChain(params.TestChainConfig, genesis, ethash.NewFaker(), db, 1000, func(i int, gen *core.BlockGen) {
+	chain, receipts := core.GenerateChain(config.TestChainConfig, genesis, nil, db, 1000, func(i int, gen *core.BlockGen) {
 		switch i {
 		case 1:
 			receipt := types.NewReceipt(nil, false, 0)

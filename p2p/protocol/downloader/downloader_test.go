@@ -33,7 +33,6 @@ import (
 	"github.com/juchain/go-juchain/common/event"
 	"github.com/juchain/go-juchain/config"
 	"github.com/juchain/go-juchain/core/trie"
-	"github.com/juchain/go-juchain/consensus/ethash"
 )
 
 var (
@@ -107,7 +106,7 @@ func newTester() *downloadTester {
 // reassembly.
 func (dl *downloadTester) makeChain(n int, seed byte, parent *types.Block, parentReceipts types.Receipts, heavy bool) ([]common.Hash, map[common.Hash]*types.Header, map[common.Hash]*types.Block, map[common.Hash]types.Receipts) {
 	// Generate the block chain
-	blocks, receipts := core.GenerateChain(config.TestChainConfig, parent, ethash.NewFaker(), dl.peerDb, n, func(i int, block *core.BlockGen) {
+	blocks, receipts := core.GenerateChain(config.TestChainConfig, parent, nil, dl.peerDb, n, func(i int, block *core.BlockGen) {
 		block.SetCoinbase(common.Address{seed})
 
 		// If a heavy chain is requested, delay blocks to raise difficulty

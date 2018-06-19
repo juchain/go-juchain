@@ -31,7 +31,6 @@ import (
 	"github.com/davecgh/go-spew/spew"
 	"github.com/juchain/go-juchain/common"
 	"github.com/juchain/go-juchain/core/account"
-	"github.com/ethereum/go-juchain/accounts"
 )
 
 var (
@@ -135,7 +134,7 @@ func TestWatchNoDir(t *testing.T) {
 
 func TestCacheInitialReload(t *testing.T) {
 	cache, _ := newAccountCache(cachetestDir)
-	accounts := cache.account()
+	accounts := cache.accounts()
 	if !reflect.DeepEqual(accounts, cachetestAccounts) {
 		t.Fatalf("got initial accounts: %swant %s", spew.Sdump(accounts), spew.Sdump(cachetestAccounts))
 	}
@@ -211,7 +210,7 @@ func TestCacheAddDeleteOrder(t *testing.T) {
 		wantAccounts[3],
 		wantAccounts[5],
 	}
-	list = cache.account()
+	list = cache.accounts()
 	if !reflect.DeepEqual(list, wantAccountsAfterDelete) {
 		t.Fatalf("got accounts after delete: %s\nwant %s", spew.Sdump(list), spew.Sdump(wantAccountsAfterDelete))
 	}
@@ -375,7 +374,7 @@ func TestUpdatedKeyfileContents(t *testing.T) {
 		return
 	}
 	wantAccounts = []account.Account{cachetestAccounts[2]}
-	wantAccounts[0].URL = accounts.URL{Scheme: KeyStoreScheme, Path: file}
+	wantAccounts[0].URL = account.URL{Scheme: KeyStoreScheme, Path: file}
 	if err := waitForAccounts(wantAccounts, ks); err != nil {
 		t.Errorf("Second replacement failed")
 		t.Error(err)
@@ -390,7 +389,7 @@ func TestUpdatedKeyfileContents(t *testing.T) {
 		t.Fatal(err)
 		return
 	}
-	if err := waitForAccounts([]accounts.Account{}, ks); err != nil {
+	if err := waitForAccounts([]account.Account{}, ks); err != nil {
 		t.Errorf("Emptying account file failed")
 		t.Error(err)
 		return

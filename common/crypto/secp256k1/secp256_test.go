@@ -25,7 +25,7 @@ import (
 	"testing"
 
 	"github.com/juchain/go-juchain/common/math"
-	"github.com/juchain/go-juchain/crypto/randentropy"
+	"github.com/juchain/go-juchain/common/crypto/randentropy"
 )
 
 const TestCount = 1000

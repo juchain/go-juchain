@@ -20,7 +20,7 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/juchain/go-juchain/node"
+	"github.com/juchain/go-juchain/p2p/node"
 	"github.com/juchain/go-juchain/p2p"
 	"github.com/juchain/go-juchain/rpc"
 )

@@ -39,7 +39,6 @@ import (
 	"github.com/juchain/go-juchain/p2p/discover"
 	"github.com/juchain/go-juchain/config"
 	"github.com/juchain/go-juchain/p2p/node"
-	"github.com/juchain/go-juchain/consensus/ethash"
 )
 
 var (
@@ -53,14 +52,13 @@ var (
 func newTestProtocolManager(mode downloader.SyncMode, blocks int, generator func(int, *core.BlockGen), newtx chan<- []*types.Transaction) (*ProtocolManager, *store.MemDatabase, error) {
 	var (
 		evmux  = new(event.TypeMux)
-		engine = ethash.NewFaker()
 		db, _  = store.NewMemDatabase()
 		gspec  = &core.Genesis{
 			Config: config.TestChainConfig,
 			Alloc:  core.GenesisAlloc{testBank: {Balance: big.NewInt(1000000)}},
 		}
 		genesis       = gspec.MustCommit(db)
-		blockchain, _ = core.NewBlockChain(db, nil, gspec.Config, engine, vm.Config{})
+		blockchain, _ = core.NewBlockChain(db, nil, gspec.Config, nil, vm.Config{})
 		config2       = &node.Config{}
 	)
 	chain, _ := core.GenerateChain(gspec.Config, genesis, nil, db, blocks, generator)
@@ -68,7 +66,7 @@ func newTestProtocolManager(mode downloader.SyncMode, blocks int, generator func
 		panic(err)
 	}
 
-	pm, err := NewProtocolManager(gspec.Config, config2, mode, DefaultConfig.NetworkId, evmux, &testTxPool{added: newtx}, engine, blockchain, db)
+	pm, err := NewProtocolManager(gspec.Config, config2, mode, DefaultConfig.NetworkId, evmux, &testTxPool{added: newtx}, nil, blockchain, db)
 	if err != nil {
 		return nil, nil, err
 	}

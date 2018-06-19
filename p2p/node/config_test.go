@@ -24,7 +24,7 @@ import (
 	"runtime"
 	"testing"
 
-	"github.com/juchain/go-juchain/crypto"
+	"github.com/juchain/go-juchain/common/crypto"
 	"github.com/juchain/go-juchain/p2p"
 )
 

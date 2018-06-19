@@ -20,7 +20,7 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/juchain/go-juchain/event"
+	"github.com/juchain/go-juchain/common/event"
 )
 
 // This example demonstrates how SubscriptionScope can be used to control the lifetime of

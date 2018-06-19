@@ -34,7 +34,7 @@ import (
 	"github.com/juchain/go-juchain/common/crypto"
 	"github.com/juchain/go-juchain/core/store"
 	"github.com/juchain/go-juchain/common/rlp"
-	"github.com/juchain/go-juchain/ethdb"
+	"github.com/juchain/go-juchain/core/store"
 )
 
 func init() {
@@ -320,7 +320,7 @@ func TestLargeValue(t *testing.T) {
 }
 
 type countingDB struct {
-	ethdb.Database
+	store.Database
 	gets map[string]int
 }
 
@@ -414,7 +414,7 @@ func (randTest) Generate(r *rand.Rand, size int) reflect.Value {
 }
 
 func runRandTest(rt randTest) bool {
-	diskdb, _ := ethdb.NewMemDatabase()
+	diskdb, _ := store.NewMemDatabase()
 	triedb := NewDatabase(diskdb)
 
 	tr, _ := New(common.Hash{}, triedb)
@@ -543,7 +543,7 @@ func benchGet(b *testing.B, commit bool) {
 	b.StopTimer()
 
 	if commit {
-		ldb := trie.db0.diskdb.(*ethdb.LDBDatabase)
+		ldb := trie.db0.diskdb.(*store.LDBDatabase)
 		ldb.Close()
 		os.RemoveAll(ldb.Path())
 	}
@@ -599,7 +599,7 @@ func tempDB() (string, *Database) {
 	if err != nil {
 		panic(fmt.Sprintf("can't create temporary directory: %v", err))
 	}
-	diskdb, err := ethdb.NewLDBDatabase(dir, 256, 0)
+	diskdb, err := store.NewLDBDatabase(dir, 256, 0)
 	if err != nil {
 		panic(fmt.Sprintf("can't create temporary database: %v", err))
 	}
