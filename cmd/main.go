@@ -134,7 +134,6 @@ func init() {
 		// See consolecmd.go:
 		consoleCommand,
 		attachCommand,
-		javascriptCommand,
 		versionCommand,
 		bugCommand,
 		// See config.go

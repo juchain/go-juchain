@@ -469,7 +469,7 @@ func makeWorkdir(wdflag string) string {
 	if wdflag != "" {
 		err = os.MkdirAll(wdflag, 0744)
 	} else {
-		wdflag, err = ioutil.TempDir("", "geth-build-")
+		wdflag, err = ioutil.TempDir("", "juchain-build-")
 	}
 	if err != nil {
 		log.Fatal(err)
@@ -520,9 +520,9 @@ func newDebMetadata(distro, author string, env build.Environment, t time.Time) d
 // on all executable packages.
 func (meta debMetadata) Name() string {
 	if isUnstableBuild(meta.Env) {
-		return "infinet-unstable"
+		return "juchain-unstable"
 	}
-	return "infinet"
+	return "juchain"
 }
 
 // VersionString returns the debian version of the packages.
@@ -566,7 +566,7 @@ func (meta debMetadata) ExeConflicts(exe debExecutable) string {
 		// be preferred and the conflicting files should be handled via
 		// alternates. We might do this eventually but using a conflict is
 		// easier now.
-		return "infinet, " + exe.Name
+		return "juchain, " + exe.Name
 	}
 	return ""
 }
@@ -625,7 +625,7 @@ func doWindowsInstaller(cmdline []string) {
 			continue
 		}
 		allTools = append(allTools, filepath.Base(file))
-		if filepath.Base(file) == "geth.exe" {
+		if filepath.Base(file) == "juchain.exe" {
 			gethTool = file
 		} else {
 			devTools = append(devTools, file)
@@ -633,13 +633,13 @@ func doWindowsInstaller(cmdline []string) {
 	}
 
 	// Render NSIS scripts: Installer NSIS contains two installer sections,
-	// first section contains the geth binary, second section holds the dev tools.
+	// first section contains the juchain binary, second section holds the dev tools.
 	templateData := map[string]interface{}{
 		"License":  "COPYING",
-		"Geth":     gethTool,
+		"Juchain":     gethTool,
 		"DevTools": devTools,
 	}
-	build.Render("build/nsis.geth.nsi", filepath.Join(*workdir, "geth.nsi"), 0644, nil)
+	build.Render("build/nsis.juchain.nsi", filepath.Join(*workdir, "juchain.nsi"), 0644, nil)
 	build.Render("build/nsis.install.nsh", filepath.Join(*workdir, "install.nsh"), 0644, templateData)
 	build.Render("build/nsis.uninstall.nsh", filepath.Join(*workdir, "uninstall.nsh"), 0644, allTools)
 	build.Render("build/nsis.pathupdate.nsh", filepath.Join(*workdir, "PathUpdate.nsh"), 0644, nil)
@@ -654,14 +654,14 @@ func doWindowsInstaller(cmdline []string) {
 	if env.Commit != "" {
 		version[2] += "-" + env.Commit[:8]
 	}
-	installer, _ := filepath.Abs("geth-" + archiveBasename(*arch, env) + ".exe")
+	installer, _ := filepath.Abs("juchain-" + archiveBasename(*arch, env) + ".exe")
 	build.MustRunCommand("makensis.exe",
 		"/DOUTPUTFILE="+installer,
 		"/DMAJORVERSION="+version[0],
 		"/DMINORVERSION="+version[1],
 		"/DBUILDVERSION="+version[2],
 		"/DARCH="+*arch,
-		filepath.Join(*workdir, "geth.nsi"),
+		filepath.Join(*workdir, "juchain.nsi"),
 	)
 
 	// Sign and publish installer.
@@ -711,7 +711,7 @@ func newMavenMetadata(env build.Environment) mavenMetadata {
 	}
 	return mavenMetadata{
 		Version:      version,
-		Package:      "geth-" + version,
+		Package:      "juchain-" + version,
 		Develop:      isUnstableBuild(env),
 		Contributors: contribs,
 	}

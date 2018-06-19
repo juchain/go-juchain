@@ -60,17 +60,6 @@ See https://github.com/juchain/go-juchain/wiki/JavaScript-Console.
 This command allows to open a console on a running geth node.`,
 	}
 
-	javascriptCommand = cli.Command{
-		Action:    utils.MigrateFlags(ephemeralConsole),
-		Name:      "js",
-		Usage:     "Execute the specified JavaScript files",
-		ArgsUsage: "<jsfile> [jsfile...]",
-		Flags:     append(nodeFlags, consoleFlags...),
-		Category:  "CONSOLE COMMANDS",
-		Description: `
-The JavaScript VM exposes a node admin interface as well as the Ðapp
-JavaScript API. See https://github.com/juchain/go-juchain/wiki/JavaScript-Console`,
-	}
 )
 
 // localConsole starts a new geth node, attaching a JavaScript console to it at the

@@ -20,7 +20,7 @@
 // modifying this file, please port any modification over into the developer's
 // guide wiki pages too!
 
-package guide
+package keystore
 
 import (
 	"io/ioutil"
@@ -30,7 +30,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/juchain/go-juchain/core/account/keystore"
 	"github.com/juchain/go-juchain/core/types"
 )
 
@@ -44,7 +43,7 @@ func TestAccountManagement(t *testing.T) {
 	defer os.RemoveAll(workdir)
 
 	// Create an encrypted keystore with standard crypto parameters
-	ks := keystore.NewKeyStore(filepath.Join(workdir, "keystore"), keystore.StandardScryptN, keystore.StandardScryptP)
+	ks := NewKeyStore(filepath.Join(workdir, "keystore"), StandardScryptN, StandardScryptP)
 
 	// Create a new account with the specified encryption passphrase
 	newAcc, err := ks.NewAccount("Creation password")

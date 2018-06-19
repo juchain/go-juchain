@@ -100,7 +100,7 @@ func (pm *DPoSProtocolManager) electNode() {
 		// initialize the tickets with the number of all peers connected.
 		electionTickets = uint8(len(pm.ethManager.peers.peers));
 		if (electionTickets == 0) {
-			log.Info("Looking for election node but no any peer found, enode state: " + strconv.Itoa(int(enodestate)));
+			log.Debug("Looking for election node but no any peer found, enode state: " + strconv.Itoa(int(enodestate)));
 			// we choose rand number as the interval to reduce the conflict while electing.
 			time.AfterFunc(time.Second * time.Duration(rand.Intn(5)), pm.electNode);
 			return;
@@ -112,7 +112,7 @@ func (pm *DPoSProtocolManager) electNode() {
 				log.Warn("error occurred while sending VoteElectionRequest: " + err.Error())
 			}
 		}
-		log.Info("Start looking for election node... my tickets: " + strconv.Itoa(int(electionTickets)) + ", enodestate: " + strconv.Itoa(int(enodestate)));
+		log.Debug("Start looking for election node... my tickets: " + strconv.Itoa(int(electionTickets)) + ", enodestate: " + strconv.Itoa(int(enodestate)));
 		//time.AfterFunc(time.Second * time.Duration(rand.Intn(5)), pm.electNode);
 	} else {
 		//STATE_SELECTED check whether is alive or not
