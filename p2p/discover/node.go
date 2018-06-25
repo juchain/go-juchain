@@ -1,18 +1,18 @@
-// Copyright 2018 The go-infinet Authors
-// This file is part of the go-infinet library.
+// Copyright 2015 The go-ethereum Authors
+// This file is part of the go-ethereum library.
 //
-// The go-infinet library is free software: you can redistribute it and/or modify
+// The go-ethereum library is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Lesser General Public License as published by
 // the Free Software Foundation, either version 3 of the License, or
 // (at your option) any later version.
 //
-// The go-infinet library is distributed in the hope that it will be useful,
+// The go-ethereum library is distributed in the hope that it will be useful,
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
 // MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
 // GNU Lesser General Public License for more details.
 //
 // You should have received a copy of the GNU Lesser General Public License
-// along with the go-infinet library. If not, see <http://www.gnu.org/licenses/>.
+// along with the go-ethereum library. If not, see <http://www.gnu.org/licenses/>.
 
 package discover
 
@@ -29,22 +29,31 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/juchain/go-juchain/common"
 	"github.com/juchain/go-juchain/common/crypto"
+	"github.com/juchain/go-juchain/common/crypto/secp256k1"
 )
 
+const NodeIDBits = 512
+
 // Node represents a host on the network.
-// The public fields of Node may not be modified.
+// The fields of Node may not be modified.
 type Node struct {
 	IP       net.IP // len 4 for IPv4 or 16 for IPv6
 	UDP, TCP uint16 // port numbers
 	ID       NodeID // the node's public key
 
-	// Network-related fields are contained in nodeNetGuts.
-	// These fields are not supposed to be used off the
-	// Network.loop goroutine.
-	nodeNetGuts
+	// This is a cached copy of sha3(ID) which is used for node
+	// distance calculations. This is part of Node in order to make it
+	// possible to write tests that need a node at a certain distance.
+	// In those tests, the content of sha will not actually correspond
+	// with ID.
+	sha common.Hash
+
+	// Time when the node was added to the table.
+	addedAt time.Time
 }
 
 // NewNode creates a new node. It is mostly meant to be used for
@@ -54,33 +63,16 @@ func NewNode(id NodeID, ip net.IP, udpPort, tcpPort uint16) *Node {
 		ip = ipv4
 	}
 	return &Node{
-		IP:          ip,
-		UDP:         udpPort,
-		TCP:         tcpPort,
-		ID:          id,
-		nodeNetGuts: nodeNetGuts{sha: crypto.Keccak256Hash(id[:])},
+		IP:  ip,
+		UDP: udpPort,
+		TCP: tcpPort,
+		ID:  id,
+		sha: crypto.Keccak256Hash(id[:]),
 	}
 }
 
 func (n *Node) addr() *net.UDPAddr {
 	return &net.UDPAddr{IP: n.IP, Port: int(n.UDP)}
-}
-
-func (n *Node) setAddr(a *net.UDPAddr) {
-	n.IP = a.IP
-	if ipv4 := a.IP.To4(); ipv4 != nil {
-		n.IP = ipv4
-	}
-	n.UDP = uint16(a.Port)
-}
-
-// compares the given address against the stored values.
-func (n *Node) addrEqual(a *net.UDPAddr) bool {
-	ip := a.IP
-	if ipv4 := a.IP.To4(); ipv4 != nil {
-		ip = ipv4
-	}
-	return n.UDP == uint16(a.Port) && n.IP.Equal(ip)
 }
 
 // Incomplete returns true for nodes with no IP address.
@@ -229,39 +221,9 @@ func (n *Node) UnmarshalText(text []byte) error {
 	return err
 }
 
-// type nodeQueue []*Node
-//
-// // pushNew adds n to the end if it is not present.
-// func (nl *nodeList) appendNew(n *Node) {
-// 	for _, entry := range n {
-// 		if entry == n {
-// 			return
-// 		}
-// 	}
-// 	*nq = append(*nq, n)
-// }
-//
-// // popRandom removes a random node. Nodes closer to
-// // to the head of the beginning of the have a slightly higher probability.
-// func (nl *nodeList) popRandom() *Node {
-// 	ix := rand.Intn(len(*nq))
-// 	//TODO: probability as mentioned above.
-// 	nl.removeIndex(ix)
-// }
-//
-// func (nl *nodeList) removeIndex(i int) *Node {
-// 	slice = *nl
-// 	if len(*slice) <= i {
-// 		return nil
-// 	}
-// 	*nl = append(slice[:i], slice[i+1:]...)
-// }
-
-const nodeIDBits = 512
-
 // NodeID is a unique identifier for each node.
 // The node identifier is a marshaled elliptic curve public key.
-type NodeID [nodeIDBits / 8]byte
+type NodeID [NodeIDBits / 8]byte
 
 // Bytes returns a byte slice representation of the NodeID
 func (n NodeID) Bytes() []byte {
@@ -288,6 +250,35 @@ func (n NodeID) MarshalText() ([]byte, error) {
 	return []byte(hex.EncodeToString(n[:])), nil
 }
 
+// UnmarshalText implements the encoding.TextUnmarshaler interface.
+func (n *NodeID) UnmarshalText(text []byte) error {
+	id, err := HexID(string(text))
+	if err != nil {
+		return err
+	}
+	*n = id
+	return nil
+}
+
+// BytesID converts a byte slice to a NodeID
+func BytesID(b []byte) (NodeID, error) {
+	var id NodeID
+	if len(b) != len(id) {
+		return id, fmt.Errorf("wrong length, want %d bytes", len(id))
+	}
+	copy(id[:], b)
+	return id, nil
+}
+
+// MustBytesID converts a byte slice to a NodeID.
+// It panics if the byte slice is not a valid NodeID.
+func MustBytesID(b []byte) NodeID {
+	id, err := BytesID(b)
+	if err != nil {
+		panic(err)
+	}
+	return id
+}
 
 // HexID converts a hex string to a NodeID.
 // The string may be prefixed with 0x.
@@ -337,18 +328,10 @@ func (id NodeID) Pubkey() (*ecdsa.PublicKey, error) {
 	return p, nil
 }
 
-func (id NodeID) mustPubkey() ecdsa.PublicKey {
-	pk, err := id.Pubkey()
-	if err != nil {
-		panic(err)
-	}
-	return *pk
-}
-
 // recoverNodeID computes the public key used to sign the
 // given hash from the signature.
 func recoverNodeID(hash, sig []byte) (id NodeID, err error) {
-	pubkey, err := crypto.Ecrecover(hash, sig)
+	pubkey, err := secp256k1.RecoverPubkey(hash, sig)
 	if err != nil {
 		return id, err
 	}

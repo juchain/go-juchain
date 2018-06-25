@@ -1,18 +1,18 @@
-// Copyright 2018 The go-infinet Authors
-// This file is part of the go-infinet library.
+// Copyright 2016 The go-ethereum Authors
+// This file is part of the go-ethereum library.
 //
-// The go-infinet library is free software: you can redistribute it and/or modify
+// The go-ethereum library is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Lesser General Public License as published by
 // the Free Software Foundation, either version 3 of the License, or
 // (at your option) any later version.
 //
-// The go-infinet library is distributed in the hope that it will be useful,
+// The go-ethereum library is distributed in the hope that it will be useful,
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
 // MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
 // GNU Lesser General Public License for more details.
 //
 // You should have received a copy of the GNU Lesser General Public License
-// along with the go-infinet library. If not, see <http://www.gnu.org/licenses/>.
+// along with the go-ethereum library. If not, see <http://www.gnu.org/licenses/>.
 
 // Contains the NTP time drift detection via the SNTP protocol:
 //   https://tools.ietf.org/html/rfc4330
@@ -23,7 +23,6 @@ import (
 	"fmt"
 	"net"
 	"sort"
-	"strings"
 	"time"
 
 	"github.com/juchain/go-juchain/common/log"
@@ -50,16 +49,10 @@ func checkClockDrift() {
 		return
 	}
 	if drift < -driftThreshold || drift > driftThreshold {
-		warning := fmt.Sprintf("System clock seems off by %v, which can prevent network connectivity", drift)
-		howtofix := fmt.Sprintf("Please enable network time synchronisation in system settings")
-		separator := strings.Repeat("-", len(warning))
-
-		log.Warn(fmt.Sprint(separator))
-		log.Warn(fmt.Sprint(warning))
-		log.Warn(fmt.Sprint(howtofix))
-		log.Warn(fmt.Sprint(separator))
+		log.Warn(fmt.Sprintf("System clock seems off by %v, which can prevent network connectivity", drift))
+		log.Warn("Please enable network time synchronisation in system settings.")
 	} else {
-		log.Debug(fmt.Sprintf("Sanity NTP check reported %v drift, all ok", drift))
+		log.Debug("NTP sanity check done", "drift", drift)
 	}
 }
 
