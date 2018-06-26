@@ -466,7 +466,7 @@ func testVoteElection(t *testing.T, protocol int) {
 		}
 	}
 
-	err := p2p.Send(peer.app, RegisterCandidate_Request, &VoteElectionRequest{3, currentNodeIdHash})
+	err := p2p.Send(peer.app, RegisterCandidate_Request, &VoteElectionRequest{3, currNodeIdHash})
 	if err != nil {
 		t.Fatalf("failed to send request: %v", err)
 	}

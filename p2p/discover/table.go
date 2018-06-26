@@ -456,7 +456,7 @@ func (tab *Table) loadSeedNodes(bond bool) {
 	for i := range seeds {
 		seed := seeds[i]
 		age := log.Lazy{Fn: func() interface{} { return time.Since(tab.db.bondTime(seed.ID)) }}
-		log.Debug("Found seed node in database", "id", seed.ID, "addr", seed.addr(), "age", age)
+		log.Trace("Found seed node in database", "id", seed.ID, "addr", seed.addr(), "age", age)
 		tab.add(seed)
 	}
 }
@@ -480,7 +480,7 @@ func (tab *Table) doRevalidate(done chan<- struct{}) {
 	b := tab.buckets[bi]
 	if err == nil {
 		// The node responded, move it to the front.
-		log.Debug("Revalidated node", "b", bi, "id", last.ID)
+		log.Trace("Revalidated node", "b", bi, "id", last.ID)
 		b.bump(last)
 		return
 	}

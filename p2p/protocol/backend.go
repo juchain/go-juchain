@@ -27,7 +27,7 @@ import (
 	"github.com/juchain/go-juchain/common"
 	"github.com/juchain/go-juchain/common/hexutil"
 	"github.com/juchain/go-juchain/consensus"
-	"github.com/juchain/go-juchain/consensus/solo"
+	"github.com/juchain/go-juchain/consensus/dpos"
 	"github.com/juchain/go-juchain/core"
 	"github.com/juchain/go-juchain/core/bloombits"
 	"github.com/juchain/go-juchain/core/types"
@@ -201,10 +201,10 @@ func CreateDB(ctx *node.ServiceContext, config *Config, name string) (store.Data
 // CreateConsensusEngine creates the required type of consensus engine instance for an Ethereum service
 func CreateConsensusEngine(ctx *node.ServiceContext, chainConfig *config.ChainConfig, db store.Database) consensus.Engine {
 	// If proof-of-authority is requested, set it up
-	if (chainConfig.Clique == nil) {
-		chainConfig.Clique = &config.CliqueConfig{};
+	if (chainConfig.DPoS == nil) {
+		chainConfig.DPoS = &config.DPoSConfig{};
 	}
-	return clique.New(chainConfig.Clique, db)
+	return dpos.New(chainConfig.DPoS, db)
 }
 
 // APIs returns the collection of RPC services the ethereum package offers.

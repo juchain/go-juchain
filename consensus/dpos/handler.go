@@ -192,7 +192,7 @@ func ecrecover(header *types.Header, sigcache *lru.ARCCache) (common.Address, er
 }
 
 type DElection struct {
-	config *config.CliqueConfig // Consensus engine configuration parameters
+	config *config.DPoSConfig // Consensus engine configuration parameters
 	db     store.Database       // Database to store and retrieve snapshot checkpoints
 
 	recents    *lru.ARCCache // Snapshots for recent block to speed up reorgs
@@ -207,7 +207,7 @@ type DElection struct {
 
 // New creates a DElection proof-of-authority consensus engine with the initial
 // signers set to the ones provided by the user.
-func New(config *config.CliqueConfig, db store.Database) *DElection {
+func New(config *config.DPoSConfig, db store.Database) *DElection {
 	// Set any missing consensus parameters to their defaults
 	conf := *config
 	if conf.Epoch == 0 {

@@ -16,18 +16,20 @@
 
 package protocol
 
-// Official short name of the protocol used during capability negotiation.
-var DPOSProtocolName = "dpos"
+var (
+	// Official short name of the protocol used during capability negotiation.
+	DPOSProtocolName = "dpos"
 
-// Supported versions of the eth protocol (first is primary).
-var DPOSProtocolVersions = []uint{dpos}
+	// Supported versions of the protocol (first is primary).
+	DPOSProtocolVersions = []uint{1}
 
-// Number of implemented message corresponding to different protocol versions.
-var DPOSProtocolLengths = []uint64{1}
+	// Number of implemented message corresponding to different protocol versions.
+	DPOSProtocolLengths = []uint64{1}
+)
+
 
 // dpos protocol message codes
 const (
-	dpos = 10
 	DPOSProtocolMaxMsgSize = 10 * 1024 // Maximum cap on the size of a protocol message
 
 	// Protocol messages belonging to dpos/10
@@ -53,14 +55,12 @@ const (
 	DPOSErroPACKAGE_NOTSYNC
 	DPOSErroPACKAGE_EMPTY
 	DPOSErroVOTE_VERIFY_FAILURE
+	DPOSErroCandidateFull
 
 	// election node
 	STATE_LOOKING  = 0xb0
 	STATE_SELECTED = 0xb1
-	STATE_STOP = 0xb2
-
-	ROLE_LEADER   = 0x01
-	ROLE_FOLLOEER = 0x00
+	STATE_STOP = 0xbb
 )
 
 type DPOSErrCode int
@@ -138,6 +138,7 @@ type RegisterCandidateRequest struct {
 }
 
 type RegisterCandidateResponse struct {
+	Candidates    []string
 	CandidateId   []byte
 	Code          uint8
 }

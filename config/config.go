@@ -86,7 +86,10 @@ type ChainConfig struct {
 	DPoS   *DPoSConfig   `json:"dpos,omitempty"`
 }
 
-type DPoSConfig struct{}
+type DPoSConfig struct{
+	Period uint64 `json:"period"` // Number of seconds between blocks to enforce
+	Epoch  uint64 `json:"epoch"`  // Epoch length to reset votes and checkpoint
+}
 func (c *DPoSConfig) String() string {
 	return "DPoS"
 }

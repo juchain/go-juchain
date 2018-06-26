@@ -46,10 +46,8 @@ import (
 	"github.com/juchain/go-juchain/p2p/nat"
 	"github.com/juchain/go-juchain/p2p/netutil"
 	"github.com/juchain/go-juchain/config"
-	"github.com/juchain/go-juchain/consensus"
-	"github.com/juchain/go-juchain/consensus/solo"
-
 	"gopkg.in/urfave/cli.v1"
+	"github.com/juchain/go-juchain/consensus/dpos"
 )
 
 var (
@@ -933,10 +931,7 @@ func MakeChain(ctx *cli.Context, stack *node.Node) (chain *core.BlockChain, chai
 	if ctx.GlobalIsSet(CacheFlag.Name) || ctx.GlobalIsSet(CacheGCFlag.Name) {
 		cache.TrieNodeLimit = ctx.GlobalInt(CacheFlag.Name) * ctx.GlobalInt(CacheGCFlag.Name) / 100
 	}
-	var engine consensus.Engine
-	if config.Clique != nil {
-		engine = clique.New(config.Clique, chainDb)
-	}
+	engine := dpos.New(config.DPoS, chainDb)
 	vmcfg := vm.Config{EnablePreimageRecording: ctx.GlobalBool(VMEnableDebugFlag.Name)}
 	chain, err = core.NewBlockChain(chainDb, cache, config, engine, vmcfg)
 	if err != nil {
