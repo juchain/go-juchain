@@ -35,13 +35,14 @@ import (
 	"github.com/juchain/go-juchain/common"
 	"github.com/pkg/errors"
 
+	"fmt"
 )
 
 // DPoS packaging handler.
 
 var (
 	EMPTY_NODEINFO   p2p.NodeInfo;
-	VotingInterval   uint32 = 3;  // vote for packaging block in every 3 seconds.
+	VotingInterval   uint32 = 5;  // vote for packaging node in every 5 seconds.
 	ElectingInterval uint32 = 60; // elect for new node in every 60 seconds.
 	CandidateNumber  uint8 = 21; // we make 21 candidates as the best group for packaging.
 
@@ -53,7 +54,6 @@ var (
 	currCandidatesTable  []string; // only for the election node.
 
 	blockchainRef *core.BlockChain;
-	PM *DPoSProtocolManager;
 )
 
 type ElectionInfo struct {
@@ -71,9 +71,10 @@ type DPoSProtocolManager struct {
 	networkId     uint64;
 	ethManager    *ProtocolManager;
 	blockchain    *core.BlockChain;
-	SubProtocols  []p2p.Protocol;
+
 	// channels for fetcher, syncer, txsyncLoop
 	newPeerCh     chan *peer;
+	voteTrigger   chan bool;
 	lock          *sync.Mutex; // protects running
 }
 
@@ -87,11 +88,10 @@ func NewDPoSProtocolManager(ethManager *ProtocolManager, config *node.Config, mo
 		blockchain:  blockchain,
 		ethManager:  ethManager,
 		newPeerCh:   make(chan *peer),
+		voteTrigger: make(chan bool),
 		lock:        &sync.Mutex{},
 	}
 
-	// Initiate a sub-protocol for every implemented version we can handle
-	PM = manager;
 	currNodeId = discover.PubkeyID(&config.NodeKey().PublicKey).TerminalString();
 	currNodeIdHash = common.Hex2Bytes(currNodeId);
 	electionInfo = nil;
@@ -112,14 +112,21 @@ func (pm *DPoSProtocolManager) Start(maxPeers int) {
 	log.Info("Starting DPoS Consensus")
 
 	go pm.electNodeSafely();
-	time.AfterFunc(time.Second*time.Duration(ElectingInterval), pm.electNextNode);
+	go pm.voteSafely();
+	time.AfterFunc(time.Second*time.Duration(ElectingInterval), pm.scheduleElecting);
+	time.AfterFunc(time.Second*time.Duration(VotingInterval), pm.scheduleVoting);
+}
+
+func (pm *DPoSProtocolManager) scheduleVoting() {
+	pm.voteTrigger <- true;
+	time.AfterFunc(time.Second*time.Duration(VotingInterval), pm.scheduleVoting);
 }
 
 func (pm *DPoSProtocolManager) isElectionNode() bool {
 	return electionInfo != nil && electionInfo.electionNodeId == currNodeId;
 }
 
-func (pm *DPoSProtocolManager) electNextNode() {
+func (pm *DPoSProtocolManager) scheduleElecting() {
 	log.Info("Elect for next round...");
 	nextElectionInfo = &ElectionInfo{
 		STATE_LOOKING,
@@ -130,7 +137,7 @@ func (pm *DPoSProtocolManager) electNextNode() {
 		0,
 	};
 	pm.electNodeSafely();
-	time.AfterFunc(time.Second*time.Duration(ElectingInterval), pm.electNextNode);
+	time.AfterFunc(time.Second*time.Duration(ElectingInterval), pm.scheduleElecting);
 }
 
 var electingNow = false;
@@ -257,7 +264,6 @@ func (pm *DPoSProtocolManager) registerCandidate() {
 }
 
 func (pm *DPoSProtocolManager) Stop() {
-	log.Info("Stopping DPoS Consensus")
 	if (electionInfo != nil) {
 		electionInfo.enodestate = STATE_STOP;
 	}
@@ -265,7 +271,6 @@ func (pm *DPoSProtocolManager) Stop() {
 		nextElectionInfo.enodestate = STATE_STOP;
 	}
 	// Quit the sync loop.
-
 	log.Info("DPoS Consensus stopped")
 }
 
@@ -373,9 +378,9 @@ func (pm *DPoSProtocolManager) handleMsg(msg *p2p.Msg, p *peer) error {
 		}
 		log.Info("Received newest candidate table: " + tableStr);
 		if (response.Code == DPOSMSG_SUCCESS) {
-			log.Info("Election node confirmed as candidate.");
+			log.Info("Election node confirmed mine as the candidate.");
 		} else {
-			log.Info("Election node rejected as candidate with error code " + strconv.Itoa(int(response.Code)));
+			log.Info("Election node rejected mine as the candidate with error code " + strconv.Itoa(int(response.Code)));
 		}
 		return nil;
 //----------------------Election process end------------------------------//
@@ -388,9 +393,10 @@ func (pm *DPoSProtocolManager) handleMsg(msg *p2p.Msg, p *peer) error {
 		if err := msg.Decode(&request); err != nil {
 			return errResp(DPOSErrDecode, "%v: %v", msg, err);
 		}
-		log.Debug("received a vote request: ");
+		//log.Debug("received a vote request: ");
 		if (request.CandicateIds == nil || len(request.CandicateIds) == 0) {
-			log.Warn("VotePresidentRequest is invalid: {}");
+			log.Warn("VotePresidentRequest is invalid! ");
+			fmt.Sprintf("%+v", request);
 			if (pm.sendVoteResponseToElectionNode(&VotePresidentResponse{request.Round, byte(0),
 				request.ElectionId, DPOSErroVOTE_VERIFY_FAILURE})) {
 				return nil;
@@ -413,6 +419,7 @@ func (pm *DPoSProtocolManager) handleMsg(msg *p2p.Msg, p *peer) error {
 			return errResp(DPOSErrDecode, "%v: %v", msg, err);
 		}
 		log.Debug("received a vote response: ");
+		fmt.Sprintf("%+v", response);
 		if (bytes.Equal(electionInfo.electionNodeIdHash, response.ElectionId) && response.Code == DPOSMSG_SUCCESS && currVotingPool.round == response.Round) {
 			currVotingPool.voteFor(response.CandicateIndex);
 			return nil;
@@ -433,6 +440,7 @@ func (pm *DPoSProtocolManager) handleMsg(msg *p2p.Msg, p *peer) error {
 			return errResp(DPOSErrDecode, "%v: %v", msg, err);
 		}
 		log.Debug("received package request: ");
+		fmt.Sprintf("%+v", request);
 		if (electionInfo.electionNodeId == p.id && bytes.Equal(electionInfo.electionNodeIdHash, request.ElectionId) && currNodeId == request.PresidentId) {
 			// check the best block whether is synchronized or not.
 			//SyncStatus syncStatus = syncManager.getSyncStatus();
@@ -443,7 +451,7 @@ func (pm *DPoSProtocolManager) handleMsg(msg *p2p.Msg, p *peer) error {
 			//	return nil;
 			//}
 
-			if pm.sendPackageResponseToElectionNode(pm.generateBlock()) {
+			if pm.sendPackageResponseToElectionNode(pm.generateBlock(request)) {
 				return nil;
 			} else {
 				return errors.New("unable to send the response to election node!");
@@ -463,6 +471,7 @@ func (pm *DPoSProtocolManager) handleMsg(msg *p2p.Msg, p *peer) error {
 			return errResp(DPOSErrDecode, "%v: %v", msg, err);
 		}
 		log.Debug("received package response: ");
+		fmt.Sprintf("%+v", response);
 		if (p.id == currVotingPool.selectNodeId && response.Code == DPOSMSG_SUCCESS) {
 			// got the new generated block and verify.
 			//TODO: headerValidator.validateAndLog(response.getBlockHeader(), logger);
@@ -489,9 +498,10 @@ func (pm *DPoSProtocolManager) handleMsg(msg *p2p.Msg, p *peer) error {
 	return nil
 }
 
-func (pm *DPoSProtocolManager) generateBlock() *PackageResponse {
+func (pm *DPoSProtocolManager) generateBlock(request PackageRequest) *PackageResponse {
 	//TODO:
-	return &PackageResponse{};
+	log.Info("Generated block!!!");
+	return &PackageResponse{request.Round, request.PresidentId, electionInfo.electionNodeIdHash, nil,DPOSMSG_SUCCESS};
 }
 
 func (self *DPoSProtocolManager) sendVoteRequest(request *VotePresidentRequest) bool {
@@ -544,91 +554,89 @@ func (self *DPoSProtocolManager) sendPackageRequest(response *PackageRequest) bo
 }
 
 
-
-// start voting for president and packaging block in every round.
-
-func scheduleVoting() {
-	if (currNodeId == electionInfo.electionNodeId && len(currCandidatesTable) > 0) {
-		time.AfterFunc(time.Duration(VotingInterval*1000), voteForNewPresident);
-	}
-}
-
-func voteForNewPresident() {
-	round := uint64(1);
-	// copy all candidates' table.
-	currCandidates := make([]string, len(currCandidatesTable));
-	copy(currCandidates, currCandidatesTable);
-	if (currVotingPool != nil) {
-		// to make sure the health candidate pool of next voting, we'd better to remove the unconfirmed node
-		// due to any possible issue including blocks in syncing, network unstability and etc.
-		round = currVotingPool.round + 1;
-		unconfirmedNode := make([]string, 0, len(currVotingPool.confirmedPool));
-		for k, v := range currVotingPool.confirmedPool {
-			if v == 0 {
-				unconfirmedNode = append(unconfirmedNode, k);
-			}
+// --------------------Voting Process-------------------//
+// start voting for president and packaging blocks in every round.
+func (self *DPoSProtocolManager) voteSafely() {
+	for
+	{
+		<-self.voteTrigger;
+		if (!self.isElectionNode() || len(currCandidatesTable) < 0) {
+			continue;
 		}
-		if (len(unconfirmedNode) > 0) {
-			log.Info("Unconfirmed sync block candidates" + strings.Join(unconfirmedNode, ", "));
-		}
-		// let's remove the unconfirmed candidates for next round.
-		for _, nodeId := range unconfirmedNode {
-			for i, n := range currCandidates {
-				if (nodeId == n) {
-					removeCanditate(currCandidates, i);
-					break;
+		round := uint64(1);
+		// copy all candidates' table.
+		currCandidates := make([]string, len(currCandidatesTable));
+		copy(currCandidates, currCandidatesTable);
+		if (currVotingPool != nil) {
+			// to make sure the health candidate pool of next voting, we'd better to remove the unconfirmed node
+			// due to any possible issue including blocks in syncing, network unstability and etc.
+			round = currVotingPool.round + 1;
+			unconfirmedNode := make([]string, 0, len(currVotingPool.confirmedPool));
+			for k, v := range currVotingPool.confirmedPool {
+				if v == 0 {
+					unconfirmedNode = append(unconfirmedNode, k);
 				}
 			}
+			if (len(unconfirmedNode) > 0) {
+				log.Info("Unconfirmed sync block candidates: " + strings.Join(unconfirmedNode, ", "));
+			}
+			// let's remove the unconfirmed candidates for next round.
+			for _, nodeId := range unconfirmedNode {
+				for i, n := range currCandidates {
+					if (nodeId == n) {
+						self.removeCanditate(currCandidates, i);
+						break;
+					}
+				}
+			}
+		} else {
+			// query the round number from last block.
+			round = blockchainRef.CurrentFastBlock().Header().Round + 1;
 		}
-	} else {
-		// query the round number from last block.
-		round = blockchainRef.CurrentFastBlock().Header().Round + 1;
-	}
-	if (len(currCandidates) == 0) {
-		// no any qualified candidate. set for next round.
-		currVotingPool = nil;
-		log.Warn("no any candidate confirmed the block synced in this round "+strconv.FormatUint(round, 10)+", revote again!");
-		return ;
-	}
-	if (round < 1) {
-		round = 1;
-	}
-
-	currVotingPool = NewLocalVoteInfo(currCandidates, round);
-	vrequest := &VotePresidentRequest{round, currVotingPool.getCandicatesIndex(),
-		electionInfo.electionNodeIdHash};
-	// broadcast this vote request to all nodes.
-	if (PM.sendVoteRequest(vrequest)) {
-		log.Debug("Voting the presidents: " + currVotingPool.toString());
-
-		// wait for voting result in the gap of interval/2 ms which is applicable.
-		time.Sleep(time.Duration(VotingInterval * 1000 / 2));
-
-		// new request for packaging the block to remote peer.
-		selectNode, p, err := currVotingPool.maxTicket();
-		if (err != nil) {
-			log.Warn("no any candidate confirmed the block synced in this round "+strconv.FormatUint(round, 10)+", revote again!");
+		if (len(currCandidates) == 0) {
+			// no any qualified candidate. set for next round.
+			currVotingPool = nil;
+			log.Warn("no any candidate confirmed the block synced in this round " + strconv.FormatUint(round, 10) + ", revote again!");
 			return;
 		}
-		prequest := &PackageRequest{currVotingPool.round, selectNode,
-			electionInfo.electionNodeIdHash};
-		if (PM.sendPackageRequest(prequest)) {
-			// all candidates must sending the confirmed sync message after mining new block.
-			// this is important to make sure who are the best candidates in the next round.
-			log.Info("Voted info: "+currVotingPool.toString()+", Node info: " + selectNode);
-		} else {
-			removeCanditate(currCandidatesTable, int(p));
-			currVotingPool = nil;
-			log.Warn("Failed to package the block from president("+prequest.PresidentId+") with "+strconv.FormatUint(prequest.Round, 10)+" round, revote again!");
+		if (round < 1) {
+			round = 1;
 		}
-	} else {
-		log.Debug("Discard this round during none of candidate's connection existing: " + currVotingPool.toString());
-		currVotingPool = nil;
-	}
 
-	time.AfterFunc(time.Duration(VotingInterval* 1000), voteForNewPresident);
+		currVotingPool = NewLocalVoteInfo(currCandidates, round);
+		vrequest := &VotePresidentRequest{round, currVotingPool.getCandicatesIndex(),
+			electionInfo.electionNodeIdHash};
+		// broadcast this vote request to all nodes.
+		if (self.sendVoteRequest(vrequest)) {
+			log.Info("Voting the presidents: " + currVotingPool.toString());
+
+			// wait for voting result in the gap of 1 second which is applicable.
+			time.Sleep(time.Duration(1 * 1000));
+
+			// new request for packaging the block to remote peer.
+			selectNode, p, err := currVotingPool.maxTicket();
+			if (err != nil) {
+				log.Warn("no any candidate confirmed the block synced in this round " + strconv.FormatUint(round, 10) + ", revote again!");
+				return;
+			}
+			prequest := &PackageRequest{currVotingPool.round, selectNode,
+				electionInfo.electionNodeIdHash};
+			if (self.sendPackageRequest(prequest)) {
+				// all candidates must sending the confirmed sync message after mining new block.
+				// this is important to make sure who are the best candidates in the next round.
+				log.Info("Voted info: " + currVotingPool.toString() + ", Node info: " + selectNode);
+			} else {
+				self.removeCanditate(currCandidatesTable, int(p));
+				currVotingPool = nil;
+				log.Warn("Failed to package the block from president(" + prequest.PresidentId + ") with " + strconv.FormatUint(prequest.Round, 10) + " round, revote again!");
+			}
+		} else {
+			log.Debug("Discard this round during none of candidate's connection existing: " + currVotingPool.toString());
+			currVotingPool = nil;
+		}
+	}
 }
-func removeCanditate(s []string, i int) []string {
+func (self *DPoSProtocolManager) removeCanditate(s []string, i int) []string {
 	s[len(s)-1], s[i] = s[i], s[len(s)-1]
 	return s[:len(s)-1]
 }
@@ -662,7 +670,7 @@ func (t *LocalVoteInfo) voteFor(candicateIndex uint8) {
 	v, ok := t.votingPool[candicateIndex];
 	if (ok) {
 		t.votingPool[candicateIndex] = v+1;
-		log.Debug("Just voted for president id: " + strconv.Itoa(int(candicateIndex)) + ", total tickets: "+ strconv.Itoa(int(v)) +" in "+ strconv.FormatUint(t.round, 10) +" round.");
+		log.Debug("Just voted for president id: " + strconv.Itoa(int(candicateIndex)) + ", total tickets: "+ strconv.Itoa(int(v+1)) +" in "+ strconv.FormatUint(t.round, 10) +" round.");
 	}
 }
 func (t *LocalVoteInfo) confirmSync(round uint64, nodeId string) {
