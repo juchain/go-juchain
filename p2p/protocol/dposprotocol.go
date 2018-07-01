@@ -16,6 +16,8 @@
 
 package protocol
 
+import "github.com/juchain/go-juchain/common"
+
 var (
 	// Official short name of the protocol used during capability negotiation.
 	DPOSProtocolName = "dpos"
@@ -129,7 +131,7 @@ type PackageResponse struct {
 	Round         uint64
 	PresidentId   string
 	ElectionId    []byte
-	NewBlockHeader[]byte
+	NewBlockHeader common.Hash
 	Code          uint8
 }
 

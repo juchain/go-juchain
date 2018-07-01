@@ -30,7 +30,7 @@ import (
 	"github.com/juchain/go-juchain/config"
 )
 
-// DefaultConfig contains default settings for use on the Ethereum main net.
+// DefaultConfig contains default settings for use on the JuchainService main net.
 var DefaultConfig = Config{
 	SyncMode: downloader.FastSync,
 	NetworkId:     1,
@@ -60,7 +60,7 @@ func init() {
 
 type Config struct {
 	// The genesis block, which is inserted if the database is empty.
-	// If nil, the Ethereum main net block is used.
+	// If nil, the JuchainService main net block is used.
 	Genesis *core.Genesis `toml:",omitempty"`
 
 	// Protocol options

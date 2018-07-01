@@ -84,6 +84,7 @@ type Header struct {
 	MixDigest   common.Hash    `json:"mixHash"          gencodec:"required"`
 	Nonce       BlockNonce     `json:"nonce"            gencodec:"required"`
 	Round       uint64         `json:"round"            gencodec:"required"` // DPoS support: the round number.
+	//Round2    uint64         `json:"round"            gencodec:"required"` // DPoS support: the round2 number if round number is exceeded.
 	PresidentId string         `json:"rresidentId"      gencodec:"required"` // DPoS support: the president id.
 }
 

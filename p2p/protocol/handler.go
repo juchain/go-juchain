@@ -99,9 +99,9 @@ type ProtocolManager struct {
 	wg sync.WaitGroup
 }
 
-// NewProtocolManager returns a new Ethereum sub protocol manager. The Ethereum sub protocol manages peers capable
-// with the Ethereum network.
-func NewProtocolManager(config *config.ChainConfig, config2 *node.Config, mode downloader.SyncMode, networkId uint64, mux *event.TypeMux, txpool txPool, engine consensus.Engine, blockchain *core.BlockChain, chaindb store.Database) (*ProtocolManager, error) {
+// NewProtocolManager returns a new JuchainService sub protocol manager. The JuchainService sub protocol manages peers capable
+// with the JuchainService network.
+func NewProtocolManager(eth *JuchainService, config *config.ChainConfig, config2 *node.Config, mode downloader.SyncMode, networkId uint64, mux *event.TypeMux, txpool txPool, engine consensus.Engine, blockchain *core.BlockChain, chaindb store.Database) (*ProtocolManager, error) {
 	// Create the protocol manager with the base fields
 	manager := &ProtocolManager{
 		networkId:   networkId,
@@ -115,7 +115,8 @@ func NewProtocolManager(config *config.ChainConfig, config2 *node.Config, mode d
 		txsyncCh:    make(chan *txsync),
 		quitSync:    make(chan struct{}),
 	}
-	manager.dposManager = NewDPoSProtocolManager(manager, config2, mode, networkId, blockchain);
+	manager.dposManager = NewDPoSProtocolManager(eth, manager, config, config2, mode, networkId, blockchain, engine);
+
 	// Figure out whether to allow fast sync or not
 	if mode == downloader.FastSync && blockchain.CurrentBlock().NumberU64() > 0 {
 		log.Warn("Blockchain not empty, fast sync disabled")

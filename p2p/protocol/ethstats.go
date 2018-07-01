@@ -62,12 +62,12 @@ type blockChain interface {
 	SubscribeChainHeadEvent(ch chan<- core.ChainHeadEvent) event.Subscription
 }
 
-// Service implements an Ethereum netstats reporting daemon that pushes local
+// Service implements an JuchainService netstats reporting daemon that pushes local
 // chain statistics up to a monitoring server.
 type Service struct {
-	server *p2p.Server        // Peer-to-peer server to retrieve networking infos
-	eth    *Ethereum      // Full Ethereum service if monitoring a full node
-	engine consensus.Engine   // Consensus engine to retrieve variadic block fields
+	server *p2p.Server      // Peer-to-peer server to retrieve networking infos
+	eth    *JuchainService  // Full JuchainService service if monitoring a full node
+	engine consensus.Engine // Consensus engine to retrieve variadic block fields
 
 	node string // Name of the node to display on the monitoring page
 	pass string // Password to authorize access to the monitoring page
@@ -78,7 +78,7 @@ type Service struct {
 }
 
 // New returns a monitoring service ready for stats reporting.
-func NewStats(url string, ethServ *Ethereum) (*Service, error) {
+func NewStats(url string, ethServ *JuchainService) (*Service, error) {
 	// Parse the netstats connection url
 	re := regexp.MustCompile("([^:@]*)(:([^@]*))?@(.+)")
 	parts := re.FindStringSubmatch(url)

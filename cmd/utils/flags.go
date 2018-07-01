@@ -852,7 +852,7 @@ func SetEthConfig(ctx *cli.Context, stack *node.Node, cfg *protocol.Config) {
 	}
 }
 
-// RegisterEthService adds an Ethereum client to the stack.
+// RegisterEthService adds an JuchainService client to the stack.
 func RegisterEthService(stack *node.Node, cfg *protocol.Config) {
 	var err error
 	err = stack.Register(func(ctx *node.ServiceContext) (node.Service, error) {
@@ -861,16 +861,16 @@ func RegisterEthService(stack *node.Node, cfg *protocol.Config) {
 	})
 
 	if err != nil {
-		Fatalf("Failed to register the Ethereum service: %v", err)
+		Fatalf("Failed to register the JuchainService service: %v", err)
 	}
 }
 
-// RegisterEthStatsService configures the Ethereum Stats daemon and adds it to
+// RegisterEthStatsService configures the JuchainService Stats daemon and adds it to
 // th egiven node.
 func RegisterEthStatsService(stack *node.Node, url string) {
 	if err := stack.Register(func(ctx *node.ServiceContext) (node.Service, error) {
 		// Retrieve both eth and les services
-		var ethServ *protocol.Ethereum
+		var ethServ *protocol.JuchainService
 		ctx.Service(&ethServ)
 
 		//var lesServ *les.LightEthereum
@@ -878,7 +878,7 @@ func RegisterEthStatsService(stack *node.Node, url string) {
 
 		return protocol.NewStats(url, ethServ)
 	}); err != nil {
-		Fatalf("Failed to register the Ethereum Stats service: %v", err)
+		Fatalf("Failed to register the JuchainService Stats service: %v", err)
 	}
 }
 

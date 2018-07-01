@@ -33,17 +33,19 @@ import (
 	"github.com/juchain/go-juchain/p2p/discover"
 	"github.com/juchain/go-juchain/p2p/node"
 	"github.com/juchain/go-juchain/common"
+	"github.com/juchain/go-juchain/consensus"
+	"github.com/juchain/go-juchain/consensus/dpos"
+	"github.com/juchain/go-juchain/config"
 	"github.com/pkg/errors"
 
 	"fmt"
 )
 
 // DPoS packaging handler.
-
 var (
 	EMPTY_NODEINFO   p2p.NodeInfo;
 	VotingInterval   uint32 = 5;  // vote for packaging node in every 5 seconds.
-	ElectingInterval uint32 = 60; // elect for new node in every 60 seconds.
+	ElectingInterval uint32 = 600; // elect for new node in every 600 seconds.
 	CandidateNumber  uint8 = 21; // we make 21 candidates as the best group for packaging.
 
 	electionInfo     *ElectionInfo; // we use two versions of election info for switching election node smoothly.
@@ -76,23 +78,27 @@ type DPoSProtocolManager struct {
 	newPeerCh     chan *peer;
 	voteTrigger   chan bool;
 	lock          *sync.Mutex; // protects running
+
+	packager      *dpos.Packager;
 }
 
-// NewProtocolManager returns a new ethereum sub protocol manager. The Ethereum sub protocol manages peers capable
+// NewProtocolManager returns a new ethereum sub protocol manager. The JuchainService sub protocol manages peers capable
 // with the ethereum network.
-func NewDPoSProtocolManager(ethManager *ProtocolManager, config *node.Config, mode downloader.SyncMode, networkId uint64, blockchain *core.BlockChain) (*DPoSProtocolManager) {
+func NewDPoSProtocolManager(eth *JuchainService, ethManager *ProtocolManager, config *config.ChainConfig, config2 *node.Config,
+	mode downloader.SyncMode, networkId uint64, blockchain *core.BlockChain, engine consensus.Engine) (*DPoSProtocolManager) {
 	// Create the protocol manager with the base fields
 	blockchainRef = blockchain;
 	manager := &DPoSProtocolManager{
 		networkId:   networkId,
-		blockchain:  blockchain,
 		ethManager:  ethManager,
+		blockchain:  blockchain,
 		newPeerCh:   make(chan *peer),
 		voteTrigger: make(chan bool),
 		lock:        &sync.Mutex{},
+		packager:    dpos.NewPackager(config, engine, DefaultConfig.Etherbase, eth, eth.EventMux()),
 	}
 
-	currNodeId = discover.PubkeyID(&config.NodeKey().PublicKey).TerminalString();
+	currNodeId = discover.PubkeyID(&config2.NodeKey().PublicKey).TerminalString();
 	currNodeIdHash = common.Hex2Bytes(currNodeId);
 	electionInfo = nil;
 	nextElectionInfo = &ElectionInfo{
@@ -111,6 +117,7 @@ func NewDPoSProtocolManager(ethManager *ProtocolManager, config *node.Config, mo
 func (pm *DPoSProtocolManager) Start(maxPeers int) {
 	log.Info("Starting DPoS Consensus")
 
+	pm.packager.Start();
 	go pm.electNodeSafely();
 	go pm.voteSafely();
 	time.AfterFunc(time.Second*time.Duration(ElectingInterval), pm.scheduleElecting);
@@ -218,7 +225,7 @@ func (pm *DPoSProtocolManager) electNode0() {
 				//log.Info("latest check : "+strconv.Itoa(int(time.Now().Unix() - latestActiveENode.Unix())));
 				if ((time.Now().Unix() - electionInfo.latestActiveENode.Unix()) >= int64(VotingInterval*3)) {
 					log.Info("Election connection is inactive from last " + strconv.Itoa(int(time.Now().Unix()-electionInfo.latestActiveENode.Unix())) + " seconds, reset the election state!");
-					electionInfo = nil;
+					electionInfo.latestActiveENode = time.Now();
 					currCandidatesTable = make([]string, 0, CandidateNumber);
 					nextElectionInfo = &ElectionInfo{
 						STATE_LOOKING,
@@ -270,6 +277,7 @@ func (pm *DPoSProtocolManager) Stop() {
 	if (nextElectionInfo != nil) {
 		nextElectionInfo.enodestate = STATE_STOP;
 	}
+	pm.packager.Stop();
 	// Quit the sync loop.
 	log.Info("DPoS Consensus stopped")
 }
@@ -283,6 +291,9 @@ func (pm *DPoSProtocolManager) newPeer(pv int, p *p2p.Peer, rw p2p.MsgReadWriter
 func (pm *DPoSProtocolManager) handleMsg(msg *p2p.Msg, p *peer) error {
 	pm.lock.Lock()
 	defer pm.lock.Unlock()
+	if (electionInfo != nil) {
+		electionInfo.latestActiveENode = time.Now();
+	}
 	// Handle the message depending on its contents
 	switch {
 	case msg.Code == VOTE_ElectionNode_Request:
@@ -388,7 +399,6 @@ func (pm *DPoSProtocolManager) handleMsg(msg *p2p.Msg, p *peer) error {
 
 //----------------------Vote process start--------------------------------//
 	case msg.Code == VOTE_PRESIDENT_Request:
-		electionInfo.latestActiveENode = time.Now();
 		var request VotePresidentRequest;
 		if err := msg.Decode(&request); err != nil {
 			return errResp(DPOSErrDecode, "%v: %v", msg, err);
@@ -418,13 +428,12 @@ func (pm *DPoSProtocolManager) handleMsg(msg *p2p.Msg, p *peer) error {
 		if err := msg.Decode(&response); err != nil {
 			return errResp(DPOSErrDecode, "%v: %v", msg, err);
 		}
-		log.Debug("received a vote response: ");
-		fmt.Sprintf("%+v", response);
-		if (bytes.Equal(electionInfo.electionNodeIdHash, response.ElectionId) && response.Code == DPOSMSG_SUCCESS && currVotingPool.round == response.Round) {
+		log.Debug("received a vote response with round " + strconv.FormatUint(response.Round, 10) + ", candidate: " + strconv.FormatUint(uint64(response.CandicateIndex), 10));
+		if (pm.isElectionNode() && response.Code == DPOSMSG_SUCCESS) {//&& currVotingPool.round == response.Round
 			currVotingPool.voteFor(response.CandicateIndex);
 			return nil;
 		} else {
-			log.Warn("VotePresidentResponse error with result: {}");
+			log.Warn("VotePresidentResponse error!");
 			if currVotingPool.round != response.Round {
 				errors.New("VotePresidentResponse round Id does not match current round! result: ");
 			}
@@ -439,8 +448,7 @@ func (pm *DPoSProtocolManager) handleMsg(msg *p2p.Msg, p *peer) error {
 		if err := msg.Decode(&request); err != nil {
 			return errResp(DPOSErrDecode, "%v: %v", msg, err);
 		}
-		log.Debug("received package request: ");
-		fmt.Sprintf("%+v", request);
+		log.Debug("received package request: " + strconv.FormatUint(request.Round, 10));
 		if (electionInfo.electionNodeId == p.id && bytes.Equal(electionInfo.electionNodeIdHash, request.ElectionId) && currNodeId == request.PresidentId) {
 			// check the best block whether is synchronized or not.
 			//SyncStatus syncStatus = syncManager.getSyncStatus();
@@ -458,8 +466,9 @@ func (pm *DPoSProtocolManager) handleMsg(msg *p2p.Msg, p *peer) error {
 			}
 		} else {
 			log.Warn("Packaging node Id does not match! Request: {}");
+			emptyByte := make([]byte, 0);
 			if pm.sendPackageResponseToElectionNode(&PackageResponse{request.Round,
-				request.PresidentId, request.ElectionId, nil, DPOSErroPACKAGE_VERIFY_FAILURE }) {
+				request.PresidentId, request.ElectionId, common.BytesToHash(emptyByte), DPOSErroPACKAGE_VERIFY_FAILURE }) {
 				return nil;
 			} else {
 				return errors.New("unable to send the response to election node!");
@@ -472,10 +481,10 @@ func (pm *DPoSProtocolManager) handleMsg(msg *p2p.Msg, p *peer) error {
 		}
 		log.Debug("received package response: ");
 		fmt.Sprintf("%+v", response);
-		if (p.id == currVotingPool.selectNodeId && response.Code == DPOSMSG_SUCCESS) {
+		if (pm.isElectionNode() && p.id == currVotingPool.selectNodeId && response.Code == DPOSMSG_SUCCESS) {
 			// got the new generated block and verify.
 			//TODO: headerValidator.validateAndLog(response.getBlockHeader(), logger);
-			currVotingPool.confirmSync(currVotingPool.round, response.PresidentId);
+			//currVotingPool.confirmSync(currVotingPool.round, response.PresidentId);
 			return nil;
 		} else {
 			log.Warn("Packaging response error! Elected president node performs bad, remove it from candicate list. Response: {}", response);
@@ -499,9 +508,9 @@ func (pm *DPoSProtocolManager) handleMsg(msg *p2p.Msg, p *peer) error {
 }
 
 func (pm *DPoSProtocolManager) generateBlock(request PackageRequest) *PackageResponse {
-	//TODO:
+	header := pm.packager.CommitNewWork();
 	log.Info("Generated block!!!");
-	return &PackageResponse{request.Round, request.PresidentId, electionInfo.electionNodeIdHash, nil,DPOSMSG_SUCCESS};
+	return &PackageResponse{request.Round, request.PresidentId, electionInfo.electionNodeIdHash, header.Hash(),DPOSMSG_SUCCESS};
 }
 
 func (self *DPoSProtocolManager) sendVoteRequest(request *VotePresidentRequest) bool {
@@ -611,7 +620,7 @@ func (self *DPoSProtocolManager) voteSafely() {
 			log.Info("Voting the presidents: " + currVotingPool.toString());
 
 			// wait for voting result in the gap of 1 second which is applicable.
-			time.Sleep(time.Duration(1 * 1000));
+			time.Sleep(time.Second * time.Duration(1));
 
 			// new request for packaging the block to remote peer.
 			selectNode, p, err := currVotingPool.maxTicket();
@@ -619,8 +628,11 @@ func (self *DPoSProtocolManager) voteSafely() {
 				log.Warn("no any candidate confirmed the block synced in this round " + strconv.FormatUint(round, 10) + ", revote again!");
 				return;
 			}
+
 			prequest := &PackageRequest{currVotingPool.round, selectNode,
 				electionInfo.electionNodeIdHash};
+			log.Info("Voted info: " + currVotingPool.toString() + ", PackageRequest to: " + prequest.PresidentId);
+
 			if (self.sendPackageRequest(prequest)) {
 				// all candidates must sending the confirmed sync message after mining new block.
 				// this is important to make sure who are the best candidates in the next round.
@@ -630,6 +642,7 @@ func (self *DPoSProtocolManager) voteSafely() {
 				currVotingPool = nil;
 				log.Warn("Failed to package the block from president(" + prequest.PresidentId + ") with " + strconv.FormatUint(prequest.Round, 10) + " round, revote again!");
 			}
+
 		} else {
 			log.Debug("Discard this round during none of candidate's connection existing: " + currVotingPool.toString());
 			currVotingPool = nil;

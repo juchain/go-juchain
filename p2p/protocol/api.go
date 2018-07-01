@@ -35,14 +35,14 @@ import (
 	"github.com/juchain/go-juchain/config"
 )
 
-// PublicEthereumAPI provides an API to access Ethereum full node-related
+// PublicEthereumAPI provides an API to access JuchainService full node-related
 // information.
 type PublicEthereumAPI struct {
-	e *Ethereum
+	e *JuchainService
 }
 
-// NewPublicEthereumAPI creates a new Ethereum protocol API for full nodes.
-func NewPublicEthereumAPI(e *Ethereum) *PublicEthereumAPI {
+// NewPublicEthereumAPI creates a new JuchainService protocol API for full nodes.
+func NewPublicEthereumAPI(e *JuchainService) *PublicEthereumAPI {
 	return &PublicEthereumAPI{e}
 }
 
@@ -61,15 +61,15 @@ func (api *PublicEthereumAPI) Hashrate() hexutil.Uint64 {
 	return 0
 }
 
-// PrivateAdminAPI is the collection of Ethereum full node-related APIs
+// PrivateAdminAPI is the collection of JuchainService full node-related APIs
 // exposed over the private admin endpoint.
 type PrivateAdminAPI struct {
-	eth *Ethereum
+	eth *JuchainService
 }
 
 // NewPrivateAdminAPI creates a new API definition for the full node private
-// admin methods of the Ethereum service.
-func NewPrivateAdminAPI(eth *Ethereum) *PrivateAdminAPI {
+// admin methods of the JuchainService service.
+func NewPrivateAdminAPI(eth *JuchainService) *PrivateAdminAPI {
 	return &PrivateAdminAPI{eth: eth}
 }
 
@@ -154,15 +154,15 @@ func (api *PrivateAdminAPI) ImportChain(file string) (bool, error) {
 	return true, nil
 }
 
-// PublicDebugAPI is the collection of Ethereum full node APIs exposed
+// PublicDebugAPI is the collection of JuchainService full node APIs exposed
 // over the public debugging endpoint.
 type PublicDebugAPI struct {
-	eth *Ethereum
+	eth *JuchainService
 }
 
 // NewPublicDebugAPI creates a new API definition for the full node-
-// related public debug methods of the Ethereum service.
-func NewPublicDebugAPI(eth *Ethereum) *PublicDebugAPI {
+// related public debug methods of the JuchainService service.
+func NewPublicDebugAPI(eth *JuchainService) *PublicDebugAPI {
 	return &PublicDebugAPI{eth: eth}
 }
 
@@ -193,16 +193,16 @@ func (api *PublicDebugAPI) DumpBlock(blockNr rpc.BlockNumber) (state.Dump, error
 	return stateDb.RawDump(), nil
 }
 
-// PrivateDebugAPI is the collection of Ethereum full node APIs exposed over
+// PrivateDebugAPI is the collection of JuchainService full node APIs exposed over
 // the private debugging endpoint.
 type PrivateDebugAPI struct {
 	config *config.ChainConfig
-	eth    *Ethereum
+	eth    *JuchainService
 }
 
 // NewPrivateDebugAPI creates a new API definition for the full node-related
-// private debug methods of the Ethereum service.
-func NewPrivateDebugAPI(config *config.ChainConfig, eth *Ethereum) *PrivateDebugAPI {
+// private debug methods of the JuchainService service.
+func NewPrivateDebugAPI(config *config.ChainConfig, eth *JuchainService) *PrivateDebugAPI {
 	return &PrivateDebugAPI{config: config, eth: eth}
 }
 

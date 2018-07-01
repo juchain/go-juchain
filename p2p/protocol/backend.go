@@ -53,7 +53,7 @@ type LesServer interface {
 }
 
 // Juchain implements the Juchain full node service.
-type Ethereum struct {
+type JuchainService struct {
 	config      *Config
 	chainConfig *config.ChainConfig
 
@@ -89,9 +89,9 @@ type Ethereum struct {
 
 // New creates a new Juchain object (including the
 // initialisation of the common Juchain object)
-func New(ctx *node.ServiceContext, config0 *Config) (*Ethereum, error) {
+func New(ctx *node.ServiceContext, config0 *Config) (*JuchainService, error) {
 	if config0.SyncMode == downloader.LightSync {
-		return nil, errors.New("can't run eth.Ethereum in light sync mode, use les.LightEthereum")
+		return nil, errors.New("can't run eth.JuchainService in light sync mode, use les.LightEthereum")
 	}
 	if !config0.SyncMode.IsValid() {
 		return nil, fmt.Errorf("invalid sync mode %d", config0.SyncMode)
@@ -107,7 +107,7 @@ func New(ctx *node.ServiceContext, config0 *Config) (*Ethereum, error) {
 	}
 	log.Info("Initialised chain configuration", "config0", chainConfig)
 
-	eth := &Ethereum{
+	eth := &JuchainService{
 		config:         config0,
 		chainDb:        chainDb,
 		chainConfig:    chainConfig,
@@ -152,12 +152,9 @@ func New(ctx *node.ServiceContext, config0 *Config) (*Ethereum, error) {
 		config0.TxPool.Journal = ctx.ResolvePath(config0.TxPool.Journal)
 	}
 	eth.txPool = core.NewTxPool(config0.TxPool, eth.chainConfig, eth.blockchain)
-	if eth.protocolManager, err = NewProtocolManager(eth.chainConfig, ctx.Config, config0.SyncMode, config0.NetworkId, eth.eventMux, eth.txPool, eth.engine, eth.blockchain, chainDb); err != nil {
+	if eth.protocolManager, err = NewProtocolManager(eth, eth.chainConfig, ctx.Config, config0.SyncMode, config0.NetworkId, eth.eventMux, eth.txPool, eth.engine, eth.blockchain, chainDb); err != nil {
 		return nil, err
 	}
-
-	//eth.miner = miner.New(eth, eth.chainConfig, eth.EventMux(), eth.engine)
-	//eth.miner.SetExtra(makeExtraData(config0.ExtraData))
 
 	eth.ApiBackend = &EthApiBackend{eth, nil}
 	gpoconfig := config0.GPO
@@ -198,7 +195,7 @@ func CreateDB(ctx *node.ServiceContext, config *Config, name string) (store.Data
 	return db, nil
 }
 
-// CreateConsensusEngine creates the required type of consensus engine instance for an Ethereum service
+// CreateConsensusEngine creates the required type of consensus engine instance for an JuchainService service
 func CreateConsensusEngine(ctx *node.ServiceContext, chainConfig *config.ChainConfig, db store.Database) consensus.Engine {
 	// If proof-of-authority is requested, set it up
 	if (chainConfig.DPoS == nil) {
@@ -209,7 +206,7 @@ func CreateConsensusEngine(ctx *node.ServiceContext, chainConfig *config.ChainCo
 
 // APIs returns the collection of RPC services the ethereum package offers.
 // NOTE, some of these services probably need to be moved to somewhere else.
-func (s *Ethereum) APIs() []rpc.API {
+func (s *JuchainService) APIs() []rpc.API {
 	apis := p2p.GetAPIs(s.ApiBackend)
 
 	// Append any APIs exposed explicitly by the consensus engine
@@ -254,11 +251,11 @@ func (s *Ethereum) APIs() []rpc.API {
 	}...)
 }
 
-func (s *Ethereum) ResetWithGenesisBlock(gb *types.Block) {
+func (s *JuchainService) ResetWithGenesisBlock(gb *types.Block) {
 	s.blockchain.ResetWithGenesisBlock(gb)
 }
 
-func (s *Ethereum) Etherbase() (eb common.Address, err error) {
+func (s *JuchainService) Etherbase() (eb common.Address, err error) {
 	s.lock.RLock()
 	etherbase := s.etherbase
 	s.lock.RUnlock()
@@ -282,7 +279,7 @@ func (s *Ethereum) Etherbase() (eb common.Address, err error) {
 }
 
 // set in js console via admin interface or wrapper from cli flags
-func (self *Ethereum) SetEtherbase(etherbase common.Address) {
+func (self *JuchainService) SetEtherbase(etherbase common.Address) {
 	self.lock.Lock()
 	self.etherbase = etherbase
 	self.lock.Unlock()
@@ -290,26 +287,26 @@ func (self *Ethereum) SetEtherbase(etherbase common.Address) {
 	//self.miner.SetEtherbase(etherbase)
 }
 
-func (s *Ethereum) AccountManager() *account.Manager  { return s.accountManager }
-func (s *Ethereum) BlockChain() *core.BlockChain       { return s.blockchain }
-func (s *Ethereum) TxPool() *core.TxPool               { return s.txPool }
-func (s *Ethereum) EventMux() *event.TypeMux           { return s.eventMux }
-func (s *Ethereum) Engine() consensus.Engine           { return s.engine }
-func (s *Ethereum) ChainDb() store.Database            { return s.chainDb }
-func (s *Ethereum) IsListening() bool                  { return true } // Always listening
-func (s *Ethereum) EthVersion() int                    { return int(s.protocolManager.SubProtocols[0].Version) }
-func (s *Ethereum) NetVersion() uint64                 { return s.networkId }
-func (s *Ethereum) Downloader() *downloader.Downloader { return s.protocolManager.downloader }
+func (s *JuchainService) AccountManager() *account.Manager   { return s.accountManager }
+func (s *JuchainService) BlockChain() *core.BlockChain       { return s.blockchain }
+func (s *JuchainService) TxPool() *core.TxPool               { return s.txPool }
+func (s *JuchainService) EventMux() *event.TypeMux           { return s.eventMux }
+func (s *JuchainService) Engine() consensus.Engine           { return s.engine }
+func (s *JuchainService) ChainDb() store.Database            { return s.chainDb }
+func (s *JuchainService) IsListening() bool                  { return true } // Always listening
+func (s *JuchainService) EthVersion() int                    { return int(s.protocolManager.SubProtocols[0].Version) }
+func (s *JuchainService) NetVersion() uint64                 { return s.networkId }
+func (s *JuchainService) Downloader() *downloader.Downloader { return s.protocolManager.downloader }
 
 // Protocols implements node.Service, returning all the currently configured
 // network protocols to start.
-func (s *Ethereum) Protocols() []p2p.Protocol {
+func (s *JuchainService) Protocols() []p2p.Protocol {
 	return s.protocolManager.SubProtocols
 }
 
 // Start implements node.Service, starting all internal goroutines needed by the
-// Ethereum protocol implementation.
-func (s *Ethereum) Start(srvr *p2p.Server) error {
+// JuchainService protocol implementation.
+func (s *JuchainService) Start(srvr *p2p.Server) error {
 	// Start the bloom bits servicing goroutines
 	s.startBloomHandlers()
 
@@ -331,8 +328,8 @@ func (s *Ethereum) Start(srvr *p2p.Server) error {
 }
 
 // Stop implements node.Service, terminating all internal goroutines used by the
-// Ethereum protocol.
-func (s *Ethereum) Stop() error {
+// JuchainService protocol.
+func (s *JuchainService) Stop() error {
 	if s.stopDbUpgrade != nil {
 		s.stopDbUpgrade()
 	}
