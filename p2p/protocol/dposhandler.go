@@ -508,7 +508,7 @@ func (pm *DPoSProtocolManager) handleMsg(msg *p2p.Msg, p *peer) error {
 }
 
 func (pm *DPoSProtocolManager) generateBlock(request PackageRequest) *PackageResponse {
-	header := pm.packager.CommitNewWork();
+	header := pm.packager.GenerateNewBlock();
 	log.Info("Generated block!!!");
 	return &PackageResponse{request.Round, request.PresidentId, electionInfo.electionNodeIdHash, header.Hash(),DPOSMSG_SUCCESS};
 }

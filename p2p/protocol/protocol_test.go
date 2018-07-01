@@ -37,8 +37,8 @@ func init() {
 var testAccount, _ = crypto.HexToECDSA("b71c71a67e1177ad4e901695e1b4b9ee17ae16c6668d313eac2f96dbcda3f291")
 
 // Tests that handshake failures are detected and reported correctly.
-func TestStatusMsgErrors62(t *testing.T) { testStatusMsgErrors(t, 62) }
-func TestStatusMsgErrors63(t *testing.T) { testStatusMsgErrors(t, 63) }
+func TestStatusMsgErrors62(t *testing.T) { testStatusMsgErrors(t, 1) }
+func TestStatusMsgErrors63(t *testing.T) { testStatusMsgErrors(t, 2) }
 
 func testStatusMsgErrors(t *testing.T, protocol int) {
 	pm, _ := newTestProtocolManagerMust(t, downloader.FullSync, 0, nil, nil)
@@ -93,8 +93,8 @@ func testStatusMsgErrors(t *testing.T, protocol int) {
 }
 
 // This test checks that received transactions are added to the local pool.
-func TestRecvTransactions62(t *testing.T) { testRecvTransactions(t, 62) }
-func TestRecvTransactions63(t *testing.T) { testRecvTransactions(t, 63) }
+func TestRecvTransactions62(t *testing.T) { testRecvTransactions(t, 1) }
+func TestRecvTransactions63(t *testing.T) { testRecvTransactions(t, 2) }
 
 func testRecvTransactions(t *testing.T, protocol int) {
 	txAdded := make(chan []*types.Transaction)
@@ -121,8 +121,8 @@ func testRecvTransactions(t *testing.T, protocol int) {
 }
 
 // This test checks that pending transactions are sent.
-func TestSendTransactions62(t *testing.T) { testSendTransactions(t, 62) }
-func TestSendTransactions63(t *testing.T) { testSendTransactions(t, 63) }
+func TestSendTransactions62(t *testing.T) { testSendTransactions(t, 1) }
+func TestSendTransactions63(t *testing.T) { testSendTransactions(t, 2) }
 
 func testSendTransactions(t *testing.T, protocol int) {
 	pm, _ := newTestProtocolManagerMust(t, downloader.FullSync, 0, nil, nil)

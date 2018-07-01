@@ -89,7 +89,7 @@ var (
 	errCancelHeaderProcessing  = errors.New("header processing canceled (requested)")
 	errCancelContentProcessing = errors.New("content processing canceled (requested)")
 	errNoSyncActive            = errors.New("no sync active")
-	errTooOld                  = errors.New("peer doesn't speak recent enough protocol version (need version >= 62)")
+	errTooOld                  = errors.New("peer doesn't speak recent enough protocol version (need version >= 2)")
 )
 
 type Downloader struct {
@@ -411,7 +411,7 @@ func (d *Downloader) syncWithPeer(p *peerConnection, hash common.Hash, td *big.I
 			d.mux.Post(DoneEvent{})
 		}
 	}()
-	if p.version < 62 {
+	if p.version < eth62 {
 		return errTooOld
 	}
 
@@ -1104,6 +1104,7 @@ func (d *Downloader) fetchParts(errCancel error, deliveryCh chan dataPack, deliv
 			idles, total := idle()
 
 			for _, peer := range idles {
+				peer.log.Info("trying to download from peer " + peer.id);
 				// Short circuit if throttling activated
 				if throttle() {
 					throttled = true

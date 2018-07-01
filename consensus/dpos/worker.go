@@ -80,11 +80,6 @@ type Work struct {
 	createdAt time.Time
 }
 
-type Result struct {
-	Work  *Work
-	Block *types.Block
-}
-
 // Packager is the main object which takes care of applying messages to the new state
 type Packager struct {
 	config *config.ChainConfig
@@ -101,9 +96,6 @@ type Packager struct {
 	chainSideCh  chan core.ChainSideEvent
 	chainSideSub event.Subscription
 	wg           sync.WaitGroup
-
-	agents map[Agent]struct{}
-	recv   chan *Result
 
 	eth     Backend
 	chain   *core.BlockChain
@@ -140,12 +132,10 @@ func NewPackager(config *config.ChainConfig, engine consensus.Engine, coinbase c
 		chainHeadCh:    make(chan core.ChainHeadEvent, chainHeadChanSize),
 		chainSideCh:    make(chan core.ChainSideEvent, chainSideChanSize),
 		chainDb:        eth.ChainDb(),
-		recv:           make(chan *Result, resultQueueSize),
 		chain:          eth.BlockChain(),
 		proc:           eth.BlockChain().Validator(),
 		possibleUncles: make(map[common.Hash]*types.Block),
 		coinbase:       coinbase,
-		agents:         make(map[Agent]struct{}),
 		unconfirmed:    newUnconfirmedBlocks(eth.BlockChain(), miningLogAtDepth),
 	}
 	// Subscribe TxPreEvent for tx pool
@@ -153,11 +143,6 @@ func NewPackager(config *config.ChainConfig, engine consensus.Engine, coinbase c
 	// Subscribe events for blockchain
 	worker.chainHeadSub = eth.BlockChain().SubscribeChainHeadEvent(worker.chainHeadCh)
 	worker.chainSideSub = eth.BlockChain().SubscribeChainSideEvent(worker.chainSideCh)
-	worker.register(NewCpuAgent(eth.BlockChain(), engine))
-	go worker.update()
-
-	go worker.wait()
-	worker.CommitNewWork()
 
 	return worker
 }
@@ -199,11 +184,6 @@ func (self *Packager) Start() {
 	defer self.mu.Unlock()
 
 	atomic.StoreInt32(&self.mining, 1)
-
-	// spin up agents
-	for agent := range self.agents {
-		agent.Start()
-	}
 }
 
 func (self *Packager) Stop() {
@@ -211,142 +191,9 @@ func (self *Packager) Stop() {
 
 	self.mu.Lock()
 	defer self.mu.Unlock()
-	if atomic.LoadInt32(&self.mining) == 1 {
-		for agent := range self.agents {
-			agent.Stop()
-		}
-	}
+
 	atomic.StoreInt32(&self.mining, 0)
 	atomic.StoreInt32(&self.atWork, 0)
-}
-
-func (self *Packager) register(agent Agent) {
-	self.mu.Lock()
-	defer self.mu.Unlock()
-	self.agents[agent] = struct{}{}
-	agent.SetReturnCh(self.recv)
-}
-
-func (self *Packager) unregister(agent Agent) {
-	self.mu.Lock()
-	defer self.mu.Unlock()
-	delete(self.agents, agent)
-	agent.Stop()
-}
-
-func (self *Packager) update() {
-	defer self.txSub.Unsubscribe()
-	defer self.chainHeadSub.Unsubscribe()
-	defer self.chainSideSub.Unsubscribe()
-
-	for {
-		// A real event arrived, process interesting content
-		select {
-		// Handle ChainHeadEvent
-		case <-self.chainHeadCh:
-			self.CommitNewWork()
-
-		// Handle ChainSideEvent
-		case ev := <-self.chainSideCh:
-			self.uncleMu.Lock()
-			self.possibleUncles[ev.Block.Hash()] = ev.Block
-			self.uncleMu.Unlock()
-
-		// Handle TxPreEvent
-		case ev := <-self.txCh:
-			// Apply transaction to the pending state if we're not mining
-			if atomic.LoadInt32(&self.mining) == 0 {
-				self.currentMu.Lock()
-				acc, _ := types.Sender(self.current.signer, ev.Tx)
-				txs := map[common.Address]types.Transactions{acc: {ev.Tx}}
-				txset := types.NewTransactionsByPriceAndNonce(self.current.signer, txs)
-
-				self.current.commitTransactions(self.mux, txset, self.chain, self.coinbase)
-				self.updateSnapshot()
-				self.currentMu.Unlock()
-			} else {
-				// If we're mining, but nothing is being processed, wake on new transactions
-				if self.config.DPoS != nil && self.config.DPoS.Period == 0 {
-					self.CommitNewWork()
-				}
-			}
-
-		// System stopped
-		case <-self.txSub.Err():
-			return
-		case <-self.chainHeadSub.Err():
-			return
-		case <-self.chainSideSub.Err():
-			return
-		}
-	}
-}
-
-func (self *Packager) wait() {
-	for {
-		mustCommitNewWork := true
-		for result := range self.recv {
-			atomic.AddInt32(&self.atWork, -1)
-
-			if result == nil {
-				continue
-			}
-			block := result.Block
-			work := result.Work
-
-			// Update the block hash in all logs since it is now available and not when the
-			// receipt/log of individual transactions were created.
-			for _, r := range work.receipts {
-				for _, l := range r.Logs {
-					l.BlockHash = block.Hash()
-				}
-			}
-			for _, log := range work.state.Logs() {
-				log.BlockHash = block.Hash()
-			}
-			stat, err := self.chain.WriteBlockWithState(block, work.receipts, work.state)
-			if err != nil {
-				log.Error("Failed writing block to chain", "err", err)
-				continue
-			}
-			// check if canon block and write transactions
-			if stat == core.CanonStatTy {
-				// implicit by posting ChainHeadEvent
-				mustCommitNewWork = false
-			}
-			// Broadcast the block and announce chain insertion event
-			self.mux.Post(core.NewMinedBlockEvent{Block: block})
-			var (
-				events []interface{}
-				logs   = work.state.Logs()
-			)
-			events = append(events, core.ChainEvent{Block: block, Hash: block.Hash(), Logs: logs})
-			if stat == core.CanonStatTy {
-				events = append(events, core.ChainHeadEvent{Block: block})
-			}
-			self.chain.PostChainEvents(events, logs)
-
-			// Insert the block into the set of pending ones to wait for confirmations
-			self.unconfirmed.Insert(block.NumberU64(), block.Hash())
-
-			if mustCommitNewWork {
-				self.CommitNewWork()
-			}
-		}
-	}
-}
-
-// push sends a new work task to currently live miner agents.
-func (self *Packager) push(work *Work) {
-	if atomic.LoadInt32(&self.mining) != 1 {
-		return
-	}
-	for agent := range self.agents {
-		atomic.AddInt32(&self.atWork, 1)
-		if ch := agent.Work(); ch != nil {
-			ch <- work
-		}
-	}
 }
 
 // makeCurrent creates a new environment for the current cycle.
@@ -381,7 +228,7 @@ func (self *Packager) makeCurrent(parent *types.Block, header *types.Header) err
 	return nil
 }
 
-func (self *Packager) CommitNewWork() *types.Header {
+func (self *Packager) GenerateNewBlock() *types.Header {
 	self.mu.Lock()
 	defer self.mu.Unlock()
 	self.uncleMu.Lock()
@@ -468,9 +315,47 @@ func (self *Packager) CommitNewWork() *types.Header {
 		log.Info("Commit new mining work", "number", work.Block.Number(), "txs", work.tcount, "uncles", len(uncles), "elapsed", common.PrettyDuration(time.Since(tstart)))
 		self.unconfirmed.Shift(work.Block.NumberU64() - 1)
 	}
-	self.push(work)
+
+	self.afterGeneration(work);
 	self.updateSnapshot()
 	return self.snapshotBlock.Header();
+}
+
+func (self *Packager) afterGeneration(work *Work) *types.Header {
+	atomic.AddInt32(&self.atWork, -1)
+
+	block := work.Block;
+
+	// Update the block hash in all logs since it is now available and not when the
+	// receipt/log of individual transactions were created.
+	for _, r := range work.receipts {
+		for _, l := range r.Logs {
+			l.BlockHash = block.Hash()
+		}
+	}
+	for _, log := range work.state.Logs() {
+		log.BlockHash = block.Hash()
+	}
+	stat, err := self.chain.WriteBlockWithState(block, work.receipts, work.state)
+	if err != nil {
+		log.Error("Failed writing block to chain", "err", err)
+		return nil;
+	}
+	// Broadcast the block and announce chain insertion event
+	self.mux.Post(core.NewMinedBlockEvent{Block: block})
+	var (
+		events []interface{}
+		logs   = work.state.Logs()
+	)
+	events = append(events, core.ChainEvent{Block: block, Hash: block.Hash(), Logs: logs})
+	if stat == core.CanonStatTy {
+		events = append(events, core.ChainHeadEvent{Block: block})
+	}
+	self.chain.PostChainEvents(events, logs)
+
+	// Insert the block into the set of pending ones to wait for confirmations
+	self.unconfirmed.Insert(block.NumberU64(), block.Hash())
+	return block.Header();
 }
 
 func (self *Packager) commitUncle(work *Work, uncle *types.Header) error {

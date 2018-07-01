@@ -39,6 +39,7 @@ import (
 	"github.com/juchain/go-juchain/p2p/discover"
 	"github.com/juchain/go-juchain/config"
 	"github.com/juchain/go-juchain/p2p/node"
+	"github.com/juchain/go-juchain/consensus/dpos"
 )
 
 var (
@@ -58,15 +59,16 @@ func newTestProtocolManager(mode downloader.SyncMode, blocks int, generator func
 			Alloc:  core.GenesisAlloc{testBank: {Balance: big.NewInt(1000000)}},
 		}
 		genesis       = gspec.MustCommit(db)
-		blockchain, _ = core.NewBlockChain(db, nil, gspec.Config, nil, vm.Config{})
+		engine        = dpos.New(&config.DPoSConfig{}, nil);
+		blockchain, _ = core.NewBlockChain(db, nil, gspec.Config, engine, vm.Config{})
 		config2       = &node.Config{}
 	)
-	chain, _ := core.GenerateChain(gspec.Config, genesis, nil, db, blocks, generator)
+	chain, _ := core.GenerateChain(gspec.Config, genesis, engine, db, blocks, generator)
 	if _, err := blockchain.InsertChain(chain); err != nil {
 		panic(err)
 	}
 
-	pm, err := NewProtocolManager(gspec.Config, config2, mode, DefaultConfig.NetworkId, evmux, &testTxPool{added: newtx}, nil, blockchain, db)
+	pm, err := NewProtocolManager(nil, gspec.Config, config2, mode, DefaultConfig.NetworkId, evmux, &testTxPool{added: newtx}, engine, blockchain, db)
 	if err != nil {
 		return nil, nil, err
 	}
