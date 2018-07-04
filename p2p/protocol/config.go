@@ -32,7 +32,7 @@ import (
 
 // DefaultConfig contains default settings for use on the JuchainService main net.
 var DefaultConfig = Config{
-	SyncMode: downloader.FastSync,
+	SyncMode: downloader.FullSync,
 	NetworkId:     1,
 	LightPeers:    100,
 	DatabaseCache: 768,

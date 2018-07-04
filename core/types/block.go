@@ -30,6 +30,8 @@ import (
 	"github.com/juchain/go-juchain/common/hexutil"
 	"github.com/juchain/go-juchain/common/crypto/sha3"
 	"github.com/juchain/go-juchain/common/rlp"
+	"github.com/juchain/go-juchain/common/log"
+	"fmt"
 )
 
 var (
@@ -84,8 +86,8 @@ type Header struct {
 	MixDigest   common.Hash    `json:"mixHash"          gencodec:"required"`
 	Nonce       BlockNonce     `json:"nonce"            gencodec:"required"`
 	Round       uint64         `json:"round"            gencodec:"required"` // DPoS support: the round number.
-	//Round2    uint64         `json:"round"            gencodec:"required"` // DPoS support: the round2 number if round number is exceeded.
-	PresidentId string         `json:"rresidentId"      gencodec:"required"` // DPoS support: the president id.
+	Round2      uint64         `json:"round2"           gencodec:"required"` // DPoS support: the round2 number if round number is exceeded.
+	PresidentId string         `json:"presidentId"      gencodec:"required"` // DPoS support: the president id.
 }
 
 // field type overrides for gencodec
@@ -122,6 +124,7 @@ func (h *Header) HashNoNonce() common.Hash {
 		h.Time,
 		h.Extra,
 		h.Round,
+		h.Round2,
 		h.PresidentId,
 	})
 }
@@ -208,6 +211,7 @@ func NewBlock(header *Header, txs []*Transaction, uncles []*Header, receipts []*
 	// TODO: panic if len(txs) != len(receipts)
 	if len(txs) == 0 {
 		b.header.TxHash = EmptyRootHash
+		//log.Info("new empty txhash: " + EmptyRootHash.String())
 	} else {
 		b.header.TxHash = DeriveSha(Transactions(txs))
 		b.transactions = make(Transactions, len(txs))
@@ -324,15 +328,12 @@ func (b *Block) ReceiptHash() common.Hash { return b.header.ReceiptHash }
 func (b *Block) UncleHash() common.Hash   { return b.header.UncleHash }
 func (b *Block) Extra() []byte            { return common.CopyBytes(b.header.Extra) }
 func (b *Block) Round() uint64            { return b.header.Round }
-
-func (b *Block) Header() *Header { return CopyHeader(b.header) }
-
+func (b *Block) Round2() uint64            { return b.header.Round2 }
+func (b *Block) PesidentID() string       { return b.header.PresidentId }
+func (b *Block) Header() *Header          { return CopyHeader(b.header) }
 // Body returns the non-header content of the block.
-func (b *Block) Body() *Body { return &Body{b.transactions, b.uncles} }
-
-func (b *Block) HashNoNonce() common.Hash {
-	return b.header.HashNoNonce()
-}
+func (b *Block) Body() *Body              { return &Body{b.transactions, b.uncles} }
+func (b *Block) HashNoNonce() common.Hash { return b.header.HashNoNonce() }
 
 // Size returns the true RLP encoded storage size of the block, either by encoding
 // and returning it, or returning a previsouly cached value.
@@ -344,6 +345,30 @@ func (b *Block) Size() common.StorageSize {
 	rlp.Encode(&c, b)
 	b.size.Store(common.StorageSize(c))
 	return common.StorageSize(c)
+}
+
+func (b *Block) ToString() {
+	log.Info(fmt.Sprintf(`
+############### BLOCK INFO #############
+
+Number: %v
+Round: %v
+PesidentID: %v
+Hash: 0x%x
+Root: 0x%x
+ParentHash: 0x%x
+GasLimit: 0x%x
+GasUsed: 0x%x
+Difficulty: %v
+MixDigest: %v
+Nonce: %v
+Coinbase: %v
+TxHash: 0x%x
+ReceiptHash: 0x%x
+UncleHash: 0x%x
+
+########################################
+`, b.Number(), b.Round(), b.PesidentID(), b.Hash(), b.Root(), b.ParentHash(), b.GasLimit(), b.GasUsed(), b.Difficulty(), b.MixDigest(), b.Nonce(), b.Coinbase(), b.TxHash(), b.ReceiptHash(), b.UncleHash()))
 }
 
 type writeCounter common.StorageSize

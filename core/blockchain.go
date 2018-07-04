@@ -885,7 +885,7 @@ func (bc *BlockChain) WriteBlockWithState(block *types.Block, receipts []*types.
 	if err := WriteBlock(batch, block); err != nil {
 		return NonStatTy, err
 	}
-	root, err := state.Commit(bc.chainConfig.IsEIP158(block.Number()))
+	root, err := state.Commit(true)
 	if err != nil {
 		return NonStatTy, err
 	}
@@ -1048,6 +1048,9 @@ func (bc *BlockChain) insertChain(chain types.Blocks) (int, []interface{}, []*ty
 		// Wait for the block's verification to complete
 		bstart := time.Now()
 
+		log.Info("insert block into chain ", block.Hash().String());
+		block.ToString();
+
 		err := <-results
 		if err == nil {
 			err = bc.Validator().ValidateBody(block)
@@ -1122,6 +1125,8 @@ func (bc *BlockChain) insertChain(chain types.Blocks) (int, []interface{}, []*ty
 		} else {
 			parent = chain[i-1]
 		}
+
+		log.Info("stateRoot: " + parent.Root().String())
 		state, err := state.New(parent.Root(), bc.stateCache)
 		if err != nil {
 			return i, events, coalescedLogs, err

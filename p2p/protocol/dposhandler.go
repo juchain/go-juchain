@@ -459,7 +459,7 @@ func (pm *DPoSProtocolManager) handleMsg(msg *p2p.Msg, p *peer) error {
 			//	return nil;
 			//}
 
-			if pm.sendPackageResponseToElectionNode(pm.generateBlock(request)) {
+			if pm.sendPackageResponseToElectionNode(pm.generateBlock(&request)) {
 				return nil;
 			} else {
 				return errors.New("unable to send the response to election node!");
@@ -507,10 +507,10 @@ func (pm *DPoSProtocolManager) handleMsg(msg *p2p.Msg, p *peer) error {
 	return nil
 }
 
-func (pm *DPoSProtocolManager) generateBlock(request PackageRequest) *PackageResponse {
-	header := pm.packager.GenerateNewBlock();
-	log.Info("Generated block!!!");
-	return &PackageResponse{request.Round, request.PresidentId, electionInfo.electionNodeIdHash, header.Hash(),DPOSMSG_SUCCESS};
+func (pm *DPoSProtocolManager) generateBlock(request *PackageRequest) *PackageResponse {
+	block := pm.packager.GenerateNewBlock(request.Round, request.PresidentId);
+	block.ToString();
+	return &PackageResponse{request.Round, request.PresidentId, electionInfo.electionNodeIdHash, block.Hash(),DPOSMSG_SUCCESS};
 }
 
 func (self *DPoSProtocolManager) sendVoteRequest(request *VotePresidentRequest) bool {
@@ -525,7 +525,7 @@ func (self *DPoSProtocolManager) sendVoteRequest(request *VotePresidentRequest) 
 func (self *DPoSProtocolManager) sendPackageResponseToElectionNode(response *PackageResponse) bool {
 	c := self.ethManager.peers.PeersById(electionInfo.electionNodeId);
 	if (c == nil) {
-		log.Warn("Election p2p channel does not exit! unable to send response to the election node.");
+		log.Warn("Election peer does not exit! unable to send response to the election node.");
 		return false;
 	}
 	c.SendPackageResponse(response);
@@ -535,7 +535,7 @@ func (self *DPoSProtocolManager) sendPackageResponseToElectionNode(response *Pac
 func (self *DPoSProtocolManager) sendVoteResponseToElectionNode(response *VotePresidentResponse) bool {
 	c := self.ethManager.peers.PeersById(electionInfo.electionNodeId);
 	if (c == nil) {
-		log.Warn("Election p2p channel does not exit! unable to send response to the election node.");
+		log.Warn("Election peer does not exit! unable to send response to the election node.");
 		return false;
 	}
 	c.SendVotePresidentResponse(response);
@@ -545,7 +545,7 @@ func (self *DPoSProtocolManager) sendVoteResponseToElectionNode(response *VotePr
 func (self *DPoSProtocolManager) sendConfirmedSyncToElectionNode(response *ConfirmedSyncMessage) bool {
 	c := self.ethManager.peers.PeersById(electionInfo.electionNodeId);
 	if (c == nil) {
-		log.Warn("Election p2p channel does not exit! unable to send response to the election node.");
+		log.Warn("Election peer does not exit! unable to send response to the election node.");
 		return false;
 	}
 	c.SendConfirmedSyncMessage(response);
@@ -555,7 +555,7 @@ func (self *DPoSProtocolManager) sendConfirmedSyncToElectionNode(response *Confi
 func (self *DPoSProtocolManager) sendPackageRequest(response *PackageRequest) bool {
 	c := self.ethManager.peers.PeersById(response.PresidentId);
 	if (c == nil) {
-		log.Warn("Channel does not exit! unable to send packaging request to voted node " + response.PresidentId);
+		log.Warn("Peer does not exit! unable to send packaging request to voted node " + response.PresidentId);
 		return false;
 	}
 	c.SendPackageRequest(response);
@@ -633,14 +633,19 @@ func (self *DPoSProtocolManager) voteSafely() {
 				electionInfo.electionNodeIdHash};
 			log.Info("Voted info: " + currVotingPool.toString() + ", PackageRequest to: " + prequest.PresidentId);
 
-			if (self.sendPackageRequest(prequest)) {
-				// all candidates must sending the confirmed sync message after mining new block.
-				// this is important to make sure who are the best candidates in the next round.
-				log.Info("Voted info: " + currVotingPool.toString() + ", Node info: " + selectNode);
+			if (selectNode == currNodeId) {
+				// generate block by election node.
+				self.generateBlock(prequest);
 			} else {
-				self.removeCanditate(currCandidatesTable, int(p));
-				currVotingPool = nil;
-				log.Warn("Failed to package the block from president(" + prequest.PresidentId + ") with " + strconv.FormatUint(prequest.Round, 10) + " round, revote again!");
+				if (self.sendPackageRequest(prequest)) {
+					// all candidates must sending the confirmed sync message after mining new block.
+					// this is important to make sure who are the best candidates in the next round.
+					log.Info("Voted info: " + currVotingPool.toString() + ", Node info: " + selectNode);
+				} else {
+					self.removeCanditate(currCandidatesTable, int(p));
+					currVotingPool = nil;
+					log.Warn("Failed to package the block from president(" + prequest.PresidentId + ") with " + strconv.FormatUint(prequest.Round, 10) + " round, revote again!");
+				}
 			}
 
 		} else {

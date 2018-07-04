@@ -30,6 +30,9 @@ func (h Header) MarshalJSON() ([]byte, error) {
 		Extra       hexutil.Bytes  `json:"extraData"        gencodec:"required"`
 		MixDigest   common.Hash    `json:"mixHash"          gencodec:"required"`
 		Nonce       BlockNonce     `json:"nonce"            gencodec:"required"`
+		Round       uint64         `json:"round"            gencodec:"required"`
+		Round2      uint64         `json:"round2"           gencodec:"required"`
+		PresidentId string         `json:"presidentId"      gencodec:"required"`
 		Hash        common.Hash    `json:"hash"`
 	}
 	var enc Header
@@ -69,6 +72,9 @@ func (h *Header) UnmarshalJSON(input []byte) error {
 		Extra       *hexutil.Bytes  `json:"extraData"        gencodec:"required"`
 		MixDigest   *common.Hash    `json:"mixHash"          gencodec:"required"`
 		Nonce       *BlockNonce     `json:"nonce"            gencodec:"required"`
+		Round       uint64          `json:"round"            gencodec:"required"`
+		Round2      uint64          `json:"round2"           gencodec:"required"`
+		PresidentId string          `json:"presidentId"      gencodec:"required"`
 	}
 	var dec Header
 	if err := json.Unmarshal(input, &dec); err != nil {

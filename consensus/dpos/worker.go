@@ -100,13 +100,11 @@ type Packager struct {
 	eth     Backend
 	chain   *core.BlockChain
 	proc    core.Validator
-	chainDb store.Database
 
 	coinbase common.Address
 	extra    []byte
 
 	currentMu sync.Mutex
-	current   *Work
 
 	snapshotMu    sync.RWMutex
 	snapshotBlock *types.Block
@@ -119,7 +117,6 @@ type Packager struct {
 
 	// atomic status counters
 	mining int32
-	atWork int32
 }
 
 func NewPackager(config *config.ChainConfig, engine consensus.Engine, coinbase common.Address, eth Backend, mux *event.TypeMux) *Packager {
@@ -131,7 +128,6 @@ func NewPackager(config *config.ChainConfig, engine consensus.Engine, coinbase c
 		txCh:           make(chan core.TxPreEvent, txChanSize),
 		chainHeadCh:    make(chan core.ChainHeadEvent, chainHeadChanSize),
 		chainSideCh:    make(chan core.ChainSideEvent, chainSideChanSize),
-		chainDb:        eth.ChainDb(),
 		chain:          eth.BlockChain(),
 		proc:           eth.BlockChain().Validator(),
 		possibleUncles: make(map[common.Hash]*types.Block),
@@ -153,32 +149,6 @@ func (self *Packager) setExtra(extra []byte) {
 	self.extra = extra
 }
 
-func (self *Packager) pending() (*types.Block, *state.StateDB) {
-	if atomic.LoadInt32(&self.mining) == 0 {
-		// return a snapshot to avoid contention on currentMu mutex
-		self.snapshotMu.RLock()
-		defer self.snapshotMu.RUnlock()
-		return self.snapshotBlock, self.snapshotState.Copy()
-	}
-
-	self.currentMu.Lock()
-	defer self.currentMu.Unlock()
-	return self.current.Block, self.current.state.Copy()
-}
-
-func (self *Packager) pendingBlock() *types.Block {
-	if atomic.LoadInt32(&self.mining) == 0 {
-		// return a snapshot to avoid contention on currentMu mutex
-		self.snapshotMu.RLock()
-		defer self.snapshotMu.RUnlock()
-		return self.snapshotBlock
-	}
-
-	self.currentMu.Lock()
-	defer self.currentMu.Unlock()
-	return self.current.Block
-}
-
 func (self *Packager) Start() {
 	self.mu.Lock()
 	defer self.mu.Unlock()
@@ -193,14 +163,13 @@ func (self *Packager) Stop() {
 	defer self.mu.Unlock()
 
 	atomic.StoreInt32(&self.mining, 0)
-	atomic.StoreInt32(&self.atWork, 0)
 }
 
 // makeCurrent creates a new environment for the current cycle.
-func (self *Packager) makeCurrent(parent *types.Block, header *types.Header) error {
+func (self *Packager) makeCurrent(parent *types.Block, header *types.Header) (*Work, error) {
 	state, err := self.chain.StateAt(parent.Root())
 	if err != nil {
-		return err
+		return nil, err;
 	}
 	work := &Work{
 		config:    self.config,
@@ -224,11 +193,10 @@ func (self *Packager) makeCurrent(parent *types.Block, header *types.Header) err
 
 	// Keep track of transactions which return errors so they can be removed
 	work.tcount = 0
-	self.current = work
-	return nil
+	return work, nil
 }
 
-func (self *Packager) GenerateNewBlock() *types.Header {
+func (self *Packager) GenerateNewBlock(round uint64, presidentId string) *types.Block {
 	self.mu.Lock()
 	defer self.mu.Unlock()
 	self.uncleMu.Lock()
@@ -249,38 +217,37 @@ func (self *Packager) GenerateNewBlock() *types.Header {
 		log.Info("Mining too far in the future", "wait", common.PrettyDuration(wait))
 		time.Sleep(wait)
 	}
-
+	//log.Info("Parent block("+parent.Number().String()+") with State root " + parent.Root().String())
 	num := parent.Number()
 	header := &types.Header{
-		ParentHash: parent.Hash(),
-		Number:     num.Add(num, common.Big1),
-		GasLimit:   core.CalcGasLimit(parent),
-		Extra:      self.extra,
-		Time:       big.NewInt(tstamp),
+		Round:       round,
+		PresidentId: presidentId,
+		ParentHash:  parent.Hash(),
+		Number:      num.Add(num, common.Big1),
+		GasLimit:    core.CalcGasLimit(parent),
+		Extra:       self.extra,
+		Time:        big.NewInt(tstamp),
 	}
-	// Only set the coinbase if we are mining (avoid spurious block rewards)
-	if atomic.LoadInt32(&self.mining) == 1 {
-		header.Coinbase = self.coinbase
-	}
+	header.Coinbase = self.coinbase
+
 	if err := self.engine.Prepare(self.chain, header); err != nil {
 		log.Error("Failed to prepare header for mining", "err", err)
 		return nil;
 	}
 
 	// Could potentially happen if starting to mine in an odd state.
-	err := self.makeCurrent(parent, header)
+	work, err := self.makeCurrent(parent, header)
 	if err != nil {
 		log.Error("Failed to create mining context", "err", err)
 		return nil;
 	}
 	// Create the current work task and check any fork transitions needed
-	work := self.current
 	pending, err := self.eth.TxPool().Pending()
 	if err != nil {
 		log.Error("Failed to fetch pending transactions", "err", err)
 		return nil;
 	}
-	txs := types.NewTransactionsByPriceAndNonce(self.current.signer, pending)
+	txs := types.NewTransactionsByPriceAndNonce(work.signer, pending)
 	work.commitTransactions(self.mux, txs, self.chain, self.coinbase)
 
 	// compute uncles for the new block.
@@ -305,24 +272,15 @@ func (self *Packager) GenerateNewBlock() *types.Header {
 	for _, hash := range badUncles {
 		delete(self.possibleUncles, hash)
 	}
+
 	// Create the new block to seal with the consensus engine
 	if work.Block, err = self.engine.Finalize(self.chain, header, work.state, work.txs, uncles, work.receipts); err != nil {
 		log.Error("Failed to finalize block for sealing", "err", err)
 		return nil;
 	}
-	// We only care about logging if we're actually mining.
-	if atomic.LoadInt32(&self.mining) == 1 {
-		log.Info("Commit new mining work", "number", work.Block.Number(), "txs", work.tcount, "uncles", len(uncles), "elapsed", common.PrettyDuration(time.Since(tstart)))
-		self.unconfirmed.Shift(work.Block.NumberU64() - 1)
-	}
 
-	self.afterGeneration(work);
-	self.updateSnapshot()
-	return self.snapshotBlock.Header();
-}
-
-func (self *Packager) afterGeneration(work *Work) *types.Header {
-	atomic.AddInt32(&self.atWork, -1)
+	log.Info("Commit new mining work", "number", work.Block.Number(), "txs", work.tcount, "uncles", len(uncles), "elapsed", common.PrettyDuration(time.Since(tstart)))
+	self.unconfirmed.Shift(work.Block.NumberU64() - 1)
 
 	block := work.Block;
 
@@ -336,6 +294,7 @@ func (self *Packager) afterGeneration(work *Work) *types.Header {
 	for _, log := range work.state.Logs() {
 		log.BlockHash = block.Hash()
 	}
+
 	stat, err := self.chain.WriteBlockWithState(block, work.receipts, work.state)
 	if err != nil {
 		log.Error("Failed writing block to chain", "err", err)
@@ -355,8 +314,11 @@ func (self *Packager) afterGeneration(work *Work) *types.Header {
 
 	// Insert the block into the set of pending ones to wait for confirmations
 	self.unconfirmed.Insert(block.NumberU64(), block.Hash())
-	return block.Header();
+
+	self.updateSnapshot(work)
+	return work.Block;
 }
+
 
 func (self *Packager) commitUncle(work *Work, uncle *types.Header) error {
 	hash := uncle.Hash()
@@ -373,17 +335,17 @@ func (self *Packager) commitUncle(work *Work, uncle *types.Header) error {
 	return nil
 }
 
-func (self *Packager) updateSnapshot() {
+func (self *Packager) updateSnapshot(work *Work) {
 	self.snapshotMu.Lock()
 	defer self.snapshotMu.Unlock()
 
 	self.snapshotBlock = types.NewBlock(
-		self.current.header,
-		self.current.txs,
+		work.header,
+		work.txs,
 		nil,
-		self.current.receipts,
+		work.receipts,
 	)
-	self.snapshotState = self.current.state.Copy()
+	self.snapshotState = work.state.Copy()
 }
 
 func (env *Work) commitTransactions(mux *event.TypeMux, txs *types.TransactionsByPriceAndNonce, bc *core.BlockChain, coinbase common.Address) {
@@ -409,8 +371,8 @@ func (env *Work) commitTransactions(mux *event.TypeMux, txs *types.TransactionsB
 		from, _ := types.Sender(env.signer, tx)
 		// Check whether the tx is replay protected. If we're not in the EIP155 hf
 		// phase, start ignoring the sender until we do.
-		if tx.Protected() && !env.config.IsEIP155(env.header.Number) {
-			log.Trace("Ignoring reply protected transaction", "hash", tx.Hash(), "eip155", env.config.EIP155Block)
+		if tx.Protected() {
+			log.Trace("Ignoring reply protected transaction", "hash", tx.Hash())
 
 			txs.Pop()
 			continue

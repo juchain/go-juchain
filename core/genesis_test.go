@@ -23,17 +23,106 @@ import (
 
 	"github.com/davecgh/go-spew/spew"
 	"github.com/juchain/go-juchain/common"
-	"github.com/juchain/go-juchain/vm/solc"
 	"github.com/juchain/go-juchain/core/store"
 	"github.com/juchain/go-juchain/config"
+	"github.com/juchain/go-juchain/vm/solc"
+	"github.com/juchain/go-juchain/consensus"
+	"github.com/juchain/go-juchain/core/types"
+	"github.com/juchain/go-juchain/core/state"
+	"github.com/juchain/go-juchain/rpc"
+	"fmt"
 )
+
+func CreateFakeEngine() *FakeEngine {
+	return &FakeEngine{};
+}
+
+type FakeEngine struct {
+}
+
+func (f *FakeEngine) Author(header *types.Header) (common.Address, error) {
+	return common.Address{}, nil;
+}
+
+func (f *FakeEngine) VerifyHeader(chain consensus.ChainReader, header *types.Header, seal bool) error {
+	return nil;
+}
+
+func (f *FakeEngine) VerifyHeaders(chain consensus.ChainReader, headers []*types.Header, seals []bool) (chan<- struct{}, <-chan error) {
+	abort := make(chan struct{})
+	results := make(chan error, len(headers))
+
+	go func() {
+		for i, _ := range headers {
+			err := returnEmpty();
+			fmt.Println(i);
+			select {
+			case <-abort:
+				return
+			case results <- err:
+			}
+		}
+	}()
+	return abort, results
+}
+
+func returnEmpty() error {
+	return nil;
+}
+
+func (f *FakeEngine) VerifyUncles(chain consensus.ChainReader, block *types.Block) error {
+	return nil;
+}
+
+func (f *FakeEngine) VerifySeal(chain consensus.ChainReader, header *types.Header) error {
+	return nil;
+}
+
+func (f *FakeEngine)  Prepare(chain consensus.ChainReader, header *types.Header) error {
+	return nil;
+}
+
+func (f *FakeEngine) Finalize(chain consensus.ChainReader, header *types.Header, state *state.StateDB, txs []*types.Transaction,
+	uncles []*types.Header, receipts []*types.Receipt) (*types.Block, error) {
+	return types.NewBlock(header, txs, uncles, receipts), nil
+}
+
+func (f *FakeEngine) Seal(chain consensus.ChainReader, block *types.Block, stop <-chan struct{}) (*types.Block, error) {
+	return block, nil;
+}
+
+func (f *FakeEngine) CalcDifficulty(chain consensus.ChainReader, time uint64, parent *types.Header) *big.Int {
+	return big.NewInt(123456);
+}
+
+func (f *FakeEngine) APIs(chain consensus.ChainReader) []rpc.API {
+	return []rpc.API{{
+		Namespace: "fake",
+		Version:   "1.0",
+		Service:   &FakeAPI{chain: chain},
+		Public:    false,
+	}}
+}
+
+// PublicDebugAPI is the collection of Ethereum APIs exposed over the public
+// debugging endpoint.
+type FakeAPI struct {
+	chain  consensus.ChainReader
+}
+
+func (dpos *FakeAPI) Test() string {
+	return "test";
+}
+
 
 func TestDefaultGenesisBlock(t *testing.T) {
 	block := DefaultGenesisBlock().ToBlock(nil)
+	//fmt.Println(block.Hash().String())
 	if block.Hash() != config.MainnetGenesisHash {
 		t.Errorf("wrong mainnet genesis hash, got %v, want %v", block.Hash(), config.MainnetGenesisHash)
 	}
 	block = DefaultTestnetGenesisBlock().ToBlock(nil)
+	//fmt.Println(block.Hash().String())
 	if block.Hash() != config.TestnetGenesisHash {
 		t.Errorf("wrong testnet genesis hash, got %v, want %v", block.Hash(), config.TestnetGenesisHash)
 	}
@@ -43,14 +132,14 @@ func TestSetupGenesis(t *testing.T) {
 	var (
 		customghash = common.HexToHash("0x89c99d90b79719238d2645c7642f2c9295246e80775b38cfd162b696817fbd50")
 		customg     = Genesis{
-			Config: &config.ChainConfig{HomesteadBlock: big.NewInt(3)},
+			Config: &config.ChainConfig{},
 			Alloc: GenesisAlloc{
 				{1}: {Balance: big.NewInt(1), Storage: map[common.Hash]common.Hash{{1}: {1}}},
 			},
 		}
 		oldcustomg = customg
 	)
-	oldcustomg.Config = &config.ChainConfig{HomesteadBlock: big.NewInt(2)}
+	oldcustomg.Config = &config.ChainConfig{}
 	tests := []struct {
 		name       string
 		fn         func(store.Database) (*config.ChainConfig, common.Hash, error)
@@ -117,11 +206,10 @@ func TestSetupGenesis(t *testing.T) {
 				// Commit the 'old' genesis block with Homestead transition at #2.
 				// Advance to block #4, past the homestead transition block of customg.
 				genesis := oldcustomg.MustCommit(db)
-
-				bc, _ := NewBlockChain(db, nil, oldcustomg.Config, nil, vm.Config{})
+				engine := CreateFakeEngine()
+				bc, _ := NewBlockChain(db, nil, oldcustomg.Config, engine, vm.Config{})
 				defer bc.Stop()
-
-				blocks, _ := GenerateChain(oldcustomg.Config, genesis, nil, db, 4, nil)
+				blocks, _ := GenerateChain(oldcustomg.Config, genesis, engine, db, 4, nil)
 				bc.InsertChain(blocks)
 				bc.CurrentBlock()
 				// This should return a compatibility error.
