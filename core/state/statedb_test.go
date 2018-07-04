@@ -70,7 +70,7 @@ func TestIntermediateLeaks(t *testing.T) {
 	finalDb, _ := store.NewMemDatabase()
 	transState, _ := New(common.Hash{}, NewDatabase(transDb))
 	finalState, _ := New(common.Hash{}, NewDatabase(finalDb))
-
+	fmt.Printf("1.Generating block with root %v \n", transState.IntermediateRoot(false).String())
 	modify := func(state *StateDB, addr common.Address, i, tweak byte) {
 		state.SetBalance(addr, big.NewInt(int64(11*i)+int64(tweak)))
 		state.SetNonce(addr, uint64(42*i+tweak))
@@ -82,13 +82,14 @@ func TestIntermediateLeaks(t *testing.T) {
 			state.SetCode(addr, []byte{i, i, i, i, i, tweak})
 		}
 	}
-
 	// Modify the transient state.
 	for i := byte(0); i < 255; i++ {
 		modify(transState, common.Address{byte(i)}, i, 0)
+		fmt.Printf("Generating block with root %v \n", transState.IntermediateRoot(false).String())
 	}
 	// Write modifications to trie.
 	transState.IntermediateRoot(false)
+	fmt.Printf("2.Generating block with root %v \n", transState.IntermediateRoot(false).String())
 
 	// Overwrite all the data with new values in the transient database.
 	for i := byte(0); i < 255; i++ {
@@ -115,6 +116,7 @@ func TestIntermediateLeaks(t *testing.T) {
 			t.Errorf("extra entry in the transition database: %x -> %x", key, val)
 		}
 	}
+	fmt.Printf("3.Generating block with root %v \n", transState.IntermediateRoot(false).String())
 }
 
 // TestCopy tests that copying a statedb object indeed makes the original and

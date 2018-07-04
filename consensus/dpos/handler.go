@@ -377,9 +377,8 @@ func (dpos *DElection) Prepare(chain consensus.ChainReader, header *types.Header
 // setting the final state and assembling the block.
 func (dpos *DElection) Finalize(chain consensus.ChainReader, header *types.Header, state *state.StateDB, txs []*types.Transaction, uncles []*types.Header, receipts []*types.Receipt) (*types.Block, error) {
 	// Accumulate any block and uncle rewards and commit the final state root
-	//log.Info("Generating block with root " + state.IntermediateRoot(true).String())
 	accumulateRewards(chain.Config(), state, header, uncles)
-	header.Root = state.IntermediateRoot(true)
+	header.Root = state.IntermediateRoot(false)
 	//log.Info("Generated block with root: " + header.Root.String())
 	// Header seems complete, assemble into a block and return
 	return types.NewBlock(header, txs, uncles, receipts), nil

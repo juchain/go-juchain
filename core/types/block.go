@@ -32,6 +32,8 @@ import (
 	"github.com/juchain/go-juchain/common/rlp"
 	"github.com/juchain/go-juchain/common/log"
 	"fmt"
+	"encoding/json"
+	"errors"
 )
 
 var (
@@ -66,9 +68,7 @@ func (n *BlockNonce) UnmarshalText(input []byte) error {
 	return hexutil.UnmarshalFixedText("BlockNonce", input, n[:])
 }
 
-//go:generate gencodec -type Header -field-override headerMarshaling -out gen_header_json.go
-
-// Header represents a block header in the Juchain blockchain.
+// Header represents a block header in the Juchain main blockchain.
 type Header struct {
 	ParentHash  common.Hash    `json:"parentHash"       gencodec:"required"`
 	UncleHash   common.Hash    `json:"sha3Uncles"       gencodec:"required"`
@@ -105,6 +105,144 @@ type headerMarshaling struct {
 // RLP encoding.
 func (h *Header) Hash() common.Hash {
 	return rlpHash(h)
+}
+
+var _ = (*headerMarshaling)(nil)
+
+func (h Header) MarshalJSON() ([]byte, error) {
+	type Header struct {
+		ParentHash  common.Hash    `json:"parentHash"       gencodec:"required"`
+		UncleHash   common.Hash    `json:"sha3Uncles"       gencodec:"required"`
+		Coinbase    common.Address `json:"miner"            gencodec:"required"`
+		Root        common.Hash    `json:"stateRoot"        gencodec:"required"`
+		TxHash      common.Hash    `json:"transactionsRoot" gencodec:"required"`
+		ReceiptHash common.Hash    `json:"receiptsRoot"     gencodec:"required"`
+		Bloom       Bloom          `json:"logsBloom"        gencodec:"required"`
+		Difficulty  *hexutil.Big   `json:"difficulty"       gencodec:"required"`
+		Number      *hexutil.Big   `json:"number"           gencodec:"required"`
+		GasLimit    hexutil.Uint64 `json:"gasLimit"         gencodec:"required"`
+		GasUsed     hexutil.Uint64 `json:"gasUsed"          gencodec:"required"`
+		Time        *hexutil.Big   `json:"timestamp"        gencodec:"required"`
+		Extra       hexutil.Bytes  `json:"extraData"        gencodec:"required"`
+		MixDigest   common.Hash    `json:"mixHash"          gencodec:"required"`
+		Nonce       BlockNonce     `json:"nonce"            gencodec:"required"`
+		Round       uint64         `json:"round"            gencodec:"required"`
+		Round2      uint64         `json:"round2"           gencodec:"required"`
+		PresidentId string         `json:"presidentId"      gencodec:"required"`
+		Hash        common.Hash    `json:"hash"`
+	}
+	var enc Header
+	enc.ParentHash = h.ParentHash
+	enc.UncleHash = h.UncleHash
+	enc.Coinbase = h.Coinbase
+	enc.Root = h.Root
+	enc.TxHash = h.TxHash
+	enc.ReceiptHash = h.ReceiptHash
+	enc.Bloom = h.Bloom
+	enc.Difficulty = (*hexutil.Big)(h.Difficulty)
+	enc.Number = (*hexutil.Big)(h.Number)
+	enc.GasLimit = hexutil.Uint64(h.GasLimit)
+	enc.GasUsed = hexutil.Uint64(h.GasUsed)
+	enc.Time = (*hexutil.Big)(h.Time)
+	enc.Extra = h.Extra
+	enc.MixDigest = h.MixDigest
+	enc.Nonce = h.Nonce
+	enc.Hash = h.Hash()
+	return json.Marshal(&enc)
+}
+
+func (h *Header) UnmarshalJSON(input []byte) error {
+	type Header struct {
+		ParentHash  *common.Hash    `json:"parentHash"       gencodec:"required"`
+		UncleHash   *common.Hash    `json:"sha3Uncles"       gencodec:"required"`
+		Coinbase    *common.Address `json:"miner"            gencodec:"required"`
+		Root        *common.Hash    `json:"stateRoot"        gencodec:"required"`
+		TxHash      *common.Hash    `json:"transactionsRoot" gencodec:"required"`
+		ReceiptHash *common.Hash    `json:"receiptsRoot"     gencodec:"required"`
+		Bloom       *Bloom          `json:"logsBloom"        gencodec:"required"`
+		Difficulty  *hexutil.Big    `json:"difficulty"       gencodec:"required"`
+		Number      *hexutil.Big    `json:"number"           gencodec:"required"`
+		GasLimit    *hexutil.Uint64 `json:"gasLimit"         gencodec:"required"`
+		GasUsed     *hexutil.Uint64 `json:"gasUsed"          gencodec:"required"`
+		Time        *hexutil.Big    `json:"timestamp"        gencodec:"required"`
+		Extra       *hexutil.Bytes  `json:"extraData"        gencodec:"required"`
+		MixDigest   *common.Hash    `json:"mixHash"          gencodec:"required"`
+		Nonce       *BlockNonce     `json:"nonce"            gencodec:"required"`
+		Round       *uint64         `json:"round"            gencodec:"required"`
+		Round2      *uint64         `json:"round2"           gencodec:"required"`
+		PresidentId *string         `json:"presidentId"      gencodec:"required"`
+	}
+	var dec Header
+	if err := json.Unmarshal(input, &dec); err != nil {
+		return err
+	}
+	if dec.ParentHash == nil {
+		return errors.New("missing required field 'parentHash' for Header")
+	}
+	h.Round = *dec.Round
+	h.Round2 = *dec.Round2
+	h.PresidentId = *dec.PresidentId
+	if dec.UncleHash == nil {
+		return errors.New("missing required field 'PresidentId' for Header")
+	}
+	h.ParentHash = *dec.ParentHash
+	if dec.UncleHash == nil {
+		return errors.New("missing required field 'sha3Uncles' for Header")
+	}
+	h.UncleHash = *dec.UncleHash
+	if dec.Coinbase == nil {
+		return errors.New("missing required field 'miner' for Header")
+	}
+	h.Coinbase = *dec.Coinbase
+	if dec.Root == nil {
+		return errors.New("missing required field 'stateRoot' for Header")
+	}
+	h.Root = *dec.Root
+	if dec.TxHash == nil {
+		return errors.New("missing required field 'transactionsRoot' for Header")
+	}
+	h.TxHash = *dec.TxHash
+	if dec.ReceiptHash == nil {
+		return errors.New("missing required field 'receiptsRoot' for Header")
+	}
+	h.ReceiptHash = *dec.ReceiptHash
+	if dec.Bloom == nil {
+		return errors.New("missing required field 'logsBloom' for Header")
+	}
+	h.Bloom = *dec.Bloom
+	if dec.Difficulty == nil {
+		return errors.New("missing required field 'difficulty' for Header")
+	}
+	h.Difficulty = (*big.Int)(dec.Difficulty)
+	if dec.Number == nil {
+		return errors.New("missing required field 'number' for Header")
+	}
+	h.Number = (*big.Int)(dec.Number)
+	if dec.GasLimit == nil {
+		return errors.New("missing required field 'gasLimit' for Header")
+	}
+	h.GasLimit = uint64(*dec.GasLimit)
+	if dec.GasUsed == nil {
+		return errors.New("missing required field 'gasUsed' for Header")
+	}
+	h.GasUsed = uint64(*dec.GasUsed)
+	if dec.Time == nil {
+		return errors.New("missing required field 'timestamp' for Header")
+	}
+	h.Time = (*big.Int)(dec.Time)
+	if dec.Extra == nil {
+		return errors.New("missing required field 'extraData' for Header")
+	}
+	h.Extra = *dec.Extra
+	if dec.MixDigest == nil {
+		return errors.New("missing required field 'mixHash' for Header")
+	}
+	h.MixDigest = *dec.MixDigest
+	if dec.Nonce == nil {
+		return errors.New("missing required field 'nonce' for Header")
+	}
+	h.Nonce = *dec.Nonce
+	return nil
 }
 
 // HashNoNonce returns the hash which is used as input for the proof-of-work search.
@@ -443,3 +581,231 @@ func (self blockSorter) Swap(i, j int) {
 func (self blockSorter) Less(i, j int) bool { return self.by(self.blocks[i], self.blocks[j]) }
 
 func Number(b1, b2 *Block) bool { return b1.header.Number.Cmp(b2.header.Number) < 0 }
+
+
+//--------------DApp block structure--------------------//
+
+// Header represents a block header in the DApp blockchain.
+type DAppHeader struct {
+	Number      *big.Int       `json:"number"           gencodec:"required"`
+	ParentHash  common.Hash    `json:"parentHash"       gencodec:"required"`
+	MainBlockHash  common.Hash `json:"mainBlockHash"    gencodec:"required"` // represents the referring block from main chain.
+	Root        common.Hash    `json:"stateRoot"        gencodec:"required"`
+	TxHash      common.Hash    `json:"transactionsRoot" gencodec:"required"`
+	ReceiptHash common.Hash    `json:"receiptsRoot"     gencodec:"required"`
+	Time        *big.Int       `json:"timestamp"        gencodec:"required"`
+	MixDigest   common.Hash    `json:"mixHash"          gencodec:"required"`
+	Nonce       BlockNonce     `json:"nonce"            gencodec:"required"`
+}
+
+// Hash returns the block hash of the header, which is simply the keccak256 hash of its
+// RLP encoding.
+func (h *DAppHeader) Hash() common.Hash {
+	return rlpHash(h)
+}
+
+// HashNoNonce returns the hash which is used as input for the proof-of-work search.
+func (h *DAppHeader) HashNoNonce() common.Hash {
+	return rlpHash([]interface{}{
+		h.Number,
+		h.ParentHash,
+		h.MainBlockHash,
+		h.Root,
+		h.TxHash,
+		h.ReceiptHash,
+		h.Time,
+		h.MixDigest,
+		h.Nonce,
+	})
+}
+
+func (h DAppHeader) MarshalJSON() ([]byte, error) {
+	type Header struct {
+		ParentHash  common.Hash    `json:"parentHash"       gencodec:"required"`
+		UncleHash   common.Hash    `json:"sha3Uncles"       gencodec:"required"`
+		Root        common.Hash    `json:"stateRoot"        gencodec:"required"`
+		MainBlockHash  common.Hash `json:"mainBlockHash"    gencodec:"required"`
+		TxHash      common.Hash    `json:"transactionsRoot" gencodec:"required"`
+		ReceiptHash common.Hash    `json:"receiptsRoot"     gencodec:"required"`
+		Number      *hexutil.Big   `json:"number"           gencodec:"required"`
+		Time        *hexutil.Big   `json:"timestamp"        gencodec:"required"`
+		MixDigest   common.Hash    `json:"mixHash"          gencodec:"required"`
+		Nonce       BlockNonce     `json:"nonce"            gencodec:"required"`
+		Hash        common.Hash    `json:"hash"`
+	}
+	var enc Header
+	enc.ParentHash = h.ParentHash
+	enc.Root = h.Root
+	enc.MainBlockHash = h.MainBlockHash
+	enc.TxHash = h.TxHash
+	enc.ReceiptHash = h.ReceiptHash
+	enc.Number = (*hexutil.Big)(h.Number)
+	enc.Time = (*hexutil.Big)(h.Time)
+	enc.MixDigest = h.MixDigest
+	enc.Nonce = h.Nonce
+	enc.Hash = h.Hash()
+	return json.Marshal(&enc)
+}
+
+func (h *DAppHeader) UnmarshalJSON(input []byte) error {
+	type Header struct {
+		ParentHash  *common.Hash    `json:"parentHash"       gencodec:"required"`
+		UncleHash   *common.Hash    `json:"sha3Uncles"       gencodec:"required"`
+		Root        *common.Hash    `json:"stateRoot"        gencodec:"required"`
+		MainBlockHash  *common.Hash `json:"mainBlockHash"    gencodec:"required"`
+		TxHash      *common.Hash    `json:"transactionsRoot" gencodec:"required"`
+		ReceiptHash *common.Hash    `json:"receiptsRoot"     gencodec:"required"`
+		Number      *hexutil.Big   `json:"number"           gencodec:"required"`
+		Time        *hexutil.Big   `json:"timestamp"        gencodec:"required"`
+		MixDigest   *common.Hash    `json:"mixHash"          gencodec:"required"`
+		Nonce       *BlockNonce     `json:"nonce"            gencodec:"required"`
+		Hash        *common.Hash    `json:"hash"`
+	}
+	var dec Header
+	if err := json.Unmarshal(input, &dec); err != nil {
+		return err
+	}
+	if dec.ParentHash == nil {
+		return errors.New("missing required field 'parentHash' for Header")
+	}
+	h.ParentHash = *dec.ParentHash
+	if dec.UncleHash == nil {
+		return errors.New("missing required field 'sha3Uncles' for Header")
+	}
+	h.Root = *dec.Root
+	if dec.MainBlockHash == nil {
+		return errors.New("missing required field 'transactionsRoot' for Header")
+	}
+	h.MainBlockHash = *dec.MainBlockHash
+	if dec.TxHash == nil {
+		return errors.New("missing required field 'transactionsRoot' for Header")
+	}
+	h.TxHash = *dec.TxHash
+	if dec.ReceiptHash == nil {
+		return errors.New("missing required field 'receiptsRoot' for Header")
+	}
+	h.ReceiptHash = *dec.ReceiptHash
+	h.Number = (*big.Int)(dec.Number)
+	if dec.Time == nil {
+		return errors.New("missing required field 'timestamp' for Header")
+	}
+	h.Time = (*big.Int)(dec.Time)
+	h.MixDigest = *dec.MixDigest
+	if dec.Nonce == nil {
+		return errors.New("missing required field 'nonce' for Header")
+	}
+	h.Nonce = *dec.Nonce
+	return nil
+}
+
+
+// Block represents an entire block in the Juchain blockchain.
+type DAppBlock struct {
+	header       *DAppHeader
+	transactions Transactions
+	// caches
+	hash atomic.Value
+	size atomic.Value
+}
+
+// "external" block encoding. used for eth protocol, etc.
+type extblock1 struct {
+	Header *DAppHeader
+	Txs    []*Transaction
+}
+
+// DecodeRLP decodes the DApp block
+func (b *DAppBlock) DecodeRLP(s *rlp.Stream) error {
+	var eb extblock1
+	_, size, _ := s.Kind()
+	if err := s.Decode(&eb); err != nil {
+		return err
+	}
+	b.header, b.transactions = eb.Header, eb.Txs
+	b.size.Store(common.StorageSize(rlp.ListSize(size)))
+	return nil
+}
+
+// EncodeRLP serializes b into the Juchain RLP block format.
+func (b *DAppBlock) EncodeRLP(w io.Writer) error {
+	return rlp.Encode(w, extblock1{
+		Header: b.header,
+		Txs:    b.transactions,
+	})
+}
+
+func (b *DAppBlock) Transactions() Transactions { return b.transactions }
+
+func (b *DAppBlock) Transaction(hash common.Hash) *Transaction {
+	for _, transaction := range b.transactions {
+		if transaction.Hash() == hash {
+			return transaction
+		}
+	}
+	return nil
+}
+
+func (b *DAppBlock) Number() *big.Int     { return new(big.Int).Set(b.header.Number) }
+func (b *DAppBlock) Time() *big.Int       { return new(big.Int).Set(b.header.Time) }
+
+func (b *DAppBlock) NumberU64() uint64        { return b.header.Number.Uint64() }
+func (b *DAppBlock) MixDigest() common.Hash   { return b.header.MixDigest }
+func (b *DAppBlock) Nonce() uint64            { return binary.BigEndian.Uint64(b.header.Nonce[:]) }
+func (b *DAppBlock) Root() common.Hash        { return b.header.Root }
+func (b *DAppBlock) ParentHash() common.Hash  { return b.header.ParentHash }
+func (b *DAppBlock) MainBlockHash() common.Hash  { return b.header.MainBlockHash }
+func (b *DAppBlock) TxHash() common.Hash      { return b.header.TxHash }
+func (b *DAppBlock) ReceiptHash() common.Hash { return b.header.ReceiptHash }
+func (b *DAppBlock) Header() *DAppHeader      { return CopyDAppHeader(b.header) }
+// Body returns the non-header content of the block.
+func (b *DAppBlock) Body() *Transactions              { return &b.transactions }
+func (b *DAppBlock) HashNoNonce() common.Hash { return b.header.HashNoNonce() }
+
+// Size returns the true RLP encoded storage size of the block, either by encoding
+// and returning it, or returning a previsouly cached value.
+func (b *DAppBlock) Size() common.StorageSize {
+	if size := b.size.Load(); size != nil {
+		return size.(common.StorageSize)
+	}
+	c := writeCounter(0)
+	rlp.Encode(&c, b)
+	b.size.Store(common.StorageSize(c))
+	return common.StorageSize(c)
+}
+
+func (b *DAppBlock) ToString() {
+	log.Info(fmt.Sprintf(`
+############### DApp BLOCK INFO #############
+
+Number: %v
+Root: 0x%x
+ParentHash: 0x%x
+MainBlockHash: 0x%x
+MixDigest: %v
+Nonce: %
+TxHash: 0x%x
+ReceiptHash: 0x%x
+
+#############################################
+`, b.Number(), b.Root(), b.ParentHash(), b.MainBlockHash(), b.MixDigest(), b.Nonce(), b.TxHash(), b.ReceiptHash()))
+}
+
+// NewBlockWithHeader creates a block with the given header data. The
+// header data is copied, changes to header and to the field values
+// will not affect the block.
+func NewDAppBlockWithHeader(header *DAppHeader) *DAppBlock {
+	return &DAppBlock{header: CopyDAppHeader(header)}
+}
+
+// CopyHeader creates a deep copy of a block header to prevent side effects from
+// modifying a header variable.
+func CopyDAppHeader(h *DAppHeader) *DAppHeader {
+	cpy := *h
+	if cpy.Time = new(big.Int); h.Time != nil {
+		cpy.Time.Set(h.Time)
+	}
+	if cpy.Number = new(big.Int); h.Number != nil {
+		cpy.Number.Set(h.Number)
+	}
+	return &cpy
+}
