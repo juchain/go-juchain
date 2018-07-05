@@ -801,6 +801,36 @@ ReceiptHash: 0x%x
 `, b.DAppID(), b.Number(), b.Root(), b.ParentHash(), b.MainBlockHash(), b.MixDigest(), b.Nonce(), b.TxHash(), b.ReceiptHash()))
 }
 
+// NewBlock creates a new block. The input data is copied,
+// changes to header and to the field values will not affect the
+// block.
+//
+// The values of TxHash, UncleHash, ReceiptHash and Bloom in header
+// are ignored and set to values derived from the given txs, uncles
+// and receipts.
+func NewDAppBlock(header *DAppHeader, txs []*Transaction, receipts []*Receipt) (*DAppBlock, error) {
+	b := &DAppBlock{header: CopyDAppHeader(header), transactions: txs}
+
+	if len(txs) != len(receipts) {
+		return nil, errors.New("")
+	}
+	if len(txs) == 0 {
+		b.header.TxHash = EmptyRootHash
+	} else {
+		b.header.TxHash = DeriveSha(Transactions(txs))
+		b.transactions = make(Transactions, len(txs))
+		copy(b.transactions, txs)
+	}
+
+	if len(receipts) == 0 {
+		b.header.ReceiptHash = EmptyRootHash
+	} else {
+		b.header.ReceiptHash = DeriveSha(Receipts(receipts))
+	}
+
+	return b, nil;
+}
+
 // NewBlockWithHeader creates a block with the given header data. The
 // header data is copied, changes to header and to the field values
 // will not affect the block.
