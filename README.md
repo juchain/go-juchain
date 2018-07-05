@@ -1,5 +1,8 @@
-JuChain is a global-scale & DApp governing blockchain operating system.
+JuChain is a DApp governing & global-scale blockchain operating system.
 
-==
-What is DApp Governance.
+What is DApp Governance?
+===
 
+
+Global Scaleability Support
+===
