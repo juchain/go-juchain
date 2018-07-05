@@ -26,6 +26,7 @@ import (
 	"github.com/juchain/go-juchain/common"
 	"github.com/juchain/go-juchain/common/crypto"
 	"github.com/juchain/go-juchain/common/rlp"
+	"fmt"
 )
 
 // The values in those tests are from the Transaction Tests
@@ -49,6 +50,17 @@ var (
 		HomesteadSigner{},
 		common.Hex2Bytes("98ff921201554726367d2be8c804a7ff89ccf285ebc57dff8ae4c44b9c19ac4a8887321be575c8095f789dd4c743dfe42c1820f9231f98a962b210e3ac2452a301"),
 	)
+
+	dappId = common.StringToHash("DAppID2343214")
+	dappTX = NewDAppTransaction(
+		&dappId,
+		3,
+		common.HexToAddress("b94f5374fce5edbc8e2a8697c15331677e6ebf0b"),
+		big.NewInt(10),
+		2000,
+		big.NewInt(1),
+		common.FromHex("5544"),
+	)
 )
 
 func TestTransactionSigHash(t *testing.T) {
@@ -66,7 +78,8 @@ func TestTransactionEncode(t *testing.T) {
 	if err != nil {
 		t.Fatalf("encode error: %v", err)
 	}
-	should := common.FromHex("f86103018207d094b94f5374fce5edbc8e2a8697c15331677e6ebf0b0a8255441ca098ff921201554726367d2be8c804a7ff89ccf285ebc57dff8ae4c44b9c19ac4aa08887321be575c8095f789dd4c743dfe42c1820f9231f98a962b210e3ac2452a3")
+	//fmt.Println(common.Bytes2Hex(txb))
+	should := common.FromHex("f882a0000000000000000000000000000000000000000000000000000000000000000003018207d094b94f5374fce5edbc8e2a8697c15331677e6ebf0b0a8255441ca098ff921201554726367d2be8c804a7ff89ccf285ebc57dff8ae4c44b9c19ac4aa08887321be575c8095f789dd4c743dfe42c1820f9231f98a962b210e3ac2452a3")
 	if !bytes.Equal(txb, should) {
 		t.Errorf("encoded RLP mismatch, got %x", txb)
 	}
@@ -86,13 +99,28 @@ func defaultTestKey() (*ecdsa.PrivateKey, common.Address) {
 }
 
 func TestRecipientEmpty(t *testing.T) {
-	_, addr := defaultTestKey()
-	tx, err := decodeTx(common.Hex2Bytes("f8498080808080011ca09b16de9d5bdee2cf56c28d16275a4da68cd30273e2525f3959f5d62557489921a0372ebd8fb3345f7db7b5a86d42e24d36e983e259b0664ceb8c227ec9af572f3d"))
+	txb0, err := rlp.EncodeToBytes(dappTX)
+	if err != nil {
+		t.Fatalf("encode error: %v", err)
+	}
+	tx0, err := decodeTx(txb0)
 	if err != nil {
 		t.Error(err)
 		t.FailNow()
 	}
+	fmt.Println(tx0.DAppID().String())
 
+	/**
+	txb, err := rlp.EncodeToBytes(rightvrsTx)
+	if err != nil {
+		t.Fatalf("encode error: %v", err)
+	}
+	_, addr := defaultTestKey()
+	tx, err := decodeTx(txb)
+	if err != nil {
+		t.Error(err)
+		t.FailNow()
+	}
 	from, err := Sender(HomesteadSigner{}, tx)
 	if err != nil {
 		t.Error(err)
@@ -101,6 +129,7 @@ func TestRecipientEmpty(t *testing.T) {
 	if addr != from {
 		t.Error("derived address doesn't match")
 	}
+	*/
 }
 
 func TestRecipientNormal(t *testing.T) {
@@ -218,7 +247,12 @@ func TestTransactionJSON(t *testing.T) {
 		if err != nil {
 			t.Errorf("json.Marshal failed: %v", err)
 		}
-
+		//{"DAppID":"0x0000000000000000000000000000000000000000000000000000000000000000","nonce":"0x0",
+		// "gasPrice":"0x2","gas":"0x1","to":"0x0100000000000000000000000000000000000000","value":"0x0",
+		// "input":"0x616263646566","v":"0x26","r":"0xb5ef25206679244804c596337f503c51b34f2ed7591d8b786f4956f2e84b60e9",
+		// "s":"0x35ba53456d7c1ee508e3833c8c80f4a84bf88f2e78b59d28d7e2874c196cd327",
+		// "hash":"0xb27a94eab94d4436ab1412c53f72937e3d78513d0c2640577f41f4a667fd1f68"}
+		//fmt.Println(string(data[:]))
 		var parsedTx *Transaction
 		if err := json.Unmarshal(data, &parsedTx); err != nil {
 			t.Errorf("json.Unmarshal failed: %v", err)

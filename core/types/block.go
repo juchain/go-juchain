@@ -587,6 +587,7 @@ func Number(b1, b2 *Block) bool { return b1.header.Number.Cmp(b2.header.Number) 
 
 // Header represents a block header in the DApp blockchain.
 type DAppHeader struct {
+	DAppID      common.Hash    `json:"DAppID"           gencodec:"required"`
 	Number      *big.Int       `json:"number"           gencodec:"required"`
 	ParentHash  common.Hash    `json:"parentHash"       gencodec:"required"`
 	MainBlockHash  common.Hash `json:"mainBlockHash"    gencodec:"required"` // represents the referring block from main chain.
@@ -607,6 +608,7 @@ func (h *DAppHeader) Hash() common.Hash {
 // HashNoNonce returns the hash which is used as input for the proof-of-work search.
 func (h *DAppHeader) HashNoNonce() common.Hash {
 	return rlpHash([]interface{}{
+		h.DAppID,
 		h.Number,
 		h.ParentHash,
 		h.MainBlockHash,
@@ -621,6 +623,7 @@ func (h *DAppHeader) HashNoNonce() common.Hash {
 
 func (h DAppHeader) MarshalJSON() ([]byte, error) {
 	type Header struct {
+		DAppID      common.Hash    `json:"DAppID"       gencodec:"required"`
 		ParentHash  common.Hash    `json:"parentHash"       gencodec:"required"`
 		UncleHash   common.Hash    `json:"sha3Uncles"       gencodec:"required"`
 		Root        common.Hash    `json:"stateRoot"        gencodec:"required"`
@@ -634,6 +637,7 @@ func (h DAppHeader) MarshalJSON() ([]byte, error) {
 		Hash        common.Hash    `json:"hash"`
 	}
 	var enc Header
+	enc.DAppID = h.DAppID;
 	enc.ParentHash = h.ParentHash
 	enc.Root = h.Root
 	enc.MainBlockHash = h.MainBlockHash
@@ -649,14 +653,15 @@ func (h DAppHeader) MarshalJSON() ([]byte, error) {
 
 func (h *DAppHeader) UnmarshalJSON(input []byte) error {
 	type Header struct {
+		DAppID      *common.Hash    `json:"DAppID"       gencodec:"required"`
 		ParentHash  *common.Hash    `json:"parentHash"       gencodec:"required"`
 		UncleHash   *common.Hash    `json:"sha3Uncles"       gencodec:"required"`
 		Root        *common.Hash    `json:"stateRoot"        gencodec:"required"`
 		MainBlockHash  *common.Hash `json:"mainBlockHash"    gencodec:"required"`
 		TxHash      *common.Hash    `json:"transactionsRoot" gencodec:"required"`
 		ReceiptHash *common.Hash    `json:"receiptsRoot"     gencodec:"required"`
-		Number      *hexutil.Big   `json:"number"           gencodec:"required"`
-		Time        *hexutil.Big   `json:"timestamp"        gencodec:"required"`
+		Number      *hexutil.Big    `json:"number"           gencodec:"required"`
+		Time        *hexutil.Big    `json:"timestamp"        gencodec:"required"`
 		MixDigest   *common.Hash    `json:"mixHash"          gencodec:"required"`
 		Nonce       *BlockNonce     `json:"nonce"            gencodec:"required"`
 		Hash        *common.Hash    `json:"hash"`
@@ -669,6 +674,10 @@ func (h *DAppHeader) UnmarshalJSON(input []byte) error {
 		return errors.New("missing required field 'parentHash' for Header")
 	}
 	h.ParentHash = *dec.ParentHash
+	if dec.DAppID == nil {
+		return errors.New("missing required field 'DAppID' for Header")
+	}
+	h.DAppID = *dec.DAppID
 	if dec.UncleHash == nil {
 		return errors.New("missing required field 'sha3Uncles' for Header")
 	}
@@ -699,7 +708,7 @@ func (h *DAppHeader) UnmarshalJSON(input []byte) error {
 }
 
 
-// Block represents an entire block in the Juchain blockchain.
+// DAppBlock represents a DApp blockchain in the Juchain blockchain.
 type DAppBlock struct {
 	header       *DAppHeader
 	transactions Transactions
@@ -745,6 +754,7 @@ func (b *DAppBlock) Transaction(hash common.Hash) *Transaction {
 	return nil
 }
 
+func (b *DAppBlock) DAppID() common.Hash   { return b.header.DAppID }
 func (b *DAppBlock) Number() *big.Int     { return new(big.Int).Set(b.header.Number) }
 func (b *DAppBlock) Time() *big.Int       { return new(big.Int).Set(b.header.Time) }
 
@@ -777,6 +787,7 @@ func (b *DAppBlock) ToString() {
 	log.Info(fmt.Sprintf(`
 ############### DApp BLOCK INFO #############
 
+DAppID: 0x%x
 Number: %v
 Root: 0x%x
 ParentHash: 0x%x
@@ -787,7 +798,7 @@ TxHash: 0x%x
 ReceiptHash: 0x%x
 
 #############################################
-`, b.Number(), b.Root(), b.ParentHash(), b.MainBlockHash(), b.MixDigest(), b.Nonce(), b.TxHash(), b.ReceiptHash()))
+`, b.DAppID(), b.Number(), b.Root(), b.ParentHash(), b.MainBlockHash(), b.MixDigest(), b.Nonce(), b.TxHash(), b.ReceiptHash()))
 }
 
 // NewBlockWithHeader creates a block with the given header data. The

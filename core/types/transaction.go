@@ -33,6 +33,7 @@ import (
 
 var (
 	ErrInvalidSig = errors.New("invalid transaction v, r, s values")
+	EmptyDAppIdHash = &common.Hash{};
 )
 
 // deriveSigner makes a *best* guess about which signer to use.
@@ -53,6 +54,7 @@ type Transaction struct {
 }
 
 type txdata struct {
+	DAppID       *common.Hash    `json:"DAppID"   ` // this is optional field
 	AccountNonce uint64          `json:"nonce"    gencodec:"required"`
 	Price        *big.Int        `json:"gasPrice" gencodec:"required"`
 	GasLimit     uint64          `json:"gas"      gencodec:"required"`
@@ -70,6 +72,7 @@ type txdata struct {
 }
 
 type txdataMarshaling struct {
+	DAppID       common.Hash
 	AccountNonce hexutil.Uint64
 	Price        *hexutil.Big
 	GasLimit     hexutil.Uint64
@@ -81,18 +84,28 @@ type txdataMarshaling struct {
 }
 
 func NewTransaction(nonce uint64, to common.Address, amount *big.Int, gasLimit uint64, gasPrice *big.Int, data []byte) *Transaction {
-	return newTransaction(nonce, &to, amount, gasLimit, gasPrice, data)
+	return newTransaction(EmptyDAppIdHash, nonce, &to, amount, gasLimit, gasPrice, data)
 }
 
 func NewContractCreation(nonce uint64, amount *big.Int, gasLimit uint64, gasPrice *big.Int, data []byte) *Transaction {
-	return newTransaction(nonce, nil, amount, gasLimit, gasPrice, data)
+	return newTransaction(EmptyDAppIdHash, nonce, nil, amount, gasLimit, gasPrice, data)
 }
 
-func newTransaction(nonce uint64, to *common.Address, amount *big.Int, gasLimit uint64, gasPrice *big.Int, data []byte) *Transaction {
+func NewDAppTransaction(dappId *common.Hash, nonce uint64, to common.Address, amount *big.Int, gasLimit uint64, gasPrice *big.Int, data []byte) *Transaction {
+	return newTransaction(dappId, nonce, &to, amount, gasLimit, gasPrice, data)
+}
+
+func NewDAppContractCreation(dappId *common.Hash, nonce uint64, amount *big.Int, gasLimit uint64, gasPrice *big.Int, data []byte) *Transaction {
+	return newTransaction(dappId, nonce, nil, amount, gasLimit, gasPrice, data)
+}
+
+func newTransaction(dappId *common.Hash, nonce uint64, to *common.Address, amount *big.Int, gasLimit uint64, gasPrice *big.Int, data []byte) *Transaction {
 	if len(data) > 0 {
 		data = common.CopyBytes(data)
 	}
+
 	d := txdata{
+		DAppID:       dappId,
 		AccountNonce: nonce,
 		Recipient:    to,
 		Payload:      data,
@@ -176,12 +189,13 @@ func (tx *Transaction) UnmarshalJSON(input []byte) error {
 	return nil
 }
 
-func (tx *Transaction) Data() []byte       { return common.CopyBytes(tx.data.Payload) }
-func (tx *Transaction) Gas() uint64        { return tx.data.GasLimit }
-func (tx *Transaction) GasPrice() *big.Int { return new(big.Int).Set(tx.data.Price) }
-func (tx *Transaction) Value() *big.Int    { return new(big.Int).Set(tx.data.Amount) }
-func (tx *Transaction) Nonce() uint64      { return tx.data.AccountNonce }
-func (tx *Transaction) CheckNonce() bool   { return true }
+func (tx *Transaction) DAppID() *common.Hash { return tx.data.DAppID }
+func (tx *Transaction) Data() []byte         { return common.CopyBytes(tx.data.Payload) }
+func (tx *Transaction) Gas() uint64          { return tx.data.GasLimit }
+func (tx *Transaction) GasPrice() *big.Int   { return new(big.Int).Set(tx.data.Price) }
+func (tx *Transaction) Value() *big.Int      { return new(big.Int).Set(tx.data.Amount) }
+func (tx *Transaction) Nonce() uint64        { return tx.data.AccountNonce }
+func (tx *Transaction) CheckNonce() bool     { return true }
 
 // To returns the recipient address of the transaction.
 // It returns nil if the transaction is a contract creation.

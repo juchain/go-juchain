@@ -93,7 +93,8 @@ func TestBlockEncoding(t *testing.T) {
 
 func TestDAppBlockEncoding(t *testing.T) {
 
-	b := &DAppBlock{header: &DAppHeader{
+	block := &DAppBlock{header: &DAppHeader{
+		DAppID: common.StringToHash("0xef1552a40b7165c3cd773806b9e0c165b75356e0314bf0706f279c729f51e017"),
 		Number: big.NewInt(142),
 		Root: common.StringToHash("0xef1552a40b7165c3cd773806b9e0c165b75356e0314bf0706f279c729f51e017"),
 		ParentHash: common.StringToHash("0xef1552a40b7165c3cd773806b9e0c165b75356e0314bf0706f279c729f51e017"),
@@ -102,13 +103,14 @@ func TestDAppBlockEncoding(t *testing.T) {
 		Time: big.NewInt(1426516743),
 		Nonce: EncodeNonce(uint64(0xa13a5a8c8f2bb1c4)),
 	} };
-	blockEnc, err := rlp.EncodeToBytes(&b)
+	blockEnc, err := rlp.EncodeToBytes(&block)
 	if err != nil {
 		t.Fatal("encode error: ", err)
 	}
 	fmt.Printf(`
 ############### DApp BLOCK INFO #############
 
+DAppID: 0x%x
 Number: %v
 Root: 0x%x
 ParentHash: 0x%x
@@ -119,7 +121,7 @@ TxHash: 0x%x
 ReceiptHash: 0x%x
 
 #############################################
-`, b.Number(), b.Root(), b.ParentHash(), b.MainBlockHash(), b.MixDigest(), b.Nonce(), b.TxHash(), b.ReceiptHash())
+`, block.DAppID(), block.Number(), block.Root(), block.ParentHash(), block.MainBlockHash(), block.MixDigest(), block.Nonce(), block.TxHash(), block.ReceiptHash())
 
 	fmt.Print(blockEnc)
 
