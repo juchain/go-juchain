@@ -395,7 +395,7 @@ func (dpos *DElection) Seal(chain consensus.ChainReader, block *types.Block, sto
 // APIs returns the RPC APIs this consensus engine provides.
 func (dpos *DElection) APIs(chain consensus.ChainReader) []rpc.API {
 	return []rpc.API{{
-		Namespace: "DPoS",
+		Namespace: "dpos",
 		Version:   "1.0",
 		Service:   &DPoSAPI{chain, dpos},
 		Public:    false,

@@ -49,24 +49,24 @@ const (
 	defaultGasPrice = 50 * config.Shannon
 )
 
-// PublicEthereumAPI provides an API to access Ethereum related information.
+// PublicJuchainAPI provides an API to access Juchain related information.
 // It offers only methods that operate on public data that is freely available to anyone.
-type PublicEthereumAPI struct {
+type PublicJuchainAPI struct {
 	b Backend
 }
 
-// NewPublicEthereumAPI creates a new Ethereum protocol API.
-func NewPublicJuchainAPI(b Backend) *PublicEthereumAPI {
-	return &PublicEthereumAPI{b}
+// NewPublicJuchainAPI creates a new Juchain protocol API.
+func NewPublicJuchainAPI(b Backend) *PublicJuchainAPI {
+	return &PublicJuchainAPI{b}
 }
 
 // GasPrice returns a suggestion for a gas price.
-func (s *PublicEthereumAPI) GasPrice(ctx context.Context) (*big.Int, error) {
+func (s *PublicJuchainAPI) GasPrice(ctx context.Context) (*big.Int, error) {
 	return s.b.SuggestPrice(ctx)
 }
 
-// ProtocolVersion returns the current Ethereum protocol version this node supports
-func (s *PublicEthereumAPI) ProtocolVersion() hexutil.Uint {
+// ProtocolVersion returns the current Juchain protocol version this node supports
+func (s *PublicJuchainAPI) ProtocolVersion() hexutil.Uint {
 	return hexutil.Uint(s.b.ProtocolVersion())
 }
 
@@ -77,7 +77,7 @@ func (s *PublicEthereumAPI) ProtocolVersion() hexutil.Uint {
 // - highestBlock:  block number of the highest block header this node has received from peers
 // - pulledStates:  number of state entries processed until now
 // - knownStates:   number of known state entries that still need to be pulled
-func (s *PublicEthereumAPI) Syncing() (interface{}, error) {
+func (s *PublicJuchainAPI) Syncing() (interface{}, error) {
 	progress := s.b.Downloader().Progress()
 
 	// Return not syncing if the synchronisation already completed
@@ -195,6 +195,234 @@ func (s *PublicAccountAPI) Accounts() []common.Address {
 		}
 	}
 	return addresses
+}
+
+// PrivateAccountAPI provides an API to access accounts managed by this node.
+// It offers methods to create, (un)lock en list accounts. Some methods accept
+// passwords and are therefore considered private by default.
+type PrivateDAppAccountAPI struct {
+	am        *account.Manager
+	nonceLock *AddrLocker
+	b         Backend
+}
+
+// NewPrivateDAppAccountAPI create a new PrivateDAppAccountAPI.
+func NewPrivateDAppAccountAPI(b Backend, nonceLock *AddrLocker) *PrivateDAppAccountAPI {
+	return &PrivateDAppAccountAPI{
+		am:        b.AccountManager(),
+		nonceLock: nonceLock,
+		b:         b,
+	}
+}
+
+// ListAccounts will return a list of addresses for accounts this node manages.
+func (s *PrivateDAppAccountAPI) ListAccounts() []common.Address {
+	addresses := make([]common.Address, 0) // return [] instead of nil if empty
+	for _, wallet := range s.am.Wallets() {
+		for _, acc := range wallet.Accounts() {
+			addresses = append(addresses, acc.Address)
+		}
+	}
+	return addresses
+}
+
+// ListWallets will return a list of wallets this node manages.
+func (s *PrivateDAppAccountAPI) ListWallets() []rawWallet {
+	wallets := make([]rawWallet, 0) // return [] instead of nil if empty
+	for _, wallet := range s.am.Wallets() {
+		status, failure := wallet.Status()
+
+		raw := rawWallet{
+			URL:      wallet.URL().String(),
+			Status:   status,
+			Accounts: wallet.Accounts(),
+		}
+		if failure != nil {
+			raw.Failure = failure.Error()
+		}
+		wallets = append(wallets, raw)
+	}
+	return wallets
+}
+
+// OpenWallet initiates a hardware wallet opening procedure, establishing a USB
+// connection and attempting to authenticate via the provided passphrase. Note,
+// the method may return an extra challenge requiring a second open (e.g. the
+// Trezor PIN matrix challenge).
+func (s *PrivateDAppAccountAPI) OpenWallet(url string, passphrase *string) error {
+	wallet, err := s.am.Wallet(url)
+	if err != nil {
+		return err
+	}
+	pass := ""
+	if passphrase != nil {
+		pass = *passphrase
+	}
+	return wallet.Open(pass)
+}
+
+// DeriveAccount requests a HD wallet to derive a new account, optionally pinning
+// it for later reuse.
+func (s *PrivateDAppAccountAPI) DeriveAccount(url string, path string, pin *bool) (account.Account, error) {
+	wallet, err := s.am.Wallet(url)
+	if err != nil {
+		return account.Account{}, err
+	}
+	derivPath, err := account.ParseDerivationPath(path)
+	if err != nil {
+		return account.Account{}, err
+	}
+	if pin == nil {
+		pin = new(bool)
+	}
+	return wallet.Derive(derivPath, *pin)
+}
+
+// NewAccount will create a new account and returns the address for the new account.
+func (s *PrivateDAppAccountAPI) NewAccount(password string) (common.Address, error) {
+	acc, err := fetchKeystore(s.am).NewAccount(password)
+	if err == nil {
+		return acc.Address, nil
+	}
+	return common.Address{}, err
+}
+
+// ImportRawKey stores the given hex encoded ECDSA key into the key directory,
+// encrypting it with the passphrase.
+func (s *PrivateDAppAccountAPI) ImportRawKey(privkey string, password string) (common.Address, error) {
+	key, err := crypto.HexToECDSA(privkey)
+	if err != nil {
+		return common.Address{}, err
+	}
+	acc, err := fetchKeystore(s.am).ImportECDSA(key, password)
+	return acc.Address, err
+}
+
+// UnlockAccount will unlock the account associated with the given address with
+// the given password for duration seconds. If duration is nil it will use a
+// default of 300 seconds. It returns an indication if the account was unlocked.
+func (s *PrivateDAppAccountAPI) UnlockAccount(addr common.Address, password string, duration *uint64) (bool, error) {
+	const max = uint64(time.Duration(math.MaxInt64) / time.Second)
+	var d time.Duration
+	if duration == nil {
+		d = 300 * time.Second
+	} else if *duration > max {
+		return false, errors.New("unlock duration too large")
+	} else {
+		d = time.Duration(*duration) * time.Second
+	}
+	err := fetchKeystore(s.am).TimedUnlock(account.Account{Address: addr}, password, d)
+	return err == nil, err
+}
+
+// LockAccount will lock the account associated with the given address when it's unlocked.
+func (s *PrivateDAppAccountAPI) LockAccount(addr common.Address) bool {
+	return fetchKeystore(s.am).Lock(addr) == nil
+}
+
+// signTransactions sets defaults and signs the given transaction
+// NOTE: the caller needs to ensure that the nonceLock is held, if applicable,
+// and release it after the transaction has been submitted to the tx pool
+func (s *PrivateDAppAccountAPI) signTransaction(ctx context.Context, args SendTxArgs, passwd string) (*types.Transaction, error) {
+	// Look up the wallet containing the requested signer
+	account0 := account.Account{Address: args.From}
+	wallet, err := s.am.Find(account0)
+	if err != nil {
+		return nil, err
+	}
+	// Set some sanity defaults and terminate on failure
+	if err := args.setDefaults(ctx, s.b); err != nil {
+		return nil, err
+	}
+	// Assemble the transaction and sign with the wallet
+	tx := args.toTransaction()
+
+	var chainID *big.Int
+	config := s.b.ChainConfig();
+	chainID = config.ChainId;
+
+	return wallet.SignTxWithPassphrase(account0, passwd, tx, chainID)
+}
+
+// SignTransaction will create a transaction from the given arguments and
+// tries to sign it with the key associated with args.To. If the given passwd isn't
+// able to decrypt the key it fails. The transaction is returned in RLP-form, not broadcast
+// to other nodes
+func (s *PrivateDAppAccountAPI) SignTransaction(ctx context.Context, args SendTxArgs, passwd string) (*SignTransactionResult, error) {
+	// No need to obtain the noncelock mutex, since we won't be sending this
+	// tx into the transaction pool, but right back to the user
+	if args.Gas == nil {
+		return nil, fmt.Errorf("gas not specified")
+	}
+	if args.GasPrice == nil {
+		return nil, fmt.Errorf("gasPrice not specified")
+	}
+	if args.Nonce == nil {
+		return nil, fmt.Errorf("nonce not specified")
+	}
+	signed, err := s.signTransaction(ctx, args, passwd)
+	if err != nil {
+		return nil, err
+	}
+	data, err := rlp.EncodeToBytes(signed)
+	if err != nil {
+		return nil, err
+	}
+	return &SignTransactionResult{data, signed}, nil
+}
+
+// Sign calculates an Juchain ECDSA signature for:
+// keccack256("\x19Juchain Signed Message:\n" + len(message) + message))
+//
+// Note, the produced signature conforms to the secp256k1 curve R, S and V values,
+// where the V value will be 27 or 28 for legacy reasons.
+//
+// The key used to calculate the signature is decrypted with the given password.
+//
+// https://github.com/juchain/go-juchain/wiki/Management-APIs#personal_sign
+func (s *PrivateDAppAccountAPI) Sign(ctx context.Context, data hexutil.Bytes, addr common.Address, passwd string) (hexutil.Bytes, error) {
+	// Look up the wallet containing the requested signer
+	account0 := account.Account{Address: addr}
+
+	wallet, err := s.b.AccountManager().Find(account0)
+	if err != nil {
+		return nil, err
+	}
+	// Assemble sign the data with the wallet
+	signature, err := wallet.SignHashWithPassphrase(account0, passwd, signHash(data))
+	if err != nil {
+		return nil, err
+	}
+	signature[64] += 27 // Transform V from 0/1 to 27/28 according to the yellow paper
+	return signature, nil
+}
+
+// EcRecover returns the address for the account that was used to create the signature.
+// Note, this function is compatible with eth_sign and personal_sign. As such it recovers
+// the address of:
+// hash = keccak256("\x19Juchain Signed Message:\n"${message length}${message})
+// addr = ecrecover(hash, signature)
+//
+// Note, the signature must conform to the secp256k1 curve R, S and V values, where
+// the V value must be be 27 or 28 for legacy reasons.
+//
+// https://github.com/juchain/go-juchain/wiki/Management-APIs#personal_ecRecover
+func (s *PrivateDAppAccountAPI) EcRecover(ctx context.Context, data, sig hexutil.Bytes) (common.Address, error) {
+	if len(sig) != 65 {
+		return common.Address{}, fmt.Errorf("signature must be 65 bytes long")
+	}
+	if sig[64] != 27 && sig[64] != 28 {
+		return common.Address{}, fmt.Errorf("invalid Juchain signature (V is not 27 or 28)")
+	}
+	sig[64] -= 27 // Transform yellow paper V from 27/28 to 0/1
+
+	rpk, err := crypto.Ecrecover(signHash(data), sig)
+	if err != nil {
+		return common.Address{}, err
+	}
+	pubKey := crypto.ToECDSAPub(rpk)
+	recoveredAddr := crypto.PubkeyToAddress(*pubKey)
+	return recoveredAddr, nil
 }
 
 // PrivateAccountAPI provides an API to access accounts managed by this node.
@@ -406,16 +634,16 @@ func (s *PrivateAccountAPI) SignTransaction(ctx context.Context, args SendTxArgs
 // safely used to calculate a signature from.
 //
 // The hash is calulcated as
-//   keccak256("\x19Ethereum Signed Message:\n"${message length}${message}).
+//   keccak256("\x19Juchain Signed Message:\n"${message length}${message}).
 //
 // This gives context to the signed message and prevents signing of transactions.
 func signHash(data []byte) []byte {
-	msg := fmt.Sprintf("\x19Ethereum Signed Message:\n%d%s", len(data), data)
+	msg := fmt.Sprintf("\x19Juchain Signed Message:\n%d%s", len(data), data)
 	return crypto.Keccak256([]byte(msg))
 }
 
-// Sign calculates an Ethereum ECDSA signature for:
-// keccack256("\x19Ethereum Signed Message:\n" + len(message) + message))
+// Sign calculates an Juchain ECDSA signature for:
+// keccack256("\x19Juchain Signed Message:\n" + len(message) + message))
 //
 // Note, the produced signature conforms to the secp256k1 curve R, S and V values,
 // where the V value will be 27 or 28 for legacy reasons.
@@ -443,7 +671,7 @@ func (s *PrivateAccountAPI) Sign(ctx context.Context, data hexutil.Bytes, addr c
 // EcRecover returns the address for the account that was used to create the signature.
 // Note, this function is compatible with eth_sign and personal_sign. As such it recovers
 // the address of:
-// hash = keccak256("\x19Ethereum Signed Message:\n"${message length}${message})
+// hash = keccak256("\x19Juchain Signed Message:\n"${message length}${message})
 // addr = ecrecover(hash, signature)
 //
 // Note, the signature must conform to the secp256k1 curve R, S and V values, where
@@ -455,7 +683,7 @@ func (s *PrivateAccountAPI) EcRecover(ctx context.Context, data, sig hexutil.Byt
 		return common.Address{}, fmt.Errorf("signature must be 65 bytes long")
 	}
 	if sig[64] != 27 && sig[64] != 28 {
-		return common.Address{}, fmt.Errorf("invalid Ethereum signature (V is not 27 or 28)")
+		return common.Address{}, fmt.Errorf("invalid Juchain signature (V is not 27 or 28)")
 	}
 	sig[64] -= 27 // Transform yellow paper V from 27/28 to 0/1
 
@@ -474,13 +702,13 @@ func (s *PrivateAccountAPI) SignAndSendTransaction(ctx context.Context, args Sen
 	return s.SendTransaction(ctx, args, passwd)
 }
 
-// PublicBlockChainAPI provides an API to access the Ethereum blockchain.
+// PublicBlockChainAPI provides an API to access the Juchain blockchain.
 // It offers only methods that operate on public data that is freely available to anyone.
 type PublicBlockChainAPI struct {
 	b Backend
 }
 
-// NewPublicBlockChainAPI creates a new Ethereum blockchain API.
+// NewPublicBlockChainAPI creates a new Juchain blockchain API.
 func NewPublicBlockChainAPI(b Backend) *PublicBlockChainAPI {
 	return &PublicBlockChainAPI{b}
 }
@@ -604,6 +832,7 @@ func (s *PublicBlockChainAPI) GetStorageAt(ctx context.Context, address common.A
 
 // CallArgs represents the arguments for a call.
 type CallArgs struct {
+	DAppID   common.Hash     `json:"dappid"`
 	From     common.Address  `json:"from"`
 	To       *common.Address `json:"to"`
 	Gas      hexutil.Uint64  `json:"gas"`
@@ -1102,6 +1331,7 @@ func (s *PublicTransactionPoolAPI) sign(addr common.Address, tx *types.Transacti
 
 // SendTxArgs represents the arguments to sumbit a new transaction into the transaction pool.
 type SendTxArgs struct {
+	DAppID   *common.Hash     `json:"dappid"`
 	From     common.Address  `json:"from"`
 	To       *common.Address `json:"to"`
 	Gas      *hexutil.Uint64 `json:"gas"`
@@ -1162,12 +1392,21 @@ func (args *SendTxArgs) toTransaction() *types.Transaction {
 	} else if args.Input != nil {
 		input = *args.Input
 	}
-	if args.To == nil {
-		return types.NewContractCreation(uint64(*args.Nonce), (*big.Int)(args.Value), uint64(*args.Gas), (*big.Int)(args.GasPrice), input)
+	//try to seperate DApp transaction as two pieces.
+	if (args.DAppID != nil) {
+		if args.To == nil {
+			return types.NewDAppContractCreation(args.DAppID, uint64(*args.Nonce), (*big.Int)(args.Value), uint64(*args.Gas), (*big.Int)(args.GasPrice), input)
+		}
+		return types.NewDAppTransaction(args.DAppID, uint64(*args.Nonce), *args.To, (*big.Int)(args.Value), uint64(*args.Gas), (*big.Int)(args.GasPrice), input)
+	} else {
+		if args.To == nil {
+			return types.NewContractCreation(uint64(*args.Nonce), (*big.Int)(args.Value), uint64(*args.Gas), (*big.Int)(args.GasPrice), input)
+		}
+		return types.NewTransaction(uint64(*args.Nonce), *args.To, (*big.Int)(args.Value), uint64(*args.Gas), (*big.Int)(args.GasPrice), input)
 	}
-	return types.NewTransaction(uint64(*args.Nonce), *args.To, (*big.Int)(args.Value), uint64(*args.Gas), (*big.Int)(args.GasPrice), input)
 }
 
+var EmptyDAppIdHash = &common.Hash{};
 // submitTransaction is a helper function that submits tx to txPool and logs a message.
 func submitTransaction(ctx context.Context, b Backend, tx *types.Transaction) (common.Hash, error) {
 	if err := b.SendTx(ctx, tx); err != nil {
@@ -1235,7 +1474,7 @@ func (s *PublicTransactionPoolAPI) SendRawTransaction(ctx context.Context, encod
 }
 
 // Sign calculates an ECDSA signature for:
-// keccack256("\x19Ethereum Signed Message:\n" + len(message) + message).
+// keccack256("\x19Juchain Signed Message:\n" + len(message) + message).
 //
 // Note, the produced signature conforms to the secp256k1 curve R, S and V values,
 // where the V value will be 27 or 28 for legacy reasons.
@@ -1358,14 +1597,14 @@ func (s *PublicTransactionPoolAPI) Resend(ctx context.Context, sendArgs SendTxAr
 	return common.Hash{}, fmt.Errorf("Transaction %#x not found", matchTx.Hash())
 }
 
-// PublicDebugAPI is the collection of Ethereum APIs exposed over the public
+// PublicDebugAPI is the collection of Juchain APIs exposed over the public
 // debugging endpoint.
 type PublicDebugAPI struct {
 	b Backend
 }
 
 // NewPublicDebugAPI creates a new API definition for the public debug methods
-// of the Ethereum service.
+// of the Juchain service.
 func NewPublicDebugAPI(b Backend) *PublicDebugAPI {
 	return &PublicDebugAPI{b: b}
 }
@@ -1401,14 +1640,14 @@ func (api *PublicDebugAPI) SeedHash(ctx context.Context, number uint64) (string,
 	return fmt.Sprintf("0x%x", number), nil
 }
 
-// PrivateDebugAPI is the collection of Ethereum APIs exposed over the private
+// PrivateDebugAPI is the collection of Juchain APIs exposed over the private
 // debugging endpoint.
 type PrivateDebugAPI struct {
 	b Backend
 }
 
 // NewPrivateDebugAPI creates a new API definition for the private debug methods
-// of the Ethereum service.
+// of the Juchain service.
 func NewPrivateDebugAPI(b Backend) *PrivateDebugAPI {
 	return &PrivateDebugAPI{b: b}
 }
@@ -1483,17 +1722,17 @@ func GetAPIs(apiBackend Backend) []rpc.API {
 	nonceLock := new(AddrLocker)
 	return []rpc.API{
 		{
-			Namespace: "eth",
+			Namespace: "block",
 			Version:   "1.0",
 			Service:   NewPublicJuchainAPI(apiBackend),
 			Public:    true,
 		}, {
-			Namespace: "eth",
+			Namespace: "block",
 			Version:   "1.0",
 			Service:   NewPublicBlockChainAPI(apiBackend),
 			Public:    true,
 		}, {
-			Namespace: "eth",
+			Namespace: "block",
 			Version:   "1.0",
 			Service:   NewPublicTransactionPoolAPI(apiBackend, nonceLock),
 			Public:    true,
@@ -1512,7 +1751,7 @@ func GetAPIs(apiBackend Backend) []rpc.API {
 			Version:   "1.0",
 			Service:   NewPrivateDebugAPI(apiBackend),
 		}, {
-			Namespace: "eth",
+			Namespace: "block",
 			Version:   "1.0",
 			Service:   NewPublicAccountAPI(apiBackend.AccountManager()),
 			Public:    true,
@@ -1520,6 +1759,11 @@ func GetAPIs(apiBackend Backend) []rpc.API {
 			Namespace: "personal",
 			Version:   "1.0",
 			Service:   NewPrivateAccountAPI(apiBackend, nonceLock),
+			Public:    false,
+		}, {
+			Namespace: "dapp",
+			Version:   "1.0",
+			Service:   NewPrivateDAppAccountAPI(apiBackend, nonceLock),
 			Public:    false,
 		},
 	}

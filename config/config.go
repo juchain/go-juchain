@@ -81,7 +81,7 @@ type DPoSConfig struct{
 	Epoch  uint64 `json:"epoch"`  // Epoch length to reset votes and checkpoint
 }
 func (c *DPoSConfig) String() string {
-	return "DPoS"
+	return "dpos"
 }
 
 // CliqueConfig is the consensus engine configs for proof-of-authority based sealing.

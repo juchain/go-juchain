@@ -29,7 +29,7 @@ import (
 	"github.com/juchain/go-juchain/common"
 	"github.com/juchain/go-juchain/core"
 	"github.com/juchain/go-juchain/p2p/protocol"
-	"github.com/juchain/go-juchain/rpc/jsre"
+	"github.com/juchain/go-juchain/cmd/console/jsre"
 	"github.com/juchain/go-juchain/p2p/node"
 )
 

@@ -27,7 +27,7 @@ import (
 	"time"
 
 	"github.com/juchain/go-juchain/common"
-	"github.com/juchain/go-juchain/rpc/jsre/deps"
+	"github.com/juchain/go-juchain/cmd/console/jsre/deps"
 	"github.com/robertkrimen/otto"
 )
 

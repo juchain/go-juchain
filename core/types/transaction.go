@@ -27,6 +27,7 @@ import (
 	"github.com/juchain/go-juchain/common/hexutil"
 	"github.com/juchain/go-juchain/common/crypto"
 	"github.com/juchain/go-juchain/common/rlp"
+	"bytes"
 )
 
 //go:generate gencodec -type txdata -field-override txdataMarshaling -out gen_tx_json.go
@@ -305,6 +306,21 @@ func TxDifference(a, b Transactions) (keep Transactions) {
 	}
 
 	return keep
+}
+
+func SeperateDAppTx(tx *Transaction) (*Transaction, *Transaction) {
+	if bytes.Equal(tx.DAppID().Bytes(), EmptyDAppIdHash.Bytes()) {
+		return tx, nil;
+	}
+
+	if tx.To() != nil {
+		dapptx := NewDAppTransaction(tx.DAppID(), tx.Nonce(), *tx.To(), tx.Value(), tx.Gas(), tx.GasPrice(), tx.Data());
+		return dapptx, nil;
+	} else {
+		dappcontracttx := NewDAppContractCreation(tx.DAppID(), tx.Nonce(), tx.Value(), tx.Gas(), tx.GasPrice(), tx.Data());
+		return dappcontracttx, nil;
+	}
+
 }
 
 // TxByNonce implements the sort interface to allow sorting a list of transactions

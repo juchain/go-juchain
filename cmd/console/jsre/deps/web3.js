@@ -910,7 +910,7 @@ module.exports = SolidityTypeDynamicBytes;
  * @date 2015
  */
 
-var BigNumber = require('bignumber.js');
+var BigNumber = require('./bignumber');
 var utils = require('../utils/utils');
 var c = require('../utils/config');
 var SolidityParam = require('./param');
@@ -1759,7 +1759,7 @@ if (typeof XMLHttpRequest === 'undefined') {
 
 
 /// required to define ETH_BIGNUMBER_ROUNDING_MODE
-var BigNumber = require('bignumber.js');
+var BigNumber = require('./bignumber');
 
 var ETH_UNITS = [
     'wei',
@@ -1879,7 +1879,7 @@ module.exports = function (value, options) {
  */
 
 
-var BigNumber = require('bignumber.js');
+var BigNumber = require('./bignumber');
 var sha3 = require('./sha3.js');
 var utf8 = require('utf8');
 
@@ -2522,7 +2522,7 @@ var Batch = require('./web3/batch');
 var Property = require('./web3/property');
 var HttpProvider = require('./web3/httpprovider');
 var IpcProvider = require('./web3/ipcprovider');
-var BigNumber = require('bignumber.js');
+var BigNumber = require('./bignumber');
 
 
 
@@ -4424,7 +4424,7 @@ module.exports = HttpProvider;
  * @date 2015
  */
 
-var BigNumber = require('bignumber.js');
+var BigNumber = require('./bignumber');
 
 var padLeft = function (string, bytes) {
     var result = string;
