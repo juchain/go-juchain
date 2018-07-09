@@ -29,7 +29,7 @@ import (
 	"syscall"
 
 	"github.com/juchain/go-juchain/cmd/console/jsre"
-	"github.com/juchain/go-juchain/rpc/web3ext"
+	"github.com/juchain/go-juchain/cmd/console/web3ext"
 	"github.com/juchain/go-juchain/rpc"
 	"github.com/mattn/go-colorable"
 	"github.com/peterh/liner"
@@ -127,8 +127,8 @@ func (c *Console) init(preload []string) error {
 	if _, err := c.jsre.Run("var Web3 = require('web3');"); err != nil {
 		return fmt.Errorf("web3 require: %v", err)
 	}
-	if _, err := c.jsre.Run("var web3 = new Web3(jeth);"); err != nil {
-		return fmt.Errorf("web3 provider: %v", err)
+	if v, err := c.jsre.Run("var web3 = new Web3(jeth);"); err != nil {
+		return fmt.Errorf("web3 provider: %v， %v", err, v)
 	}
 	// Load the supported APIs into the JavaScript runtime environment
 	apis, err := c.client.SupportedModules()

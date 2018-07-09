@@ -910,7 +910,7 @@ module.exports = SolidityTypeDynamicBytes;
  * @date 2015
  */
 
-var BigNumber = require('./bignumber');
+var BigNumber = require('bignumber.js');
 var utils = require('../utils/utils');
 var c = require('../utils/config');
 var SolidityParam = require('./param');
@@ -1759,7 +1759,7 @@ if (typeof XMLHttpRequest === 'undefined') {
 
 
 /// required to define ETH_BIGNUMBER_ROUNDING_MODE
-var BigNumber = require('./bignumber');
+var BigNumber = require('bignumber.js');
 
 var ETH_UNITS = [
     'wei',
@@ -1879,7 +1879,7 @@ module.exports = function (value, options) {
  */
 
 
-var BigNumber = require('./bignumber');
+var BigNumber = require('bignumber.js');
 var sha3 = require('./sha3.js');
 var utf8 = require('utf8');
 
@@ -2409,7 +2409,7 @@ var isJson = function (str) {
 };
 
 /**
- * Returns true if given string is a valid Juchain block header bloom.
+ * Returns true if given string is a valid Ethereum block header bloom.
  *
  * @method isBloom
  * @param {String} hex encoded bloom filter
@@ -2508,11 +2508,13 @@ module.exports={
 
 var RequestManager = require('./web3/requestmanager');
 var Iban = require('./web3/iban');
-var Block = require('./web3/methods/block');
-var DB = require('./web3/methods/store');
+var Eth = require('./web3/methods/eth');
+var DB = require('./web3/methods/db');
+var Shh = require('./web3/methods/shh');
 var Net = require('./web3/methods/net');
-var DApp = require('./web3/methods/dapp');
 var Personal = require('./web3/methods/personal');
+var DApp = require('./web3/methods/dapp');
+var Swarm = require('./web3/methods/swarm');
 var Settings = require('./web3/settings');
 var version = require('./version.json');
 var utils = require('./utils/utils');
@@ -2522,18 +2524,20 @@ var Batch = require('./web3/batch');
 var Property = require('./web3/property');
 var HttpProvider = require('./web3/httpprovider');
 var IpcProvider = require('./web3/ipcprovider');
-var BigNumber = require('./bignumber');
+var BigNumber = require('bignumber.js');
 
 
 
 function Web3 (provider) {
     this._requestManager = new RequestManager(provider);
     this.currentProvider = provider;
-    this.block = new Block(this);
+    this.eth = new Eth(this);
     this.db = new DB(this);
-    this.dapp = new DApp(this);
+    this.shh = new Shh(this);
     this.net = new Net(this);
     this.personal = new Personal(this);
+    this.dapp = new DApp(this);
+    this.bzz = new Swarm(this);
     this.settings = new Settings();
     this.version = {
         api: version.version
@@ -2610,6 +2614,11 @@ var properties = function () {
             name: 'version.ethereum',
             getter: 'eth_protocolVersion',
             inputFormatter: utils.toDecimal
+        }),
+        new Property({
+            name: 'version.whisper',
+            getter: 'shh_version',
+            inputFormatter: utils.toDecimal
         })
     ];
 };
@@ -2625,7 +2634,7 @@ Web3.prototype.createBatch = function () {
 module.exports = Web3;
 
 
-},{"./utils/sha3":19,"./utils/utils":20,"./version.json":21,"./web3/batch":24,"./web3/extend":28,"./web3/httpprovider":32,"./web3/iban":33,"./web3/ipcprovider":34,"./web3/methods/db":37,"./web3/methods/block":38,"./web3/methods/net":39,"./web3/methods/personal":40,"./web3/property":45,"./web3/requestmanager":46,"./web3/settings":47,"bignumber.js":"bignumber.js"}],23:[function(require,module,exports){
+},{"./utils/sha3":19,"./utils/utils":20,"./version.json":21,"./web3/batch":24,"./web3/extend":28,"./web3/httpprovider":32,"./web3/iban":33,"./web3/ipcprovider":34,"./web3/methods/db":37,"./web3/methods/eth":38,"./web3/methods/net":39,"./web3/methods/personal":40,"./web3/methods/shh":41,"./web3/methods/swarm":42,"./web3/property":45,"./web3/requestmanager":46,"./web3/settings":47,"./web3/methods/dapp":48,"bignumber.js":"bignumber.js"}],23:[function(require,module,exports){
 /*
     This file is part of web3.js.
 
@@ -2704,7 +2713,7 @@ AllSolidityEvents.prototype.execute = function (options, callback) {
 
     var o = this.encode(options);
     var formatter = this.decode.bind(this);
-    return new Filter(o, 'block', this._requestManager, watches.block(), formatter, callback);
+    return new Filter(o, 'eth', this._requestManager, watches.eth(), formatter, callback);
 };
 
 AllSolidityEvents.prototype.attachToContract = function (contract) {
@@ -2948,8 +2957,8 @@ var checkForContractAddress = function(contract, callback){
  * @method ContractFactory
  * @param {Array} abi
  */
-var ContractFactory = function (block, abi) {
-    this.block = block;
+var ContractFactory = function (eth, abi) {
+    this.eth = eth;
     this.abi = abi;
 
     /**
@@ -2965,7 +2974,7 @@ var ContractFactory = function (block, abi) {
     this.new = function () {
         /*jshint maxcomplexity: 7 */
         
-        var contract = new Contract(this.block, this.abi);
+        var contract = new Contract(this.eth, this.abi);
 
         // parse arguments
         var options = {}; // required!
@@ -2997,7 +3006,7 @@ var ContractFactory = function (block, abi) {
         if (callback) {
 
             // wait for the contract address adn check if the code was deployed
-            this.block.sendTransaction(options, function (err, hash) {
+            this.eth.sendTransaction(options, function (err, hash) {
                 if (err) {
                     callback(err);
                 } else {
@@ -3011,7 +3020,7 @@ var ContractFactory = function (block, abi) {
                 }
             });
         } else {
-            var hash = this.block.sendTransaction(options);
+            var hash = this.eth.sendTransaction(options);
             // add the transaction hash
             contract.transactionHash = hash;
             checkForContractAddress(contract);
@@ -3046,7 +3055,7 @@ var ContractFactory = function (block, abi) {
  * otherwise calls callback function (err, contract)
  */
 ContractFactory.prototype.at = function (address, callback) {
-    var contract = new Contract(this.block, this.abi, address);
+    var contract = new Contract(this.eth, this.abi, address);
 
     // this functions are not part of prototype,
     // because we dont want to spoil the interface
@@ -3086,8 +3095,8 @@ ContractFactory.prototype.getData = function () {
  * @param {Array} abi
  * @param {Address} contract address
  */
-var Contract = function (block, abi, address) {
-    this._eth = block;
+var Contract = function (eth, abi, address) {
+    this._eth = eth;
     this.transactionHash = null;
     this.address = address;
     this.abi = abi;
@@ -3329,7 +3338,7 @@ SolidityEvent.prototype.execute = function (indexed, options, callback) {
 
     var o = this.encode(indexed, options);
     var formatter = this.decode.bind(this);
-    return new Filter(o, 'block', this._requestManager, watches.block(), formatter, callback);
+    return new Filter(o, 'eth', this._requestManager, watches.eth(), formatter, callback);
 };
 
 /**
@@ -3463,7 +3472,7 @@ var getOptions = function (options, type) {
 
 
     switch(type) {
-        case 'block':
+        case 'eth':
 
             // make sure topics, get converted to hex
             options.topics = options.topics || [];
@@ -3533,12 +3542,12 @@ var pollFilter = function(self) {
             });
         }
     };
-
+/**
     self.requestManager.startPolling({
         method: self.implementation.poll.call,
         params: [self.filterId],
     }, self.filterId, onMessage, self.stopWatching.bind(self));
-
+*/
 };
 
 var Filter = function (options, type, requestManager, methods, formatter, callback, filterCreationErrorCallback) {
@@ -3989,8 +3998,8 @@ var sha3 = require('../utils/sha3');
 /**
  * This prototype should be used to call/sendTransaction to solidity functions
  */
-var SolidityFunction = function (block, json, address) {
-    this._eth = block;
+var SolidityFunction = function (eth, json, address) {
+    this._eth = eth;
     this._inputTypes = json.inputs.map(function (i) {
         return i.type;
     });
@@ -4196,7 +4205,7 @@ SolidityFunction.prototype.request = function () {
     var format = this.unpackOutput.bind(this);
 
     return {
-        method: this._constant ? 'block_call' : 'block_sendTransaction',
+        method: this._constant ? 'eth_call' : 'eth_sendTransaction',
         callback: callback,
         params: [payload],
         format: format
@@ -4424,7 +4433,7 @@ module.exports = HttpProvider;
  * @date 2015
  */
 
-var BigNumber = require('./bignumber');
+var BigNumber = require('bignumber.js');
 
 var padLeft = function (string, bytes) {
     var result = string;
@@ -5092,6 +5101,74 @@ Method.prototype.request = function () {
 
 module.exports = Method;
 
+},{"../utils/utils":20,"./errors":26}],37:[function(require,module,exports){
+/*
+    This file is part of web3.js.
+
+    web3.js is free software: you can redistribute it and/or modify
+    it under the terms of the GNU Lesser General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    web3.js is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU Lesser General Public License for more details.
+
+    You should have received a copy of the GNU Lesser General Public License
+    along with web3.js.  If not, see <http://www.gnu.org/licenses/>.
+*/
+/** @file db.js
+ * @authors:
+ *   Marek Kotewicz <marek@ethdev.com>
+ * @date 2015
+ */
+
+var Method = require('../method');
+
+var DB = function (web3) {
+    this._requestManager = web3._requestManager;
+
+    var self = this;
+    
+    methods().forEach(function(method) { 
+        method.attachToObject(self);
+        method.setRequestManager(web3._requestManager);
+    });
+};
+
+var methods = function () {
+    var putString = new Method({
+        name: 'putString',
+        call: 'db_putString',
+        params: 3
+    });
+
+    var getString = new Method({
+        name: 'getString',
+        call: 'db_getString',
+        params: 2
+    });
+
+    var putHex = new Method({
+        name: 'putHex',
+        call: 'db_putHex',
+        params: 3
+    });
+
+    var getHex = new Method({
+        name: 'getHex',
+        call: 'db_getHex',
+        params: 2
+    });
+
+    return [
+        putString, getString, putHex, getHex
+    ];
+};
+
+module.exports = DB;
+
 },{"../method":36}],38:[function(require,module,exports){
 /*
     This file is part of web3.js.
@@ -5110,7 +5187,7 @@ module.exports = Method;
     along with web3.js.  If not, see <http://www.gnu.org/licenses/>.
 */
 /**
- * @file block.js
+ * @file eth.js
  * @author Marek Kotewicz <marek@ethdev.com>
  * @author Fabian Vogelsteller <fabian@ethdev.com>
  * @date 2015
@@ -5132,26 +5209,26 @@ var Iban = require('../iban');
 var transfer = require('../transfer');
 
 var blockCall = function (args) {
-    return (utils.isString(args[0]) && args[0].indexOf('0x') === 0) ? "block_getBlockByHash" : "block_getBlockByNumber";
+    return (utils.isString(args[0]) && args[0].indexOf('0x') === 0) ? "eth_getBlockByHash" : "eth_getBlockByNumber";
 };
 
 var transactionFromBlockCall = function (args) {
-    return (utils.isString(args[0]) && args[0].indexOf('0x') === 0) ? 'block_getTransactionByBlockHashAndIndex' : 'block_getTransactionByBlockNumberAndIndex';
+    return (utils.isString(args[0]) && args[0].indexOf('0x') === 0) ? 'eth_getTransactionByBlockHashAndIndex' : 'eth_getTransactionByBlockNumberAndIndex';
 };
 
 var uncleCall = function (args) {
-    return (utils.isString(args[0]) && args[0].indexOf('0x') === 0) ? 'block_getUncleByBlockHashAndIndex' : 'block_getUncleByBlockNumberAndIndex';
+    return (utils.isString(args[0]) && args[0].indexOf('0x') === 0) ? 'eth_getUncleByBlockHashAndIndex' : 'eth_getUncleByBlockNumberAndIndex';
 };
 
 var getBlockTransactionCountCall = function (args) {
-    return (utils.isString(args[0]) && args[0].indexOf('0x') === 0) ? 'block_getBlockTransactionCountByHash' : 'block_getBlockTransactionCountByNumber';
+    return (utils.isString(args[0]) && args[0].indexOf('0x') === 0) ? 'eth_getBlockTransactionCountByHash' : 'eth_getBlockTransactionCountByNumber';
 };
 
 var uncleCountCall = function (args) {
-    return (utils.isString(args[0]) && args[0].indexOf('0x') === 0) ? 'block_getUncleCountByBlockHash' : 'block_getUncleCountByBlockNumber';
+    return (utils.isString(args[0]) && args[0].indexOf('0x') === 0) ? 'eth_getUncleCountByBlockHash' : 'eth_getUncleCountByBlockNumber';
 };
 
-function Block(web3) {
+function Eth(web3) {
     this._requestManager = web3._requestManager;
 
     var self = this;
@@ -5171,7 +5248,7 @@ function Block(web3) {
     this.sendIBANTransaction = transfer.bind(null, this);
 }
 
-Object.defineProperty(Block.prototype, 'defaultBlock', {
+Object.defineProperty(Eth.prototype, 'defaultBlock', {
     get: function () {
         return c.defaultBlock;
     },
@@ -5181,7 +5258,7 @@ Object.defineProperty(Block.prototype, 'defaultBlock', {
     }
 });
 
-Object.defineProperty(Block.prototype, 'defaultAccount', {
+Object.defineProperty(Eth.prototype, 'defaultAccount', {
     get: function () {
         return c.defaultAccount;
     },
@@ -5194,7 +5271,7 @@ Object.defineProperty(Block.prototype, 'defaultAccount', {
 var methods = function () {
     var getBalance = new Method({
         name: 'getBalance',
-        call: 'block_getBalance',
+        call: 'eth_getBalance',
         params: 2,
         inputFormatter: [formatters.inputAddressFormatter, formatters.inputDefaultBlockNumberFormatter],
         outputFormatter: formatters.outputBigNumberFormatter
@@ -5202,14 +5279,14 @@ var methods = function () {
 
     var getStorageAt = new Method({
         name: 'getStorageAt',
-        call: 'block_getStorageAt',
+        call: 'eth_getStorageAt',
         params: 3,
         inputFormatter: [null, utils.toHex, formatters.inputDefaultBlockNumberFormatter]
     });
 
     var getCode = new Method({
         name: 'getCode',
-        call: 'block_getCode',
+        call: 'eth_getCode',
         params: 2,
         inputFormatter: [formatters.inputAddressFormatter, formatters.inputDefaultBlockNumberFormatter]
     });
@@ -5233,7 +5310,7 @@ var methods = function () {
 
     var getCompilers = new Method({
         name: 'getCompilers',
-        call: 'block_getCompilers',
+        call: 'eth_getCompilers',
         params: 0
     });
 
@@ -5255,7 +5332,7 @@ var methods = function () {
 
     var getTransaction = new Method({
         name: 'getTransaction',
-        call: 'block_getTransactionByHash',
+        call: 'eth_getTransactionByHash',
         params: 1,
         outputFormatter: formatters.outputTransactionFormatter
     });
@@ -5270,14 +5347,14 @@ var methods = function () {
 
     var getTransactionReceipt = new Method({
         name: 'getTransactionReceipt',
-        call: 'block_getTransactionReceipt',
+        call: 'eth_getTransactionReceipt',
         params: 1,
         outputFormatter: formatters.outputTransactionReceiptFormatter
     });
 
     var getTransactionCount = new Method({
         name: 'getTransactionCount',
-        call: 'block_getTransactionCount',
+        call: 'eth_getTransactionCount',
         params: 2,
         inputFormatter: [null, formatters.inputDefaultBlockNumberFormatter],
         outputFormatter: utils.toDecimal
@@ -5285,42 +5362,42 @@ var methods = function () {
 
     var sendRawTransaction = new Method({
         name: 'sendRawTransaction',
-        call: 'block_sendRawTransaction',
+        call: 'eth_sendRawTransaction',
         params: 1,
         inputFormatter: [null]
     });
 
     var sendTransaction = new Method({
         name: 'sendTransaction',
-        call: 'block_sendTransaction',
+        call: 'eth_sendTransaction',
         params: 1,
         inputFormatter: [formatters.inputTransactionFormatter]
     });
 
     var signTransaction = new Method({
         name: 'signTransaction',
-        call: 'block_signTransaction',
+        call: 'eth_signTransaction',
         params: 1,
         inputFormatter: [formatters.inputTransactionFormatter]
     });
 
     var sign = new Method({
         name: 'sign',
-        call: 'block_sign',
+        call: 'eth_sign',
         params: 2,
         inputFormatter: [formatters.inputAddressFormatter, null]
     });
 
     var call = new Method({
         name: 'call',
-        call: 'block_call',
+        call: 'eth_call',
         params: 2,
         inputFormatter: [formatters.inputCallFormatter, formatters.inputDefaultBlockNumberFormatter]
     });
 
     var estimateGas = new Method({
         name: 'estimateGas',
-        call: 'block_estimateGas',
+        call: 'eth_estimateGas',
         params: 1,
         inputFormatter: [formatters.inputCallFormatter],
         outputFormatter: utils.toDecimal
@@ -5328,31 +5405,31 @@ var methods = function () {
 
     var compileSolidity = new Method({
         name: 'compile.solidity',
-        call: 'block_compileSolidity',
+        call: 'eth_compileSolidity',
         params: 1
     });
 
     var compileLLL = new Method({
         name: 'compile.lll',
-        call: 'block_compileLLL',
+        call: 'eth_compileLLL',
         params: 1
     });
 
     var compileSerpent = new Method({
         name: 'compile.serpent',
-        call: 'block_compileSerpent',
+        call: 'eth_compileSerpent',
         params: 1
     });
 
     var submitWork = new Method({
         name: 'submitWork',
-        call: 'block_submitWork',
+        call: 'eth_submitWork',
         params: 3
     });
 
     var getWork = new Method({
         name: 'getWork',
-        call: 'block_getWork',
+        call: 'eth_getWork',
         params: 0
     });
 
@@ -5388,25 +5465,34 @@ var properties = function () {
     return [
         new Property({
             name: 'coinbase',
-            getter: 'block_coinbase'
+            getter: 'eth_coinbase'
+        }),
+        new Property({
+            name: 'mining',
+            getter: 'eth_mining'
+        }),
+        new Property({
+            name: 'hashrate',
+            getter: 'eth_hashrate',
+            outputFormatter: utils.toDecimal
         }),
         new Property({
             name: 'syncing',
-            getter: 'block_syncing',
+            getter: 'eth_syncing',
             outputFormatter: formatters.outputSyncingFormatter
         }),
         new Property({
             name: 'gasPrice',
-            getter: 'block_gasPrice',
+            getter: 'eth_gasPrice',
             outputFormatter: formatters.outputBigNumberFormatter
         }),
         new Property({
             name: 'accounts',
-            getter: 'block_accounts'
+            getter: 'eth_accounts'
         }),
         new Property({
             name: 'blockNumber',
-            getter: 'block_blockNumber',
+            getter: 'eth_blockNumber',
             outputFormatter: utils.toDecimal
         }),
         new Property({
@@ -5416,28 +5502,28 @@ var properties = function () {
     ];
 };
 
-Block.prototype.contract = function (abi) {
+Eth.prototype.contract = function (abi) {
     var factory = new Contract(this, abi);
     return factory;
 };
 
-Block.prototype.filter = function (options, callback, filterCreationErrorCallback) {
-    return new Filter(options, 'block', this._requestManager, watches.block(), formatters.outputLogFormatter, callback, filterCreationErrorCallback);
+Eth.prototype.filter = function (options, callback, filterCreationErrorCallback) {
+    return new Filter(options, 'eth', this._requestManager, watches.eth(), formatters.outputLogFormatter, callback, filterCreationErrorCallback);
 };
 
-Block.prototype.namereg = function () {
+Eth.prototype.namereg = function () {
     return this.contract(namereg.global.abi).at(namereg.global.address);
 };
 
-Block.prototype.icapNamereg = function () {
+Eth.prototype.icapNamereg = function () {
     return this.contract(namereg.icap.abi).at(namereg.icap.address);
 };
 
-Block.prototype.isSyncing = function (callback) {
+Eth.prototype.isSyncing = function (callback) {
     return new IsSyncing(this._requestManager, callback);
 };
 
-module.exports = Block;
+module.exports = Eth;
 
 },{"../../utils/config":18,"../../utils/utils":20,"../contract":25,"../filter":29,"../formatters":30,"../iban":33,"../method":36,"../namereg":44,"../property":45,"../syncing":48,"../transfer":49,"./watches":43}],39:[function(require,module,exports){
 /*
@@ -5456,7 +5542,7 @@ module.exports = Block;
     You should have received a copy of the GNU Lesser General Public License
     along with web3.js.  If not, see <http://www.gnu.org/licenses/>.
 */
-/** @file net.js
+/** @file eth.js
  * @authors:
  *   Marek Kotewicz <marek@ethdev.com>
  * @date 2015
@@ -5476,7 +5562,7 @@ var Net = function (web3) {
     });
 };
 
-/// @returns an array of objects describing web3.block api properties
+/// @returns an array of objects describing web3.eth api properties
 var properties = function () {
     return [
         new Property({
@@ -5511,7 +5597,7 @@ module.exports = Net;
     along with web3.js.  If not, see <http://www.gnu.org/licenses/>.
 */
 /**
- * @file personal.js
+ * @file eth.js
  * @author Marek Kotewicz <marek@ethdev.com>
  * @author Fabian Vogelsteller <fabian@ethdev.com>
  * @date 2015
@@ -5628,7 +5714,7 @@ module.exports = Personal;
         along with web3.js.  If not, see <http://www.gnu.org/licenses/>.
     */
     /**
-     * @file dapp.js
+     * @file eth.js
      * @author Marek Kotewicz <marek@ethdev.com>
      * @author Fabian Vogelsteller <fabian@ethdev.com>
      * @date 2015
@@ -5727,6 +5813,115 @@ module.exports = Personal;
 
     module.exports = DApp;
 
+},{"../formatters":30,"../method":36,"../property":45}],41:[function(require,module,exports){
+/*
+    This file is part of web3.js.
+
+    web3.js is free software: you can redistribute it and/or modify
+    it under the terms of the GNU Lesser General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    web3.js is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU Lesser General Public License for more details.
+
+    You should have received a copy of the GNU Lesser General Public License
+    along with web3.js.  If not, see <http://www.gnu.org/licenses/>.
+*/
+/** @file shh.js
+ * @authors:
+ *   Fabian Vogelsteller <fabian@ethereum.org>
+ *   Marek Kotewicz <marek@ethcore.io>
+ * @date 2017
+ */
+
+var Method = require('../method');
+var Filter = require('../filter');
+var watches = require('./watches');
+
+var Shh = function (web3) {
+    this._requestManager = web3._requestManager;
+
+    var self = this;
+
+    methods().forEach(function(method) {
+        method.attachToObject(self);
+        method.setRequestManager(self._requestManager);
+    });
+};
+
+Shh.prototype.newMessageFilter = function (options, callback, filterCreationErrorCallback) {
+    return new Filter(options, 'shh', this._requestManager, watches.shh(), null, callback, filterCreationErrorCallback);
+};
+
+var methods = function () {
+
+    return [
+    ];
+};
+
+module.exports = Shh;
+
+
+},{"../filter":29,"../method":36,"./watches":43}],42:[function(require,module,exports){
+/*
+    This file is part of web3.js.
+
+    web3.js is free software: you can redistribute it and/or modify
+    it under the terms of the GNU Lesser General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    web3.js is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU Lesser General Public License for more details.
+
+    You should have received a copy of the GNU Lesser General Public License
+    along with web3.js.  If not, see <http://www.gnu.org/licenses/>.
+*/
+/**
+ * @file bzz.js
+ * @author Alex Beregszaszi <alex@rtfs.hu>
+ * @date 2016
+ *
+ * Reference: https://github.com/ethereum/go-ethereum/blob/swarm/internal/web3ext/web3ext.go#L33
+ */
+
+"use strict";
+
+var Method = require('../method');
+var Property = require('../property');
+
+function Swarm(web3) {
+    this._requestManager = web3._requestManager;
+
+    var self = this;
+
+    methods().forEach(function(method) {
+        method.attachToObject(self);
+        method.setRequestManager(self._requestManager);
+    });
+
+    properties().forEach(function(p) {
+        p.attachToObject(self);
+        p.setRequestManager(self._requestManager);
+    });
+}
+
+var methods = function () {
+    return [];
+};
+
+var properties = function () {
+    return [];
+};
+
+
+module.exports = Swarm;
+
 },{"../method":36,"../property":45}],43:[function(require,module,exports){
 /*
     This file is part of web3.js.
@@ -5752,8 +5947,8 @@ module.exports = Personal;
 
 var Method = require('../method');
 
-/// @returns an array of objects describing web3.block.filter api methods
-var block = function () {
+/// @returns an array of objects describing web3.eth.filter api methods
+var eth = function () {
     var newFilterCall = function (args) {
         var type = args[0];
 
@@ -5761,13 +5956,13 @@ var block = function () {
             case 'latest':
                 args.shift();
                 this.params = 0;
-                return 'block_newBlockFilter';
+                return 'eth_newBlockFilter';
             case 'pending':
                 args.shift();
                 this.params = 0;
-                return 'block_newPendingTransactionFilter';
+                return 'eth_newPendingTransactionFilter';
             default:
-                return 'block_newFilter';
+                return 'eth_newFilter';
         }
     };
 
@@ -5779,19 +5974,19 @@ var block = function () {
 
     var uninstallFilter = new Method({
         name: 'uninstallFilter',
-        call: 'block_uninstallFilter',
+        call: 'eth_uninstallFilter',
         params: 1
     });
 
     var getLogs = new Method({
         name: 'getLogs',
-        call: 'block_getFilterLogs',
+        call: 'eth_getFilterLogs',
         params: 1
     });
 
     var poll = new Method({
         name: 'poll',
-        call: 'block_getFilterChanges',
+        call: 'eth_getFilterChanges',
         params: 1
     });
 
@@ -5803,8 +5998,36 @@ var block = function () {
     ];
 };
 
+/// @returns an array of objects describing web3.shh.watch api methods
+var shh = function () {
+
+    return [
+        new Method({
+            name: 'newFilter',
+            call: 'shh_newMessageFilter',
+            params: 1
+        }),
+        new Method({
+            name: 'uninstallFilter',
+            call: 'shh_deleteMessageFilter',
+            params: 1
+        }),
+        new Method({
+            name: 'getLogs',
+            call: 'shh_getFilterMessages',
+            params: 1
+        }),
+        new Method({
+            name: 'poll',
+            call: 'shh_getFilterMessages',
+            params: 1
+        })
+    ];
+};
+
 module.exports = {
-    block: block
+    eth: eth,
+    shh: shh
 };
 
 
@@ -6335,12 +6558,12 @@ var pollSyncing = function(self) {
             }
         });
     };
-
+/**
     self.requestManager.startPolling({
-        method: 'block_syncing',
+        method: 'eth_syncing',
         params: [],
     }, self.pollId, onMessage, self.stopWatching.bind(self));
-
+*/
 };
 
 var IsSyncing = function (requestManager, callback) {
@@ -6403,23 +6626,23 @@ var exchangeAbi = require('../contracts/SmartExchange.json');
  * @param {Value} value to be tranfered
  * @param {Function} callback, callback
  */
-var transfer = function (block, from, to, value, callback) {
+var transfer = function (eth, from, to, value, callback) {
     var iban = new Iban(to); 
     if (!iban.isValid()) {
         throw new Error('invalid iban address');
     }
 
     if (iban.isDirect()) {
-        return transferToAddress(block, from, iban.address(), value, callback);
+        return transferToAddress(eth, from, iban.address(), value, callback);
     }
     
     if (!callback) {
-        var address = block.icapNamereg().addr(iban.institution());
-        return deposit(block, from, address, value, iban.client());
+        var address = eth.icapNamereg().addr(iban.institution());
+        return deposit(eth, from, address, value, iban.client());
     }
 
-    block.icapNamereg().addr(iban.institution(), function (err, address) {
-        return deposit(block, from, address, value, iban.client(), callback);
+    eth.icapNamereg().addr(iban.institution(), function (err, address) {
+        return deposit(eth, from, address, value, iban.client(), callback);
     });
     
 };
@@ -6433,8 +6656,8 @@ var transfer = function (block, from, to, value, callback) {
  * @param {Value} value to be tranfered
  * @param {Function} callback, callback
  */
-var transferToAddress = function (block, from, to, value, callback) {
-    return block.sendTransaction({
+var transferToAddress = function (eth, from, to, value, callback) {
+    return eth.sendTransaction({
         address: to,
         from: from,
         value: value
@@ -6451,9 +6674,9 @@ var transferToAddress = function (block, from, to, value, callback) {
  * @param {String} client unique identifier
  * @param {Function} callback, callback
  */
-var deposit = function (block, from, to, value, client, callback) {
+var deposit = function (eth, from, to, value, client, callback) {
     var abi = exchangeAbi;
-    return block.contract(abi).at(to).deposit(client, {
+    return eth.contract(abi).at(to).deposit(client, {
         from: from,
         value: value
     }, callback);
