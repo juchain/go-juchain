@@ -2513,7 +2513,6 @@ var DB = require('./web3/methods/db');
 var Shh = require('./web3/methods/shh');
 var Net = require('./web3/methods/net');
 var Personal = require('./web3/methods/personal');
-var DApp = require('./web3/methods/dapp');
 var Swarm = require('./web3/methods/swarm');
 var Settings = require('./web3/settings');
 var version = require('./version.json');
@@ -2536,7 +2535,6 @@ function Web3 (provider) {
     this.shh = new Shh(this);
     this.net = new Net(this);
     this.personal = new Personal(this);
-    this.dapp = new DApp(this);
     this.bzz = new Swarm(this);
     this.settings = new Settings();
     this.version = {
@@ -2634,7 +2632,7 @@ Web3.prototype.createBatch = function () {
 module.exports = Web3;
 
 
-},{"./utils/sha3":19,"./utils/utils":20,"./version.json":21,"./web3/batch":24,"./web3/extend":28,"./web3/httpprovider":32,"./web3/iban":33,"./web3/ipcprovider":34,"./web3/methods/db":37,"./web3/methods/eth":38,"./web3/methods/net":39,"./web3/methods/personal":40,"./web3/methods/shh":41,"./web3/methods/swarm":42,"./web3/property":45,"./web3/requestmanager":46,"./web3/settings":47,"./web3/methods/dapp":48,"bignumber.js":"bignumber.js"}],23:[function(require,module,exports){
+},{"./utils/sha3":19,"./utils/utils":20,"./version.json":21,"./web3/batch":24,"./web3/extend":28,"./web3/httpprovider":32,"./web3/iban":33,"./web3/ipcprovider":34,"./web3/methods/db":37,"./web3/methods/eth":38,"./web3/methods/net":39,"./web3/methods/personal":40,"./web3/methods/shh":41,"./web3/methods/swarm":42,"./web3/property":45,"./web3/requestmanager":46,"./web3/settings":47,"bignumber.js":"bignumber.js"}],23:[function(require,module,exports){
 /*
     This file is part of web3.js.
 
@@ -5659,6 +5657,13 @@ var methods = function () {
         inputFormatter: [formatters.inputAddressFormatter, null, null]
     });
 
+    var unlockDAppAccount = new Method({
+        name: 'unlockDAppAccount',
+        call: 'personal_unlockDAppAccount',
+        params: 3,
+        inputFormatter: [formatters.inputAddressFormatter, null, null]
+    });
+
     var sendTransaction = new Method({
         name: 'sendTransaction',
         call: 'personal_sendTransaction',
@@ -5673,14 +5678,54 @@ var methods = function () {
         inputFormatter: [formatters.inputAddressFormatter]
     });
 
+    var lockDAppAccount = new Method({
+        name: 'lockDAppAccount',
+        call: 'personal_lockDAppAccount',
+        params: 1,
+        inputFormatter: [formatters.inputAddressFormatter]
+    });
+
+    var newDAppAccount = new Method({
+        name: 'newDAppAccount',
+        call: 'personal_newDAppAccount',
+        params: 1,
+        inputFormatter: [null]
+    });
+
+    var importDAppRawKey = new Method({
+        name: 'importDAppRawKey',
+        call: 'personal_importDAppRawKey',
+        params: 2
+    });
+
+    var getDAppList = new Method({
+        name: 'getDAppList',
+        call: 'personal_getDAppList',
+        params: 1,
+        inputFormatter: [null]
+    });
+
+    var getDAppDetail = new Method({
+        name: 'getDAppDetail',
+        call: 'personal_getDAppDetail',
+        params: 1,
+        inputFormatter: [formatters.inputAddressFormatter]
+    });
+
     return [
         newAccount,
+        newDAppAccount,
         importRawKey,
+        importDAppRawKey,
         unlockAccount,
+        unlockDAppAccount,
         ecRecover,
         sign,
         sendTransaction,
-        lockAccount
+        lockAccount,
+        lockDAppAccount,
+        getDAppList,
+        getDAppDetail
     ];
 };
 
@@ -5695,123 +5740,6 @@ var properties = function () {
 
 
 module.exports = Personal;
-
-},{"../../utils/utils":20,"../property":45}],40:[function(require,module,exports){
-    /*
-        This file is part of web3.js.
-
-        web3.js is free software: you can redistribute it and/or modify
-        it under the terms of the GNU Lesser General Public License as published by
-        the Free Software Foundation, either version 3 of the License, or
-        (at your option) any later version.
-
-        web3.js is distributed in the hope that it will be useful,
-        but WITHOUT ANY WARRANTY; without even the implied warranty of
-        MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-        GNU Lesser General Public License for more details.
-
-        You should have received a copy of the GNU Lesser General Public License
-        along with web3.js.  If not, see <http://www.gnu.org/licenses/>.
-    */
-    /**
-     * @file eth.js
-     * @author Marek Kotewicz <marek@ethdev.com>
-     * @author Fabian Vogelsteller <fabian@ethdev.com>
-     * @date 2015
-     */
-
-    "use strict";
-
-    var Method = require('../method');
-    var Property = require('../property');
-    var formatters = require('../formatters');
-
-    function DApp(web3) {
-        this._requestManager = web3._requestManager;
-
-        var self = this;
-
-        methods().forEach(function(method) {
-            method.attachToObject(self);
-            method.setRequestManager(self._requestManager);
-        });
-
-        properties().forEach(function(p) {
-            p.attachToObject(self);
-            p.setRequestManager(self._requestManager);
-        });
-    }
-
-    var methods = function () {
-        var newAccount = new Method({
-            name: 'newAccount',
-            call: 'dapp_newAccount',
-            params: 1,
-            inputFormatter: [null]
-        });
-
-        var importRawKey = new Method({
-            name: 'importRawKey',
-            call: 'dapp_importRawKey',
-            params: 2
-        });
-
-        var sign = new Method({
-            name: 'sign',
-            call: 'dapp_sign',
-            params: 3,
-            inputFormatter: [null, formatters.inputAddressFormatter, null]
-        });
-
-        var ecRecover = new Method({
-            name: 'ecRecover',
-            call: 'dapp_ecRecover',
-            params: 2
-        });
-
-        var unlockAccount = new Method({
-            name: 'unlockAccount',
-            call: 'dapp_unlockAccount',
-            params: 3,
-            inputFormatter: [formatters.inputAddressFormatter, null, null]
-        });
-
-        var sendTransaction = new Method({
-            name: 'sendTransaction',
-            call: 'dapp_sendTransaction',
-            params: 2,
-            inputFormatter: [formatters.inputTransactionFormatter, null]
-        });
-
-        var lockAccount = new Method({
-            name: 'lockAccount',
-            call: 'dapp_lockAccount',
-            params: 1,
-            inputFormatter: [formatters.inputAddressFormatter]
-        });
-
-        return [
-            newAccount,
-            importRawKey,
-            unlockAccount,
-            ecRecover,
-            sign,
-            sendTransaction,
-            lockAccount
-        ];
-    };
-
-    var properties = function () {
-        return [
-            new Property({
-                name: 'listAccounts',
-                getter: 'dapp_listAccounts'
-            })
-        ];
-    };
-
-
-    module.exports = DApp;
 
 },{"../formatters":30,"../method":36,"../property":45}],41:[function(require,module,exports){
 /*
@@ -6002,26 +5930,6 @@ var eth = function () {
 var shh = function () {
 
     return [
-        new Method({
-            name: 'newFilter',
-            call: 'shh_newMessageFilter',
-            params: 1
-        }),
-        new Method({
-            name: 'uninstallFilter',
-            call: 'shh_deleteMessageFilter',
-            params: 1
-        }),
-        new Method({
-            name: 'getLogs',
-            call: 'shh_getFilterMessages',
-            params: 1
-        }),
-        new Method({
-            name: 'poll',
-            call: 'shh_getFilterMessages',
-            params: 1
-        })
     ];
 };
 

@@ -24,7 +24,6 @@ var Modules = map[string]string{
 	"block":      Block_JS,
 	"net":        Net_JS,
 	"personal":   Personal_JS,
-	"dapp":       DApp_JS,
 	"rpc":        RPC_JS,
 	"shh":        Shh_JS,
 	"txpool":     TxPool_JS,
@@ -430,46 +429,6 @@ web3._extend({
 		new web3._extend.Property({
 			name: 'listWallets',
 			getter: 'personal_listWallets'
-		}),
-	]
-})
-`
-
-const DApp_JS = `
-web3._extend({
-	property: 'dapp',
-	methods: [
-		new web3._extend.Method({
-			name: 'importRawKey',
-			call: 'dapp_importRawKey',
-			params: 2
-		}),
-		new web3._extend.Method({
-			name: 'sign',
-			call: 'dapp_sign',
-			params: 3,
-			inputFormatter: [null, web3._extend.formatters.inputAddressFormatter, null]
-		}),
-		new web3._extend.Method({
-			name: 'ecRecover',
-			call: 'dapp_ecRecover',
-			params: 2
-		}),
-		new web3._extend.Method({
-			name: 'openWallet',
-			call: 'dapp_openWallet',
-			params: 2
-		}),
-		new web3._extend.Method({
-			name: 'deriveAccount',
-			call: 'dapp_deriveAccount',
-			params: 3
-		}),
-	],
-	properties: [
-		new web3._extend.Property({
-			name: 'listWallets',
-			getter: 'dapp_listWallets'
 		}),
 	]
 })
