@@ -76,6 +76,8 @@ var (
 		utils.MaxPeersFlag,
 		utils.MaxPendingPeersFlag,
 		utils.EtherbaseFlag,
+		utils.DAppAddressFlag,
+		utils.DAppMaximumFlag,
 		utils.GasPriceFlag,
 		utils.TargetGasLimitFlag,
 		utils.NATFlag,

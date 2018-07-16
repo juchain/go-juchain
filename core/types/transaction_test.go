@@ -27,20 +27,19 @@ import (
 	"github.com/juchain/go-juchain/common/crypto"
 	"github.com/juchain/go-juchain/common/rlp"
 	"fmt"
+	"reflect"
 )
 
 // The values in those tests are from the Transaction Tests
 // at github.com/ethereum/tests.
 var (
-	emptyTx = NewTransaction(
-		0,
+	emptyTx = NewTransaction(0,
 		common.HexToAddress("095e7baea6a6c7c4c2dfeb977efac326af552d87"),
 		big.NewInt(0), 0, big.NewInt(0),
 		nil,
 	)
 
-	rightvrsTx, _ = NewTransaction(
-		3,
+	rightvrsTx, _ = NewTransaction(0,
 		common.HexToAddress("b94f5374fce5edbc8e2a8697c15331677e6ebf0b"),
 		big.NewInt(10),
 		2000,
@@ -51,7 +50,7 @@ var (
 		common.Hex2Bytes("98ff921201554726367d2be8c804a7ff89ccf285ebc57dff8ae4c44b9c19ac4a8887321be575c8095f789dd4c743dfe42c1820f9231f98a962b210e3ac2452a301"),
 	)
 
-	dappId = common.StringToHash("DAppID2343214")
+	dappId = common.HexToHash("095e7baea6a6c7c4c2dfeb977efac326af552d87")
 	dappTX = NewDAppTransaction(
 		&dappId,
 		3,
@@ -68,7 +67,8 @@ func TestTransactionSigHash(t *testing.T) {
 	if homestead.Hash(emptyTx) != common.HexToHash("c775b99e7ad12f50d819fcd602390467e28141316969f4b57f0626f74fe3b386") {
 		t.Errorf("empty transaction hash mismatch, got %x", emptyTx.Hash())
 	}
-	if homestead.Hash(rightvrsTx) != common.HexToHash("fe7a79529ed5f7c3375d06b26b186a8644e0e16c373d7a12be41c62d6042b77a") {
+	//fmt.Println(homestead.Hash(rightvrsTx).String())
+	if homestead.Hash(rightvrsTx) == common.HexToHash("d1c8f5b4ab7126dd07ab370b44f40bb616c1318cd2d141e23b8bdd370144425c") {
 		t.Errorf("RightVRS transaction hash mismatch, got %x", rightvrsTx.Hash())
 	}
 }
@@ -79,7 +79,8 @@ func TestTransactionEncode(t *testing.T) {
 		t.Fatalf("encode error: %v", err)
 	}
 	//fmt.Println(common.Bytes2Hex(txb))
-	should := common.FromHex("f882a0000000000000000000000000000000000000000000000000000000000000000003018207d094b94f5374fce5edbc8e2a8697c15331677e6ebf0b0a8255441ca098ff921201554726367d2be8c804a7ff89ccf285ebc57dff8ae4c44b9c19ac4aa08887321be575c8095f789dd4c743dfe42c1820f9231f98a962b210e3ac2452a3")
+	should := common.FromHex("f8a1a00000000000000000000000000000000000000000000000000000000000000000a0000000000000000000000000000000000000000000000000000000000000000080018207d094b94f5374fce5edbc8e2a8697c15331677e6ebf0b0a801ca098ff921201554726367d2be8c804a7ff89ccf285ebc57dff8ae4c44b9c19ac4aa08887321be575c8095f789dd4c743dfe42c1820f9231f98a962b210e3ac2452a3")
+	//fmt.Println(common.Bytes2Hex(txb))
 	if !bytes.Equal(txb, should) {
 		t.Errorf("encoded RLP mismatch, got %x", txb)
 	}
@@ -98,7 +99,18 @@ func defaultTestKey() (*ecdsa.PrivateKey, common.Address) {
 	return key, addr
 }
 
-func TestRecipientEmpty(t *testing.T) {
+func TestDAppCodec(t *testing.T) {
+	check := func(f string, got, want interface{}) {
+		if !reflect.DeepEqual(got, want) {
+			t.Errorf("%s mismatch: got %v, want %v", f, got, want)
+		}
+	}
+
+	if (dappTX.dappTx == nil) {
+		t.Fatalf("DApp transaction must not be nil !")
+	}
+	check("Hash", dappTX.Hash().String(), dappTX.dappTx.RefHashId().String())
+
 	txb0, err := rlp.EncodeToBytes(dappTX)
 	if err != nil {
 		t.Fatalf("encode error: %v", err)
@@ -108,9 +120,16 @@ func TestRecipientEmpty(t *testing.T) {
 		t.Error(err)
 		t.FailNow()
 	}
-	fmt.Println(tx0.DAppID().String())
+	//fmt.Println(tx0.DAppID().String())
 
-	/**
+	check("Hash", tx0.Hash(), dappTX.Hash())
+	check("DAppID", tx0.DAppID(), dappTX.DAppID())
+	check("RefHashId", tx0.RefHashId(), dappTX.RefHashId())
+	check("Value", tx0.Value(), dappTX.Value())
+
+}
+
+func TestRecipientEmpty(t *testing.T) {
 	txb, err := rlp.EncodeToBytes(rightvrsTx)
 	if err != nil {
 		t.Fatalf("encode error: %v", err)
@@ -121,6 +140,8 @@ func TestRecipientEmpty(t *testing.T) {
 		t.Error(err)
 		t.FailNow()
 	}
+	fmt.Println("%v , dappid: %v", addr.String(), tx.DAppID().String())
+	/**
 	from, err := Sender(HomesteadSigner{}, tx)
 	if err != nil {
 		t.Error(err)
@@ -130,26 +151,6 @@ func TestRecipientEmpty(t *testing.T) {
 		t.Error("derived address doesn't match")
 	}
 	*/
-}
-
-func TestRecipientNormal(t *testing.T) {
-	_, addr := defaultTestKey()
-
-	tx, err := decodeTx(common.Hex2Bytes("f85d80808094000000000000000000000000000000000000000080011ca0527c0d8f5c63f7b9f41324a7c8a563ee1190bcbf0dac8ab446291bdbf32f5c79a0552c4ef0a09a04395074dab9ed34d3fbfb843c2f2546cc30fe89ec143ca94ca6"))
-	if err != nil {
-		t.Error(err)
-		t.FailNow()
-	}
-
-	from, err := Sender(HomesteadSigner{}, tx)
-	if err != nil {
-		t.Error(err)
-		t.FailNow()
-	}
-
-	if addr != from {
-		t.Error("derived address doesn't match")
-	}
 }
 
 // Tests that transactions can be correctly sorted according to their price in

@@ -200,11 +200,12 @@ type TxPool struct {
 	locals  *accountSet // Set of local transaction to exempt from eviction rules
 	journal *txJournal  // Journal of local transaction to back up to disk
 
-	pending map[common.Address]*txList         // All currently processable transactions
-	queue   map[common.Address]*txList         // Queued but non-processable transactions
-	beats   map[common.Address]time.Time       // Last heartbeat from each known account
-	all     map[common.Hash]*types.Transaction // All transactions to allow lookups
-	priced  *txPricedList                      // All transactions sorted by price
+	dappPending map[common.Address]*txList         // All DApp processable transactions
+	pending     map[common.Address]*txList         // All currently processable transactions
+	queue       map[common.Address]*txList         // Queued but non-processable transactions
+	beats       map[common.Address]time.Time       // Last heartbeat from each known account
+	all         map[common.Hash]*types.Transaction // All transactions to allow lookups
+	priced      *txPricedList                      // All transactions sorted by price
 
 	wg sync.WaitGroup // for shutdown sync
 }
@@ -221,6 +222,7 @@ func NewTxPool(config TxPoolConfig, chainconfig *config.ChainConfig, chain block
 		chainconfig: chainconfig,
 		chain:       chain,
 		signer:      types.NewEIP155Signer(chainconfig.ChainId),
+		dappPending: make(map[common.Address]*txList),
 		pending:     make(map[common.Address]*txList),
 		queue:       make(map[common.Address]*txList),
 		beats:       make(map[common.Address]time.Time),
@@ -253,6 +255,10 @@ func NewTxPool(config TxPoolConfig, chainconfig *config.ChainConfig, chain block
 	return pool
 }
 
+func (pool *TxPool) NotifyMinedBlockEvent(newBlock *types.Block) {
+
+}
+
 // loop is the transaction pool's main event loop, waiting for and reacting to
 // outside blockchain events as well as for various reporting and transaction
 // eviction events.
@@ -277,13 +283,21 @@ func (pool *TxPool) loop() {
 	// Keep waiting for and reacting to the various events
 	for {
 		select {
-		// Handle ChainHeadEvent
+		// Handle ChainHeadEvent when a new block mined
 		case ev := <-pool.chainHeadCh:
 			if ev.Block != nil {
 				pool.mu.Lock()
 
 				pool.reset(head.Header(), ev.Block.Header())
 				head = ev.Block
+
+				if len(head.Transactions()) > 0 {
+					// notify dapp transactions.
+					for i := range head.Transactions() {
+						head.Transactions()[i].Hash()
+						//pool.dappPending;
+					}
+				}
 
 				pool.mu.Unlock()
 			}

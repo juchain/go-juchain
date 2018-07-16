@@ -201,6 +201,16 @@ var (
 		Usage: "Maximum amount of time non-executable transaction are queued",
 		Value: protocol.DefaultConfig.TxPool.Lifetime,
 	}
+	DAppAddressFlag = cli.StringFlag{
+		Name:  "dapp.addresses",
+		Usage: "DApp addresses are supported by comma. If it's not specified, the node storage is shared for all",
+		Value: "",
+	}
+	DAppMaximumFlag = cli.StringFlag{
+		Name:  "dapp.maxAddress",
+		Usage: "Specify how many DApp addresses are supported in this node. By default has limited in 50 ledgers",
+		Value: "50",
+	}
 	// Performance tuning settings
 	CacheFlag = cli.IntFlag{
 		Name:  "cache",
@@ -617,6 +627,19 @@ func setEtherbase(ctx *cli.Context, ks *keystore.KeyStore, cfg *protocol.Config)
 	}
 }
 
+func setDAppStorage(ctx *cli.Context, ks *keystore.KeyStore, cfg *protocol.Config) {
+	if ctx.GlobalIsSet(DAppAddressFlag.Name) {
+		addresses := strings.Split(ctx.GlobalString(DAppAddressFlag.Name), ",");
+		dappAddresses := make([]common.Address, len(addresses));
+		for i := range addresses {
+			dappAddresses[i] = common.HexToAddress(addresses[i])
+		}
+		cfg.DAppAddresses = dappAddresses;
+	}
+	// TODO: load all existing dapp chain addresses.
+
+}
+
 // MakePasswordList reads password lines from the file specified by the global --password flag.
 func MakePasswordList(ctx *cli.Context) []string {
 	path := ctx.GlobalString(PasswordFileFlag.Name)
@@ -797,6 +820,7 @@ func SetEthConfig(ctx *cli.Context, stack *node.Node, cfg *protocol.Config) {
 
 	ks := stack.AccountManager().Backends(keystore.KeyStoreType)[0].(*keystore.KeyStore)
 	setEtherbase(ctx, ks, cfg)
+	setDAppStorage(ctx, ks, cfg)
 	setGPO(ctx, &cfg.GPO)
 	setTxPool(ctx, &cfg.TxPool)
 	setEthash(ctx, cfg)

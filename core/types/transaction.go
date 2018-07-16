@@ -27,7 +27,6 @@ import (
 	"github.com/juchain/go-juchain/common/hexutil"
 	"github.com/juchain/go-juchain/common/crypto"
 	"github.com/juchain/go-juchain/common/rlp"
-	"bytes"
 )
 
 //go:generate gencodec -type txdata -field-override txdataMarshaling -out gen_tx_json.go
@@ -47,15 +46,17 @@ func deriveSigner(V *big.Int) Signer {
 }
 
 type Transaction struct {
-	data txdata
+	dappTx *Transaction // dapp transaction if has.
+	data   txdata
 	// caches
-	hash atomic.Value
-	size atomic.Value
-	from atomic.Value
+	hash   atomic.Value
+	size   atomic.Value
+	from   atomic.Value
 }
 
 type txdata struct {
-	DAppID       *common.Hash    `json:"DAppID"   ` // this is optional field
+	DAppId       *common.Hash    `json:"DAppID"   gencodec:"nil"` // this is optional field
+	RefHashId    *common.Hash    `json:"RefHashId" gencodec:"nil"` // this is optional field
 	AccountNonce uint64          `json:"nonce"    gencodec:"required"`
 	Price        *big.Int        `json:"gasPrice" gencodec:"required"`
 	GasLimit     uint64          `json:"gas"      gencodec:"required"`
@@ -73,7 +74,8 @@ type txdata struct {
 }
 
 type txdataMarshaling struct {
-	DAppID       common.Hash
+	DAppId       common.Hash
+	RefHashId    common.Hash
 	AccountNonce hexutil.Uint64
 	Price        *hexutil.Big
 	GasLimit     hexutil.Uint64
@@ -88,12 +90,13 @@ func NewTransaction(nonce uint64, to common.Address, amount *big.Int, gasLimit u
 	return newTransaction(EmptyDAppIdHash, nonce, &to, amount, gasLimit, gasPrice, data)
 }
 
-func NewContractCreation(nonce uint64, amount *big.Int, gasLimit uint64, gasPrice *big.Int, data []byte) *Transaction {
-	return newTransaction(EmptyDAppIdHash, nonce, nil, amount, gasLimit, gasPrice, data)
+func NewDAppTransaction(dappId *common.Hash, nonce uint64, to common.Address, amount *big.Int, gasLimit uint64, gasPrice *big.Int, data []byte) *Transaction {
+	//try to seperate DApp transaction as two pieces.
+	return newTransaction(dappId, nonce, &to, amount, gasLimit, gasPrice, data)
 }
 
-func NewDAppTransaction(dappId *common.Hash, nonce uint64, to common.Address, amount *big.Int, gasLimit uint64, gasPrice *big.Int, data []byte) *Transaction {
-	return newTransaction(dappId, nonce, &to, amount, gasLimit, gasPrice, data)
+func NewContractCreation(nonce uint64, amount *big.Int, gasLimit uint64, gasPrice *big.Int, data []byte) *Transaction {
+	return newTransaction(EmptyDAppIdHash, nonce, nil, amount, gasLimit, gasPrice, data)
 }
 
 func NewDAppContractCreation(dappId *common.Hash, nonce uint64, amount *big.Int, gasLimit uint64, gasPrice *big.Int, data []byte) *Transaction {
@@ -104,9 +107,48 @@ func newTransaction(dappId *common.Hash, nonce uint64, to *common.Address, amoun
 	if len(data) > 0 {
 		data = common.CopyBytes(data)
 	}
+	payload := data;
+	if (dappId != nil) {
+		payload = nil
+	}
+	d := txdata{
+		DAppId:       dappId,
+		RefHashId:    EmptyDAppIdHash,
+		AccountNonce: nonce,
+		Recipient:    to,
+		Payload:      payload,
+		Amount:       new(big.Int),
+		GasLimit:     gasLimit,
+		Price:        new(big.Int),
+		V:            new(big.Int),
+		R:            new(big.Int),
+		S:            new(big.Int),
+	}
+	if amount != nil {
+		d.Amount.Set(amount)
+	}
+	if gasPrice != nil {
+		d.Price.Set(gasPrice)
+	}
+
+	if dappId != nil {
+		tx := &Transaction{data: d};
+		tx.dappTx = newDAppTransaction(dappId, tx.Hash(), nonce, to, amount, gasLimit, gasPrice, data)
+		return tx;
+	} else {
+		return &Transaction{data: d}
+	}
+}
+
+
+func newDAppTransaction(dappId *common.Hash, refHashId common.Hash, nonce uint64, to *common.Address, amount *big.Int, gasLimit uint64, gasPrice *big.Int, data []byte) *Transaction {
+	if len(data) > 0 {
+		data = common.CopyBytes(data)
+	}
 
 	d := txdata{
-		DAppID:       dappId,
+		DAppId:       dappId,
+		RefHashId:    &refHashId,
 		AccountNonce: nonce,
 		Recipient:    to,
 		Payload:      data,
@@ -126,6 +168,7 @@ func newTransaction(dappId *common.Hash, nonce uint64, to *common.Address, amoun
 
 	return &Transaction{data: d}
 }
+
 
 // ChainId returns which chain id this transaction was signed for (if at all)
 func (tx *Transaction) ChainId() *big.Int {
@@ -190,13 +233,16 @@ func (tx *Transaction) UnmarshalJSON(input []byte) error {
 	return nil
 }
 
-func (tx *Transaction) DAppID() *common.Hash { return tx.data.DAppID }
+func (tx *Transaction) DAppID() *common.Hash { return tx.data.DAppId }
+func (tx *Transaction) RefHashId() *common.Hash { return tx.data.RefHashId }
 func (tx *Transaction) Data() []byte         { return common.CopyBytes(tx.data.Payload) }
 func (tx *Transaction) Gas() uint64          { return tx.data.GasLimit }
 func (tx *Transaction) GasPrice() *big.Int   { return new(big.Int).Set(tx.data.Price) }
 func (tx *Transaction) Value() *big.Int      { return new(big.Int).Set(tx.data.Amount) }
 func (tx *Transaction) Nonce() uint64        { return tx.data.AccountNonce }
 func (tx *Transaction) CheckNonce() bool     { return true }
+func (tx *Transaction) DAppTx() *Transaction { return tx.dappTx }
+
 
 // To returns the recipient address of the transaction.
 // It returns nil if the transaction is a contract creation.
@@ -306,21 +352,6 @@ func TxDifference(a, b Transactions) (keep Transactions) {
 	}
 
 	return keep
-}
-
-func SeperateDAppTx(tx *Transaction) (*Transaction, *Transaction) {
-	if bytes.Equal(tx.DAppID().Bytes(), EmptyDAppIdHash.Bytes()) {
-		return tx, nil;
-	}
-
-	if tx.To() != nil {
-		dapptx := NewDAppTransaction(tx.DAppID(), tx.Nonce(), *tx.To(), tx.Value(), tx.Gas(), tx.GasPrice(), tx.Data());
-		return dapptx, nil;
-	} else {
-		dappcontracttx := NewDAppContractCreation(tx.DAppID(), tx.Nonce(), tx.Value(), tx.Gas(), tx.GasPrice(), tx.Data());
-		return dappcontracttx, nil;
-	}
-
 }
 
 // TxByNonce implements the sort interface to allow sorting a list of transactions

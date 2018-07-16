@@ -108,6 +108,13 @@ var AppHelpFlagGroups = []flagGroup{
 		},
 	},
 	{
+		Name: "DAPP",
+		Flags: []cli.Flag{
+			utils.DAppAddressFlag,
+			utils.DAppMaximumFlag,
+		},
+	},
+	{
 		Name: "API AND CONSOLE",
 		Flags: []cli.Flag{
 			utils.RPCEnabledFlag,

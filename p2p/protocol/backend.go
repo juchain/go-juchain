@@ -64,10 +64,13 @@ type JuchainService struct {
 	// Handlers
 	txPool          *core.TxPool
 	blockchain      *core.BlockChain
+	dappBchains     map[common.Address]*core.BlockChain
+
 	protocolManager *ProtocolManager
 
 	// DB interfaces
-	chainDb store.Database // Block chain database
+	chainDb         store.Database // Block chain database
+	dappChainDb     map[common.Address]store.Database
 
 	eventMux       *event.TypeMux
 	engine         consensus.Engine
@@ -100,6 +103,7 @@ func New(ctx *node.ServiceContext, config0 *Config) (*JuchainService, error) {
 	if err != nil {
 		return nil, err
 	}
+
 	stopDbUpgrade := upgradeDeduplicateData(chainDb)
 	chainConfig, genesisHash, genesisErr := core.SetupGenesisBlock(chainDb, config0.Genesis)
 	if _, ok := genesisErr.(*config.ConfigCompatError); genesisErr != nil && !ok {
@@ -121,6 +125,13 @@ func New(ctx *node.ServiceContext, config0 *Config) (*JuchainService, error) {
 		etherbase:      config0.Etherbase,
 		bloomRequests:  make(chan chan *bloombits.Retrieval),
 		bloomIndexer:   NewBloomIndexer(chainDb, config.BloomBitsBlocks),
+	}
+	for i := range config0.DAppAddresses {
+		dappChainDb, err := CreateDB(ctx, config0, "dappchain"+config0.DAppAddresses[i].String())
+		if err != nil {
+			return nil, err
+		}
+		eth.dappChainDb[config0.DAppAddresses[i]] = dappChainDb;
 	}
 
 	log.Info("Initializing Blockchain protocol", "versions", ProtocolVersions, "network", config0.NetworkId)
@@ -190,7 +201,7 @@ func CreateDB(ctx *node.ServiceContext, config *Config, name string) (store.Data
 		return nil, err
 	}
 	if db, ok := db.(*store.LDBDatabase); ok {
-		db.Meter("eth/store/chaindata/")
+		db.Meter("node/store/" + name)
 	}
 	return db, nil
 }

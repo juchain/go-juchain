@@ -302,6 +302,7 @@ func (self *Packager) GenerateNewBlock(round uint64, presidentId string) *types.
 	}
 	// Broadcast the block and announce chain insertion event
 	self.mux.Post(core.NewMinedBlockEvent{Block: block})
+	//self.eth.TxPool().NotifyMinedBlockEvent(block)
 	var (
 		events []interface{}
 		logs   = work.state.Logs()
