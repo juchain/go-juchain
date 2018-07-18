@@ -367,11 +367,11 @@ func (s *PrivateAccountAPI) UpdateDAppStorageNode(dappId common.Address, passwor
 }
 
 func (s *PrivateAccountAPI) ListDAppStorageNodeInfo(dappId common.Address, password string) ([]string, error) {
-	return make([]string, 0), nil;
+	return config.DAppAddresses.ToString(), nil;
 }
 
-func (s *PrivateAccountAPI) HashDApp(dappId common.Address) (bool) {
-	return true;
+func (s *PrivateAccountAPI) HashDApp(dappId *common.Address) (bool) {
+	return config.DAppAddresses.Has(dappId);
 }
 
 func (s *PrivateAccountAPI) ListDAppContracts(dappId common.Address) (error) {
@@ -382,8 +382,8 @@ func (s *PrivateAccountAPI) ListAllDAppIds(offset uint8) ([]common.Address, erro
 	return make([]common.Address, 0), nil;
 }
 
-func (s *PrivateAccountAPI) TotalDApps() ([]common.Address, error) {
-	return make([]common.Address, 0), nil;
+func (s *PrivateAccountAPI) TotalDApps() (int, error) {
+	return len(config.DAppAddresses.Addresse), nil;
 }
 
 
@@ -1156,7 +1156,7 @@ func (s *PublicTransactionPoolAPI) sign(addr common.Address, tx *types.Transacti
 
 // SendTxArgs represents the arguments to sumbit a new transaction into the transaction pool.
 type SendTxArgs struct {
-	DAppID   *common.Hash     `json:"dappid"`
+	DAppID   *common.Address  `json:"dappid"`
 	From     common.Address  `json:"from"`
 	To       *common.Address `json:"to"`
 	Gas      *hexutil.Uint64 `json:"gas"`

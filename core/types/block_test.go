@@ -93,7 +93,7 @@ func TestBlockEncoding(t *testing.T) {
 
 func TestDAppBlockEncoding(t *testing.T) {
 
-	dappId = common.StringToHash("DAppID2343214")
+	dappId = common.HexToAddress("095e7baea6a6c7c4c2dfeb977efac326af552d87")
 	block := &DAppBlock{header: &DAppHeader{
 		DAppID: dappId,
 		Number: big.NewInt(142),

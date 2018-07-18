@@ -587,7 +587,7 @@ func Number(b1, b2 *Block) bool { return b1.header.Number.Cmp(b2.header.Number) 
 
 // Header represents a block header in the DApp blockchain.
 type DAppHeader struct {
-	DAppID      common.Hash    `json:"DAppID"           gencodec:"required"`
+	DAppID      common.Address `json:"DAppID"           gencodec:"required"`
 	Number      *big.Int       `json:"number"           gencodec:"required"`
 	ParentHash  common.Hash    `json:"parentHash"       gencodec:"required"`
 	MainBlockHash  common.Hash `json:"mainBlockHash"    gencodec:"required"` // represents the referring block from main chain.
@@ -623,7 +623,7 @@ func (h *DAppHeader) HashNoNonce() common.Hash {
 
 func (h DAppHeader) MarshalJSON() ([]byte, error) {
 	type Header struct {
-		DAppID      common.Hash    `json:"DAppID"       gencodec:"required"`
+		DAppID      common.Address  `json:"DAppID"          gencodec:"nil"`
 		ParentHash  common.Hash    `json:"parentHash"       gencodec:"required"`
 		UncleHash   common.Hash    `json:"sha3Uncles"       gencodec:"required"`
 		Root        common.Hash    `json:"stateRoot"        gencodec:"required"`
@@ -653,7 +653,7 @@ func (h DAppHeader) MarshalJSON() ([]byte, error) {
 
 func (h *DAppHeader) UnmarshalJSON(input []byte) error {
 	type Header struct {
-		DAppID      *common.Hash    `json:"DAppID"       gencodec:"required"`
+		DAppID      *common.Address `json:"DAppID"           gencodec:"nil"`
 		ParentHash  *common.Hash    `json:"parentHash"       gencodec:"required"`
 		UncleHash   *common.Hash    `json:"sha3Uncles"       gencodec:"required"`
 		Root        *common.Hash    `json:"stateRoot"        gencodec:"required"`
@@ -754,9 +754,9 @@ func (b *DAppBlock) Transaction(hash common.Hash) *Transaction {
 	return nil
 }
 
-func (b *DAppBlock) DAppID() common.Hash   { return b.header.DAppID }
-func (b *DAppBlock) Number() *big.Int     { return new(big.Int).Set(b.header.Number) }
-func (b *DAppBlock) Time() *big.Int       { return new(big.Int).Set(b.header.Time) }
+func (b *DAppBlock) DAppID() common.Address   { return b.header.DAppID }
+func (b *DAppBlock) Number() *big.Int         { return new(big.Int).Set(b.header.Number) }
+func (b *DAppBlock) Time() *big.Int           { return new(big.Int).Set(b.header.Time) }
 
 func (b *DAppBlock) NumberU64() uint64        { return b.header.Number.Uint64() }
 func (b *DAppBlock) MixDigest() common.Hash   { return b.header.MixDigest }

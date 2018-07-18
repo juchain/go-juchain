@@ -208,6 +208,11 @@ const (
 	SELFDESTRUCT = 0xff
 )
 
+// assert(false) compiles to 0xfe, which is an invalid opcode, using up all remaining gas, and reverting all changes.
+
+// require(false) compiles to 0xfd which is the REVERT opcode, meaning it will refund the remaining gas.
+// The opcode can also return a value (useful for debugging)
+
 // Since the opcodes aren't all in order we can't use a regular slice
 var opCodeToString = map[OpCode]string{
 	// 0x0 range - arithmetic ops

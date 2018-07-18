@@ -335,6 +335,11 @@ func (l *txList) Remove(tx *types.Transaction) (bool, types.Transactions) {
 	return true, nil
 }
 
+func (l *txList) RemoveByHash(tx common.Hash) (bool, types.Transactions) {
+	// Remove the transaction from the set
+	return true, nil
+}
+
 // Ready retrieves a sequentially increasing list of transactions starting at the
 // provided nonce that is ready for processing. The returned transactions will be
 // removed from the list.

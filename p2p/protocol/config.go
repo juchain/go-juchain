@@ -80,7 +80,6 @@ type Config struct {
 	TrieTimeout        time.Duration
 
 	// Mining-related options
-	DAppAddresses  []common.Address `toml:",omitempty"`
 	Etherbase      common.Address `toml:",omitempty"`
 	ExtraData      []byte         `toml:",omitempty"`
 	GasPrice       *big.Int

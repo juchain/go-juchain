@@ -29,6 +29,9 @@ var (
 )
 
 var (
+	// All assigned DApps to this node.
+	DAppAddresses *DAppAddress;
+
 	// MainnetChainConfig is the chain parameters to run a node on the main network.
 	MainnetChainConfig = &ChainConfig{
 		ChainId:             big.NewInt(1),
@@ -146,6 +149,26 @@ func (c *ChainConfig) checkCompatible(newcfg *ChainConfig, head *big.Int) *Confi
 		return newCompatError("Byzantium fork block", c.ByzantiumBlock, newcfg.ByzantiumBlock)
 	}
 	return nil
+}
+
+type DAppAddress struct {
+	Addresse []common.Address;
+}
+
+func (c *DAppAddress) Has(dappAddr *common.Address) bool {
+	return true;
+}
+
+func (c *DAppAddress) GetAssignedNodes(dappAddr *common.Address) bool {
+	return false;
+}
+
+func (c *DAppAddress) ToString() []string {
+	array := make([]string, len(c.Addresse))
+	for i := range c.Addresse {
+		array[i] = c.Addresse[i].String()
+	}
+	return array;
 }
 
 // isForkIncompatible returns true if a fork scheduled at s1 cannot be rescheduled to

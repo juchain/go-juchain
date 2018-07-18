@@ -56,6 +56,7 @@ type LesServer interface {
 type JuchainService struct {
 	config      *Config
 	chainConfig *config.ChainConfig
+	dappConfig  *config.DAppAddress
 
 	// Channel for shutting down the service
 	shutdownChan  chan bool    // Channel for shutting down the Juchain
@@ -64,7 +65,7 @@ type JuchainService struct {
 	// Handlers
 	txPool          *core.TxPool
 	blockchain      *core.BlockChain
-	dappBchains     map[common.Address]*core.BlockChain
+	dappchains     map[common.Address]*core.BlockChain
 
 	protocolManager *ProtocolManager
 
@@ -115,6 +116,7 @@ func New(ctx *node.ServiceContext, config0 *Config) (*JuchainService, error) {
 		config:         config0,
 		chainDb:        chainDb,
 		chainConfig:    chainConfig,
+		dappConfig:     config.DAppAddresses,
 		eventMux:       ctx.EventMux,
 		accountManager: ctx.AccountManager,
 		engine:         CreateConsensusEngine(ctx, chainConfig, chainDb),
@@ -126,12 +128,12 @@ func New(ctx *node.ServiceContext, config0 *Config) (*JuchainService, error) {
 		bloomRequests:  make(chan chan *bloombits.Retrieval),
 		bloomIndexer:   NewBloomIndexer(chainDb, config.BloomBitsBlocks),
 	}
-	for i := range config0.DAppAddresses {
-		dappChainDb, err := CreateDB(ctx, config0, "dappchain"+config0.DAppAddresses[i].String())
+	for i := range config.DAppAddresses.Addresse {
+		dappChainDb, err := CreateDB(ctx, config0, "dappchain"+config.DAppAddresses.Addresse[i].String())
 		if err != nil {
 			return nil, err
 		}
-		eth.dappChainDb[config0.DAppAddresses[i]] = dappChainDb;
+		eth.dappChainDb[config.DAppAddresses.Addresse[i]] = dappChainDb;
 	}
 
 	log.Info("Initializing Blockchain protocol", "versions", ProtocolVersions, "network", config0.NetworkId)
@@ -150,6 +152,13 @@ func New(ctx *node.ServiceContext, config0 *Config) (*JuchainService, error) {
 	eth.blockchain, err = core.NewBlockChain(chainDb, cacheConfig, eth.chainConfig, eth.engine, vmConfig)
 	if err != nil {
 		return nil, err
+	}
+	for key, dappChainDB := range eth.dappChainDb {
+		eth.dappchains[key], err = core.NewDAppBlockChain(dappChainDB, cacheConfig, eth.chainConfig, eth.engine, vmConfig)
+		if err != nil {
+			log.Error("Fail to instantiate DAppChainDB!", "dapp id", key)
+			return nil, err
+		}
 	}
 	// Rewind the chain in case of an incompatible config0 upgrade.
 	if compat, ok := genesisErr.(*config.ConfigCompatError); ok {

@@ -185,6 +185,8 @@ type TxPool struct {
 	config       TxPoolConfig
 	chainconfig  *config.ChainConfig
 	chain        blockChain
+	dappchains   map[common.Address]blockChain
+
 	gasPrice     *big.Int
 	txFeed       event.Feed
 	scope        event.SubscriptionScope
@@ -294,8 +296,11 @@ func (pool *TxPool) loop() {
 				if len(head.Transactions()) > 0 {
 					// notify dapp transactions.
 					for i := range head.Transactions() {
-						head.Transactions()[i].Hash()
-						//pool.dappPending;
+						txelm := head.Transactions()[i]
+						if txelm.DAppID() != types.EmptyDAppIdHash {
+							// generate Dapp block chain.
+							pool.dappPending[*txelm.DAppID()].RemoveByHash(txelm.Hash())
+						}
 					}
 				}
 
@@ -639,6 +644,25 @@ func (pool *TxPool) add(tx *types.Transaction, local bool) (bool, error) {
 			log.Trace("Discarding freshly underpriced transaction", "hash", tx.Hash(), "price", tx.GasPrice())
 			underpricedTxCounter.Inc(1)
 			pool.removeTx(tx.Hash(), false)
+		}
+	}
+	// If it is an DApp transaction.
+	if tx.DAppTx() != nil {
+		// check whether DApp tx is belonging to this p2p node or not
+		if !config.DAppAddresses.Has(tx.DAppID()) {
+			return false, fmt.Errorf("Unknown DAppId: %x! please send transaction to the correct DApp node.", tx.DAppID())
+		}
+		if pool.dappPending[*tx.DAppID()] == nil {
+			pool.dappPending[*tx.DAppID()] = newTxList(true)
+			pool.dappPending[*tx.DAppID()].Add(tx.DAppTx(), pool.config.PriceBump)
+			// send it to all assigned dapp nodes.
+			// config.DAppAddresses.GetAssignedNodes(tx.DAppID())
+			//go pool.txFeed.Send(DAppTxPreEvent{tx})
+		} else if !pool.dappPending[*tx.DAppID()].Overlaps(tx.DAppTx()) {
+			pool.dappPending[*tx.DAppID()].Add(tx.DAppTx(), pool.config.PriceBump)
+			// send it to all assigned dapp nodes.
+			// config.DAppAddresses.GetAssignedNodes(tx.DAppID())
+			//go pool.txFeed.Send(DAppTxPreEvent{tx})
 		}
 	}
 	// If the transaction is replacing an already pending one, do directly

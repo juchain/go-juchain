@@ -77,6 +77,16 @@ func pricedTransaction(nonce uint64, gaslimit uint64, gasprice *big.Int, key *ec
 	return tx
 }
 
+func dappTransaction(dapp *common.Address, nonce uint64, gaslimit uint64, key *ecdsa.PrivateKey) *types.Transaction {
+	return pricedDappTransaction(dapp, nonce, gaslimit, big.NewInt(1), key)
+}
+
+func pricedDappTransaction(dapp *common.Address, nonce uint64, gaslimit uint64, gasprice *big.Int, key *ecdsa.PrivateKey) *types.Transaction {
+	tx, _ := types.SignTx(types.NewDAppTransaction(dapp, nonce, common.Address{}, big.NewInt(100), gaslimit, gasprice, nil), types.HomesteadSigner{}, key)
+	return tx
+}
+
+
 func setupTxPool() (*TxPool, *ecdsa.PrivateKey) {
 	diskdb, _ := store.NewMemDatabase()
 	statedb, _ := state.New(common.Hash{}, state.NewDatabase(diskdb))
@@ -186,8 +196,11 @@ func TestStateChangeDuringTransactionPoolReset(t *testing.T) {
 	statedb.SetBalance(address, new(big.Int).SetUint64(config.Ether))
 	blockchain := &testChain{&testBlockChain{statedb, 1000000000, new(event.Feed)}, address, &trigger}
 
+	dappId := common.HexToAddress("095e7baea6a6c7c4c2dfeb977efac326af552d87")
 	tx0 := transaction(0, 100000, key)
 	tx1 := transaction(1, 100000, key)
+	tx2 := dappTransaction(&dappId, 2, 100000, key)
+	tx3 := dappTransaction(&dappId,3, 100000, key)
 
 	pool := NewTxPool(testTxPoolConfig, config.TestChainConfig, blockchain)
 	defer pool.Stop()
@@ -197,10 +210,10 @@ func TestStateChangeDuringTransactionPoolReset(t *testing.T) {
 		t.Fatalf("Invalid nonce, want 0, got %d", nonce)
 	}
 
-	pool.AddRemotes(types.Transactions{tx0, tx1})
+	pool.AddRemotes(types.Transactions{tx0, tx1, tx2, tx3})
 
 	nonce = pool.State().GetNonce(address)
-	if nonce != 2 {
+	if nonce != 4 {
 		t.Fatalf("Invalid nonce, want 2, got %d", nonce)
 	}
 
@@ -214,7 +227,7 @@ func TestStateChangeDuringTransactionPoolReset(t *testing.T) {
 		t.Fatalf("Could not fetch pending transactions: %v", err)
 	}
 	nonce = pool.State().GetNonce(address)
-	if nonce != 2 {
+	if nonce != 4 {
 		t.Fatalf("Invalid nonce, want 2, got %d", nonce)
 	}
 }

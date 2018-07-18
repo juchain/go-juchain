@@ -24,6 +24,9 @@ import (
 // TxPreEvent is posted when a transaction enters the transaction pool.
 type TxPreEvent struct{ Tx *types.Transaction }
 
+// DAppTxPreEvent is posted when a dapp transaction enters the transaction pool.
+type DAppTxPreEvent struct { Tx *types.Transaction }
+
 // PendingLogsEvent is posted pre mining and notifies of pending logs.
 type PendingLogsEvent struct {
 	Logs []*types.Log

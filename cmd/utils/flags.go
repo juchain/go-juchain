@@ -634,10 +634,11 @@ func setDAppStorage(ctx *cli.Context, ks *keystore.KeyStore, cfg *protocol.Confi
 		for i := range addresses {
 			dappAddresses[i] = common.HexToAddress(addresses[i])
 		}
-		cfg.DAppAddresses = dappAddresses;
+		config.DAppAddresses = &config.DAppAddress{dappAddresses};
+	} else {
+		// TODO: load all current assigned dapp chain addresses from DB.
+		// append(cfg.DAppAddresses, db.DAppAddresses)
 	}
-	// TODO: load all existing dapp chain addresses.
-
 }
 
 // MakePasswordList reads password lines from the file specified by the global --password flag.

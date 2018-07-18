@@ -33,7 +33,8 @@ import (
 
 var (
 	ErrInvalidSig = errors.New("invalid transaction v, r, s values")
-	EmptyDAppIdHash = &common.Hash{};
+	EmptyDAppIdHash = &common.Address{};
+	EmptyHash = &common.Hash{};
 )
 
 // deriveSigner makes a *best* guess about which signer to use.
@@ -55,7 +56,7 @@ type Transaction struct {
 }
 
 type txdata struct {
-	DAppId       *common.Hash    `json:"DAppID"   gencodec:"nil"` // this is optional field
+	DAppId       *common.Address `json:"DAppID"   gencodec:"nil"` // this is optional field
 	RefHashId    *common.Hash    `json:"RefHashId" gencodec:"nil"` // this is optional field
 	AccountNonce uint64          `json:"nonce"    gencodec:"required"`
 	Price        *big.Int        `json:"gasPrice" gencodec:"required"`
@@ -90,7 +91,7 @@ func NewTransaction(nonce uint64, to common.Address, amount *big.Int, gasLimit u
 	return newTransaction(EmptyDAppIdHash, nonce, &to, amount, gasLimit, gasPrice, data)
 }
 
-func NewDAppTransaction(dappId *common.Hash, nonce uint64, to common.Address, amount *big.Int, gasLimit uint64, gasPrice *big.Int, data []byte) *Transaction {
+func NewDAppTransaction(dappId *common.Address, nonce uint64, to common.Address, amount *big.Int, gasLimit uint64, gasPrice *big.Int, data []byte) *Transaction {
 	//try to seperate DApp transaction as two pieces.
 	return newTransaction(dappId, nonce, &to, amount, gasLimit, gasPrice, data)
 }
@@ -99,11 +100,11 @@ func NewContractCreation(nonce uint64, amount *big.Int, gasLimit uint64, gasPric
 	return newTransaction(EmptyDAppIdHash, nonce, nil, amount, gasLimit, gasPrice, data)
 }
 
-func NewDAppContractCreation(dappId *common.Hash, nonce uint64, amount *big.Int, gasLimit uint64, gasPrice *big.Int, data []byte) *Transaction {
+func NewDAppContractCreation(dappId *common.Address, nonce uint64, amount *big.Int, gasLimit uint64, gasPrice *big.Int, data []byte) *Transaction {
 	return newTransaction(dappId, nonce, nil, amount, gasLimit, gasPrice, data)
 }
 
-func newTransaction(dappId *common.Hash, nonce uint64, to *common.Address, amount *big.Int, gasLimit uint64, gasPrice *big.Int, data []byte) *Transaction {
+func newTransaction(dappId *common.Address, nonce uint64, to *common.Address, amount *big.Int, gasLimit uint64, gasPrice *big.Int, data []byte) *Transaction {
 	if len(data) > 0 {
 		data = common.CopyBytes(data)
 	}
@@ -113,7 +114,7 @@ func newTransaction(dappId *common.Hash, nonce uint64, to *common.Address, amoun
 	}
 	d := txdata{
 		DAppId:       dappId,
-		RefHashId:    EmptyDAppIdHash,
+		RefHashId:    EmptyHash,
 		AccountNonce: nonce,
 		Recipient:    to,
 		Payload:      payload,
@@ -141,7 +142,7 @@ func newTransaction(dappId *common.Hash, nonce uint64, to *common.Address, amoun
 }
 
 
-func newDAppTransaction(dappId *common.Hash, refHashId common.Hash, nonce uint64, to *common.Address, amount *big.Int, gasLimit uint64, gasPrice *big.Int, data []byte) *Transaction {
+func newDAppTransaction(dappId *common.Address, refHashId common.Hash, nonce uint64, to *common.Address, amount *big.Int, gasLimit uint64, gasPrice *big.Int, data []byte) *Transaction {
 	if len(data) > 0 {
 		data = common.CopyBytes(data)
 	}
@@ -233,7 +234,7 @@ func (tx *Transaction) UnmarshalJSON(input []byte) error {
 	return nil
 }
 
-func (tx *Transaction) DAppID() *common.Hash { return tx.data.DAppId }
+func (tx *Transaction) DAppID() *common.Address { return tx.data.DAppId }
 func (tx *Transaction) RefHashId() *common.Hash { return tx.data.RefHashId }
 func (tx *Transaction) Data() []byte         { return common.CopyBytes(tx.data.Payload) }
 func (tx *Transaction) Gas() uint64          { return tx.data.GasLimit }
@@ -305,7 +306,7 @@ func (tx *Transaction) WithSignature(signer Signer, sig []byte) (*Transaction, e
 	if err != nil {
 		return nil, err
 	}
-	cpy := &Transaction{data: tx.data}
+	cpy := &Transaction{data: tx.data, dappTx: tx.dappTx}
 	cpy.data.R, cpy.data.S, cpy.data.V = r, s, v
 	return cpy, nil
 }
