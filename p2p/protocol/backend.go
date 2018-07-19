@@ -65,7 +65,7 @@ type JuchainService struct {
 	// Handlers
 	txPool          *core.TxPool
 	blockchain      *core.BlockChain
-	dappchains     map[common.Address]*core.BlockChain
+	dappchains      map[common.Address]*core.BlockChain
 
 	protocolManager *ProtocolManager
 
@@ -154,7 +154,7 @@ func New(ctx *node.ServiceContext, config0 *Config) (*JuchainService, error) {
 		return nil, err
 	}
 	for key, dappChainDB := range eth.dappChainDb {
-		eth.dappchains[key], err = core.NewDAppBlockChain(dappChainDB, cacheConfig, eth.chainConfig, eth.engine, vmConfig)
+		eth.dappchains[key], err = core.NewBlockChain(dappChainDB, cacheConfig, eth.chainConfig, eth.engine, vmConfig)
 		if err != nil {
 			log.Error("Fail to instantiate DAppChainDB!", "dapp id", key)
 			return nil, err
@@ -171,7 +171,7 @@ func New(ctx *node.ServiceContext, config0 *Config) (*JuchainService, error) {
 	if config0.TxPool.Journal != "" {
 		config0.TxPool.Journal = ctx.ResolvePath(config0.TxPool.Journal)
 	}
-	eth.txPool = core.NewTxPool(config0.TxPool, eth.chainConfig, eth.blockchain)
+	eth.txPool = core.NewTxPool(config0.TxPool, eth.chainConfig, eth.blockchain, eth.dappchains)
 	if eth.protocolManager, err = NewProtocolManager(eth, eth.chainConfig, ctx.Config, config0.SyncMode, config0.NetworkId, eth.eventMux, eth.txPool, eth.engine, eth.blockchain, chainDb); err != nil {
 		return nil, err
 	}

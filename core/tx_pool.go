@@ -33,6 +33,7 @@ import (
 	"github.com/juchain/go-juchain/common/metrics"
 	"github.com/juchain/go-juchain/config"
 	"gopkg.in/karalabe/cookiejar.v2/collections/prque"
+	"bytes"
 )
 
 const (
@@ -185,7 +186,7 @@ type TxPool struct {
 	config       TxPoolConfig
 	chainconfig  *config.ChainConfig
 	chain        blockChain
-	dappchains   map[common.Address]blockChain
+	dappchains   map[common.Address]*BlockChain
 
 	gasPrice     *big.Int
 	txFeed       event.Feed
@@ -203,6 +204,7 @@ type TxPool struct {
 	journal *txJournal  // Journal of local transaction to back up to disk
 
 	dappPending map[common.Address]*txList         // All DApp processable transactions
+	dappReadyTx map[common.Address]*types.Block   // All DApp transactions which are ready for packaging
 	pending     map[common.Address]*txList         // All currently processable transactions
 	queue       map[common.Address]*txList         // Queued but non-processable transactions
 	beats       map[common.Address]time.Time       // Last heartbeat from each known account
@@ -214,7 +216,7 @@ type TxPool struct {
 
 // NewTxPool creates a new transaction pool to gather, sort and filter inbound
 // transactions from the network.
-func NewTxPool(config TxPoolConfig, chainconfig *config.ChainConfig, chain blockChain) *TxPool {
+func NewTxPool(config TxPoolConfig, chainconfig *config.ChainConfig, chain blockChain, dappChains map[common.Address]*BlockChain) *TxPool {
 	// Sanitize the input to ensure no vulnerable gas prices are set
 	config = (&config).sanitize()
 
@@ -223,6 +225,7 @@ func NewTxPool(config TxPoolConfig, chainconfig *config.ChainConfig, chain block
 		config:      config,
 		chainconfig: chainconfig,
 		chain:       chain,
+		dappchains:  dappChains,
 		signer:      types.NewEIP155Signer(chainconfig.ChainId),
 		dappPending: make(map[common.Address]*txList),
 		pending:     make(map[common.Address]*txList),
@@ -255,10 +258,6 @@ func NewTxPool(config TxPoolConfig, chainconfig *config.ChainConfig, chain block
 	go pool.loop()
 
 	return pool
-}
-
-func (pool *TxPool) NotifyMinedBlockEvent(newBlock *types.Block) {
-
 }
 
 // loop is the transaction pool's main event loop, waiting for and reacting to
@@ -297,10 +296,25 @@ func (pool *TxPool) loop() {
 					// notify dapp transactions.
 					for i := range head.Transactions() {
 						txelm := head.Transactions()[i]
-						if txelm.DAppID() != types.EmptyDAppIdHash {
-							// generate Dapp block chain.
-							pool.dappPending[*txelm.DAppID()].RemoveByHash(txelm.Hash())
+						if !bytes.Equal(txelm.DAppID().Bytes(), types.EmptyDAppIdHash.Bytes()) {
+							// notify Dapp block chain.
+							tx := pool.dappPending[*txelm.DAppID()].RemoveByNouce(txelm.Nonce())
+							if pool.dappReadyTx[*txelm.DAppID()] == nil {
+								parentHeader := pool.dappchains[*txelm.DAppID()].CurrentBlock().Header()
+								dappHeader := types.CopyHeader(parentHeader)
+								dappHeader.DAppMainRoot = head.Root()
+								dappHeader.Number = dappHeader.Number.Add(dappHeader.Number, big.NewInt(1))
+								dappHeader.Nonce = types.BlockNonce{} //TODO
+								pool.dappReadyTx[*txelm.DAppID()] = types.NewBlockWithHeader(dappHeader)
+							}
+							pool.dappReadyTx[*txelm.DAppID()].AppendTx(tx)
 						}
+					}
+					for k,v := range pool.dappReadyTx {
+						pool.dappchains[k].InsertChain(types.Blocks{v})
+					}
+					for k,_ := range pool.dappReadyTx {
+						delete(pool.dappReadyTx, k)
 					}
 				}
 

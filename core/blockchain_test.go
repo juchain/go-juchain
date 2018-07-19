@@ -1169,6 +1169,10 @@ func TestLargeReorgTrieGC(t *testing.T) {
 	}
 }
 
+func TestMultipleChainsInsert(t *testing.T) {
+	//TODO:
+}
+
 // Benchmarks large blocks with value transfers to non-existing accounts
 func benchmarkLargeNumberOfValueToNonexisting(b *testing.B, numTxs, numBlocks int, recipientFn func(uint64) common.Address, dataFn func(uint64) []byte) {
 	var (

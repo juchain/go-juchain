@@ -67,7 +67,7 @@ func TestBlockEncoding(t *testing.T) {
 	//fmt.Print(block.Hash().String())
 	check("MixDigest", block.MixDigest(), common.HexToHash("0x6139663464303031636163613531333432303031303735343639616666343938"))
 	check("Root", block.Root(), common.HexToHash("0x6237353335366530333134626630373036663237396337323966353165303137"))
-	check("Hash", block.Hash(), common.HexToHash("0x90c424238938eb93c2df5848aa7357ee7e0b2f8ea03e940973c29cb3067c520a"))
+	check("Hash", block.Hash(), common.HexToHash("0x087055e1c2c2dd923334e576a913d82404a90a16f03abbd3f6f191885f6e87cc"))
 	check("Nonce", block.Nonce(), uint64(0xa13a5a8c8f2bb1c4))
 	check("Time", block.Time(), big.NewInt(1426516743))
 	check("Size", block.Size(), common.StorageSize(len(blockEnc)))
@@ -94,12 +94,12 @@ func TestBlockEncoding(t *testing.T) {
 func TestDAppBlockEncoding(t *testing.T) {
 
 	dappId = common.HexToAddress("095e7baea6a6c7c4c2dfeb977efac326af552d87")
-	block := &DAppBlock{header: &DAppHeader{
+	block := &Block{header: &Header{
 		DAppID: dappId,
 		Number: big.NewInt(142),
 		Root: common.StringToHash("0xef1552a40b7165c3cd773806b9e0c165b75356e0314bf0706f279c729f51e017"),
 		ParentHash: common.StringToHash("0xef1552a40b7165c3cd773806b9e0c165b75356e0314bf0706f279c729f51e017"),
-		MainBlockHash: common.StringToHash("0xef1552a40b7165c3cd773806b9e0c165b75356e0314bf0706f279c729f51e017"),
+		DAppMainRoot: common.StringToHash("0xef1552a40b7165c3cd773806b9e0c165b75356e0314bf0706f279c729f51e017"),
 		MixDigest: common.StringToHash("0xbd4472abb6659ebe3ee06ee4d7b72a00a9f4d001caca51342001075469aff498"),
 		Time: big.NewInt(1426516743),
 		Nonce: EncodeNonce(uint64(0xa13a5a8c8f2bb1c4)),
@@ -127,45 +127,13 @@ func TestDAppBlockEncoding(t *testing.T) {
 	if err != nil {
 		t.Fatal("encode error: ", err)
 	}
-	fmt.Printf(`
-############### DApp BLOCK INFO #############
-
-DAppID: 0x%x
-Number: %v
-Root: 0x%x
-ParentHash: 0x%x
-MainBlockHash: 0x%x
-MixDigest: %v
-Nonce: %v
-TxSize: %v 
-TxHash: 0x%x
-ReceiptHash: 0x%x
-
-#############################################\n
-`, block.DAppID(), block.Number(), block.Root(), block.ParentHash(), block.MainBlockHash(), block.MixDigest().String(), block.Nonce(), len(block.transactions), block.TxHash(), block.ReceiptHash())
 
 	fmt.Print(common.Bytes2Hex(blockEnc) + "\n")
-	var decodedBlock DAppBlock;
+	var decodedBlock Block;
 	if err := rlp.DecodeBytes(blockEnc, &decodedBlock); err != nil {
 		t.Fatal("decode error: ", err)
 	}
-	fmt.Printf(`
-############### DApp BLOCK INFO #############
-
-DAppID: 0x%x
-Number: %v
-Root: 0x%x
-ParentHash: 0x%x
-MainBlockHash: 0x%x
-MixDigest: %v
-Nonce: %v
-TxSize: %v 
-TxHash: 0x%x
-ReceiptHash: 0x%x
-
-#############################################\n
-`, decodedBlock.DAppID(), decodedBlock.Number(), decodedBlock.Root(), decodedBlock.ParentHash(), decodedBlock.MainBlockHash(), decodedBlock.MixDigest().String(), decodedBlock.Nonce(), len(decodedBlock.transactions), decodedBlock.TxHash(), decodedBlock.ReceiptHash())
-
+	decodedBlock.Print()
 	check := func(f string, got, want interface{}) {
 		if !reflect.DeepEqual(got, want) {
 			t.Errorf("%s mismatch: got %v, want %v", f, got, want)

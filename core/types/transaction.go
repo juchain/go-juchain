@@ -33,8 +33,6 @@ import (
 
 var (
 	ErrInvalidSig = errors.New("invalid transaction v, r, s values")
-	EmptyDAppIdHash = &common.Address{};
-	EmptyHash = &common.Hash{};
 )
 
 // deriveSigner makes a *best* guess about which signer to use.
