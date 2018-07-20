@@ -133,6 +133,7 @@ func New(ctx *node.ServiceContext, config0 *Config) (*JuchainService, error) {
 		if err != nil {
 			return nil, err
 		}
+		config0.Genesis.MustCommit(dappChainDb) // bind genesis with DB.
 		eth.dappChainDb[config.DAppAddresses.Addresse[i]] = dappChainDb;
 	}
 
@@ -141,7 +142,7 @@ func New(ctx *node.ServiceContext, config0 *Config) (*JuchainService, error) {
 	if !config0.SkipBcVersionCheck {
 		bcVersion := core.GetBlockChainVersion(chainDb)
 		if bcVersion != core.BlockChainVersion && bcVersion != 0 {
-			return nil, fmt.Errorf("Blockchain DB version mismatch (%d / %d). Run geth upgradedb.\n", bcVersion, core.BlockChainVersion)
+			return nil, fmt.Errorf("Blockchain DB version mismatch (%d / %d). Run cmd upgradedb.\n", bcVersion, core.BlockChainVersion)
 		}
 		core.WriteBlockChainVersion(chainDb, core.BlockChainVersion)
 	}
