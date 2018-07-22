@@ -16,7 +16,7 @@ JuChain is a DApp governing & global-scale blockchain operating system.
 2.2 DApp Nodes
 
 
-3.Economic Modeling
+3.Economic Model
 ===
 
 3.1 DPoS
