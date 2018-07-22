@@ -388,6 +388,7 @@ func (dpos *DElection) Finalize(chain consensus.ChainReader, header *types.Heade
 // seal place on top.
 func (dpos *DElection) Seal(chain consensus.ChainReader, block *types.Block, stop <-chan struct{}) (*types.Block, error) {
 	header := block.Header()
+	//TODO
 	header.Nonce, header.MixDigest = types.BlockNonce{}, common.Hash{}
 	return block.WithSeal(header), nil
 }

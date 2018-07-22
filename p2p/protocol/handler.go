@@ -41,6 +41,7 @@ import (
 	"github.com/juchain/go-juchain/config"
 	"github.com/juchain/go-juchain/common/rlp"
 	"github.com/juchain/go-juchain/p2p/node"
+	"bytes"
 )
 
 const (
@@ -668,8 +669,16 @@ func (pm *ProtocolManager) BroadcastBlock(block *types.Block, propagate bool) {
 	}
 	// Otherwise if the block is indeed in out own chain, announce it
 	if pm.blockchain.HasBlock(hash, block.NumberU64()) {
-		for _, peer := range peers {
-			peer.SendNewBlockHashes([]common.Hash{hash}, []uint64{block.NumberU64()})
+		if !bytes.Equal(block.DAppID().Bytes(), types.EmptyDAppIdHash.Bytes()) {
+			for i := range config.DAppAddresses.Addresse {
+				//TODO: only send to DApp assigned P2P Group.
+				addr := config.DAppAddresses.Addresse[i]
+				log.Trace(addr.String())
+			}
+		} else {
+			for _, peer := range peers {
+				peer.SendNewBlockHashes([]common.Hash{hash}, []uint64{block.NumberU64()})
+			}
 		}
 		log.Trace("Announced block", "hash", hash, "recipients", len(peers), "duration", common.PrettyDuration(time.Since(block.ReceivedAt)))
 	}

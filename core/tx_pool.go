@@ -86,6 +86,9 @@ var (
 
 var (
 	// Metrics for the pending pool
+	dappPendingDiscardCounter   = metrics.NewRegisteredCounter("txpool/pending/discard", nil)
+	dappPendingReplaceCounter   = metrics.NewRegisteredCounter("txpool/pending/replace", nil)
+
 	pendingDiscardCounter   = metrics.NewRegisteredCounter("txpool/pending/discard", nil)
 	pendingReplaceCounter   = metrics.NewRegisteredCounter("txpool/pending/replace", nil)
 	pendingRateLimitCounter = metrics.NewRegisteredCounter("txpool/pending/ratelimit", nil) // Dropped due to rate limiting
@@ -204,7 +207,6 @@ type TxPool struct {
 	journal *txJournal  // Journal of local transaction to back up to disk
 
 	dappPending map[common.Address]*txList         // All DApp processable transactions
-	dappReadyTx map[common.Address]*types.Block   // All DApp transactions which are ready for packaging
 	pending     map[common.Address]*txList         // All currently processable transactions
 	queue       map[common.Address]*txList         // Queued but non-processable transactions
 	beats       map[common.Address]time.Time       // Last heartbeat from each known account
@@ -291,32 +293,6 @@ func (pool *TxPool) loop() {
 
 				pool.reset(head.Header(), ev.Block.Header())
 				head = ev.Block
-
-				if len(head.Transactions()) > 0 {
-					// notify dapp transactions.
-					for i := range head.Transactions() {
-						txelm := head.Transactions()[i]
-						if !bytes.Equal(txelm.DAppID().Bytes(), types.EmptyDAppIdHash.Bytes()) {
-							// notify Dapp block chain.
-							tx := pool.dappPending[*txelm.DAppID()].RemoveByNouce(txelm.Nonce())
-							if pool.dappReadyTx[*txelm.DAppID()] == nil {
-								parentHeader := pool.dappchains[*txelm.DAppID()].CurrentBlock().Header()
-								dappHeader := types.CopyHeader(parentHeader)
-								dappHeader.DAppMainRoot = head.Root()
-								dappHeader.Number = dappHeader.Number.Add(dappHeader.Number, big.NewInt(1))
-								dappHeader.Nonce = types.BlockNonce{} //TODO
-								pool.dappReadyTx[*txelm.DAppID()] = types.NewBlockWithHeader(dappHeader)
-							}
-							pool.dappReadyTx[*txelm.DAppID()].AppendTx(tx)
-						}
-					}
-					for k,v := range pool.dappReadyTx {
-						pool.dappchains[k].InsertChain(types.Blocks{v})
-					}
-					for k,_ := range pool.dappReadyTx {
-						delete(pool.dappReadyTx, k)
-					}
-				}
 
 				pool.mu.Unlock()
 			}
@@ -446,7 +422,7 @@ func (pool *TxPool) reset(oldHead, newHead *types.Header) {
 	// any transactions that have been included in the block or
 	// have been invalidated because of another transaction (e.g.
 	// higher gas price)
-	pool.demoteUnexecutables()
+	pool.demoteUnexecutables(&newHead.Root)
 
 	// Update all accounts to the latest known pending nonce
 	for addr, list := range pool.pending {
@@ -666,17 +642,8 @@ func (pool *TxPool) add(tx *types.Transaction, local bool) (bool, error) {
 		if !config.DAppAddresses.Has(tx.DAppID()) {
 			return false, fmt.Errorf("Unknown DAppId: %x! please send transaction to the correct DApp node.", tx.DAppID())
 		}
-		if pool.dappPending[*tx.DAppID()] == nil {
-			pool.dappPending[*tx.DAppID()] = newTxList(true)
-			pool.dappPending[*tx.DAppID()].Add(tx.DAppTx(), pool.config.PriceBump)
-			// send it to all assigned dapp nodes.
-			// config.DAppAddresses.GetAssignedNodes(tx.DAppID())
-			//go pool.txFeed.Send(DAppTxPreEvent{tx})
-		} else if !pool.dappPending[*tx.DAppID()].Overlaps(tx.DAppTx()) {
-			pool.dappPending[*tx.DAppID()].Add(tx.DAppTx(), pool.config.PriceBump)
-			// send it to all assigned dapp nodes.
-			// config.DAppAddresses.GetAssignedNodes(tx.DAppID())
-			//go pool.txFeed.Send(DAppTxPreEvent{tx})
+		if !config.DAppAddresses.HasDiskSpace(tx.DAppID()) {
+			return false, fmt.Errorf("DAppId: %x! does not have enough disk space.", tx.DAppID())
 		}
 	}
 	// If the transaction is replacing an already pending one, do directly
@@ -705,6 +672,7 @@ func (pool *TxPool) add(tx *types.Transaction, local bool) (bool, error) {
 
 		return old != nil, nil
 	}
+
 	// New transaction isn't replacing a pending one, push into queue
 	replace, err := pool.enqueueTx(hash, tx)
 	if err != nil {
@@ -794,6 +762,22 @@ func (pool *TxPool) promoteTx(addr common.Address, hash common.Hash, tx *types.T
 	// Set the potentially new pending nonce and notify any subsystems of the new tx
 	pool.beats[addr] = time.Now()
 	pool.pendingState.SetNonce(addr, tx.Nonce()+1)
+
+	// If it is an DApp transaction.
+	if tx.DAppTx() != nil {
+		if pool.dappPending[*tx.DAppID()] == nil {
+			pool.dappPending[*tx.DAppID()] = newTxList(true)
+			pool.dappPending[*tx.DAppID()].Add(tx.DAppTx(), pool.config.PriceBump)
+			// send it to all assigned dapp nodes.
+			// config.DAppAddresses.GetAssignedNodes(tx.DAppID())
+			//go pool.txFeed.Send(DAppTxPreEvent{tx})
+		} else if !pool.dappPending[*tx.DAppID()].Overlaps(tx.DAppTx()) {
+			pool.dappPending[*tx.DAppID()].Add(tx.DAppTx(), pool.config.PriceBump)
+			// send it to all assigned dapp nodes.
+			// config.DAppAddresses.GetAssignedNodes(tx.DAppID())
+			//go pool.txFeed.Send(DAppTxPreEvent{tx})
+		}
+	}
 
 	go pool.txFeed.Send(TxPreEvent{tx})
 }
@@ -1121,17 +1105,43 @@ func (pool *TxPool) promoteExecutables(accounts []common.Address) {
 // demoteUnexecutables removes invalid and processed transactions from the pools
 // executable/pending queue and any subsequent transactions that become unexecutable
 // are moved back into the future queue.
-func (pool *TxPool) demoteUnexecutables() {
+func (pool *TxPool) demoteUnexecutables(blockHash *common.Hash) {
 	// Iterate over all accounts and demote any non-executable transactions
 	for addr, list := range pool.pending {
 		nonce := pool.currentState.GetNonce(addr)
 
+		// notify dapp transactions.
+		// All DApp transactions which are ready for packaging
+		dappReadyTx := map[common.Address]*types.Block{};
 		// Drop all transactions that are deemed too old (low nonce)
 		for _, tx := range list.Forward(nonce) {
 			hash := tx.Hash()
 			log.Trace("Removed old pending transaction", "hash", hash)
 			delete(pool.all, hash)
 			pool.priced.Removed()
+
+			if !bytes.Equal(tx.DAppID().Bytes(), types.EmptyDAppIdHash.Bytes()) {
+				tx := pool.dappPending[*tx.DAppID()].RemoveByNouce(tx.Nonce())
+				if dappReadyTx[*tx.DAppID()] == nil {
+					parentHeader := pool.dappchains[*tx.DAppID()].CurrentBlock().Header()
+					dappHeader := types.CopyHeader(parentHeader)
+					dappHeader.DAppMainRoot = *blockHash
+					dappHeader.Number = dappHeader.Number.Add(dappHeader.Number, big.NewInt(1))
+					dappHeader.Nonce = types.BlockNonce{} //TODO
+					dappReadyTx[*tx.DAppID()] = types.NewBlockWithHeader(dappHeader)
+				}
+				dappReadyTx[*tx.DAppID()].AppendTx(&tx)
+			}
+
+			for k,v := range dappReadyTx {
+				if _, err := pool.dappchains[k].InsertChain(types.Blocks{v}); err != nil {
+					log.Warn("Downloaded item processing failed", "number", v.Number(), "hash", v.Hash(), "err", err)
+				}
+			}
+			for k,_ := range dappReadyTx {
+				delete(dappReadyTx, k)
+			}
+
 		}
 		// Drop all transactions that are too costly (low balance or out of gas), and queue any invalids back for later
 		drops, invalids := list.Filter(pool.currentState.GetBalance(addr), pool.currentMaxGas)

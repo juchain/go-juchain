@@ -33,11 +33,14 @@ import (
 	"github.com/juchain/go-juchain/core/store"
 	"github.com/juchain/go-juchain/common/event"
 	"github.com/juchain/go-juchain/config"
+	"github.com/juchain/go-juchain/vm/solc"
 )
 
 // testTxPoolConfig is a transaction pool configuration without stateful disk
 // sideeffects used during testing.
 var testTxPoolConfig TxPoolConfig
+var dappAId = common.HexToAddress("b94f5374fce5edbc8e2a8697c15331677e6ebf0b");
+var dappBId = common.HexToAddress("b94f5374fce5edbc8e2a8697c15331677e6ebf0c");
 
 func init() {
 	testTxPoolConfig = DefaultTxPoolConfig
@@ -88,12 +91,23 @@ func pricedDappTransaction(dapp *common.Address, nonce uint64, gaslimit uint64, 
 
 
 func setupTxPool() (*TxPool, *ecdsa.PrivateKey) {
+	engine := CreateFakeEngine()
 	diskdb, _ := store.NewMemDatabase()
 	statedb, _ := state.New(common.Hash{}, state.NewDatabase(diskdb))
 	blockchain := &testBlockChain{statedb, 1000000, new(event.Feed)}
 
+	diskdb1, _ := store.NewMemDatabase()
+	blockchain1, _ := NewBlockChain(diskdb1, nil, config.TestChainConfig, engine, vm.Config{})
+	diskdb2, _ := store.NewMemDatabase()
+	blockchain2, _ := NewBlockChain(diskdb2, nil, config.TestChainConfig, engine, vm.Config{})
+
+	dappChains := map[common.Address]*BlockChain{
+		dappAId: blockchain1,
+		dappBId: blockchain2,
+	}
+
 	key, _ := crypto.GenerateKey()
-	pool := NewTxPool(testTxPoolConfig, config.TestChainConfig, blockchain, nil)
+	pool := NewTxPool(testTxPoolConfig, config.TestChainConfig, blockchain, dappChains)
 
 	return pool, key
 }
@@ -305,6 +319,7 @@ func TestTransactionQueue(t *testing.T) {
 	tx1 := transaction(0, 100, key)
 	tx2 := transaction(10, 100, key)
 	tx3 := transaction(11, 100, key)
+
 	from, _ = deriveSender(tx1)
 	pool.currentState.AddBalance(from, big.NewInt(1000))
 	pool.lockedReset(nil, nil)
@@ -322,6 +337,68 @@ func TestTransactionQueue(t *testing.T) {
 		t.Error("expected len(queue) == 2, got", pool.queue[from].Len())
 	}
 }
+
+func TestDAppTransactionQueue(t *testing.T) {
+	t.Parallel()
+
+	pool, key := setupTxPool()
+	defer pool.Stop()
+
+	tx := dappTransaction(&dappAId, 0, 100, key)
+	from, _ := deriveSender(tx)
+	pool.currentState.AddBalance(from, big.NewInt(1000))
+	pool.lockedReset(nil, nil)
+	pool.enqueueTx(tx.Hash(), tx)
+
+	pool.promoteExecutables([]common.Address{from})
+	if len(pool.pending) != 1 {
+		t.Error("expected valid txs to be 1 is", len(pool.pending))
+	}
+	if pool.dappPending[dappAId].Len() != 1 {
+		t.Error("expected len(dappPending) == 1, got", pool.dappPending[from].Len())
+	}
+
+	tx = dappTransaction(&dappAId, 1, 100, key)
+	from, _ = deriveSender(tx)
+	pool.currentState.SetNonce(from, 2)
+	pool.enqueueTx(tx.Hash(), tx)
+	pool.promoteExecutables([]common.Address{from})
+	if _, ok := pool.pending[from].txs.items[tx.Nonce()]; ok {
+		t.Error("expected transaction to be in tx pool")
+	}
+
+	if len(pool.queue) > 0 {
+		t.Error("expected transaction queue to be empty. is", len(pool.queue))
+	}
+
+	pool, key = setupTxPool()
+	defer pool.Stop()
+
+	tx1 := dappTransaction(&dappAId, 0, 100, key)
+	tx2 := dappTransaction(&dappAId, 10, 100, key)
+	tx3 := dappTransaction(&dappAId, 11, 100, key)
+
+	from, _ = deriveSender(tx1)
+	pool.currentState.AddBalance(from, big.NewInt(1000))
+	pool.lockedReset(nil, nil)
+
+	pool.enqueueTx(tx1.Hash(), tx1)
+	pool.enqueueTx(tx2.Hash(), tx2)
+	pool.enqueueTx(tx3.Hash(), tx3)
+
+	pool.promoteExecutables([]common.Address{from})
+
+	if len(pool.pending) != 1 {
+		t.Error("expected tx pool to be 1, got", len(pool.pending))
+	}
+	if pool.queue[from].Len() != 2 {
+		t.Error("expected len(queue) == 2, got", pool.queue[from].Len())
+	}
+	if pool.dappPending[dappAId].Len() != 1 {
+		t.Error("expected len(dappPending) == 1, got", pool.dappPending[from].Len())
+	}
+}
+
 
 func TestTransactionNegativeValue(t *testing.T) {
 	t.Parallel()
@@ -377,17 +454,18 @@ func TestTransactionDoubleNonce(t *testing.T) {
 	resetState := func() {
 		db, _ := store.NewMemDatabase()
 		statedb, _ := state.New(common.Hash{}, state.NewDatabase(db))
-		statedb.AddBalance(addr, big.NewInt(100000000000000))
+		statedb.AddBalance(addr, big.NewInt(1000000000000000))
 
 		pool.chain = &testBlockChain{statedb, 1000000, new(event.Feed)}
 		pool.lockedReset(nil, nil)
 	}
 	resetState()
 
+	dappId := addr
 	signer := types.HomesteadSigner{}
 	tx1, _ := types.SignTx(types.NewTransaction(0, common.Address{}, big.NewInt(100), 100000, big.NewInt(1), nil), signer, key)
 	tx2, _ := types.SignTx(types.NewTransaction(0, common.Address{}, big.NewInt(100), 1000000, big.NewInt(2), nil), signer, key)
-	tx3, _ := types.SignTx(types.NewTransaction(0, common.Address{}, big.NewInt(100), 1000000, big.NewInt(1), nil), signer, key)
+	tx3, _ := types.SignTx(types.NewDAppTransaction(&dappId, 0, common.Address{}, big.NewInt(100), 1000000, big.NewInt(1), nil), signer, key)
 
 	// Add the first two transaction, ensure higher priced stays only
 	if replace, err := pool.add(tx1, false); err != nil || replace {
@@ -404,7 +482,9 @@ func TestTransactionDoubleNonce(t *testing.T) {
 		t.Errorf("transaction mismatch: have %x, want %x", tx.Hash(), tx2.Hash())
 	}
 	// Add the third transaction and ensure it's not saved (smaller price)
-	pool.add(tx3, false)
+	if replace, err := pool.add(tx3, false); err != nil || replace {
+		t.Logf("second transaction insert failed (%v) or not reported replacement (%v)", err, replace)
+	}
 	pool.promoteExecutables([]common.Address{addr})
 	if pool.pending[addr].Len() != 1 {
 		t.Error("expected 1 pending transactions, got", pool.pending[addr].Len())
@@ -1782,7 +1862,7 @@ func benchmarkPendingDemotion(b *testing.B, size int) {
 	// Benchmark the speed of pool validation
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		pool.demoteUnexecutables()
+		pool.demoteUnexecutables(&common.Hash{})
 	}
 }
 

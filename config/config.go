@@ -159,6 +159,10 @@ func (c *DAppAddress) Has(dappAddr *common.Address) bool {
 	return true;
 }
 
+func (c *DAppAddress) HasDiskSpace(dappAddr *common.Address) bool {
+	return true;
+}
+
 func (c *DAppAddress) GetAssignedNodes(dappAddr *common.Address) bool {
 	return false;
 }

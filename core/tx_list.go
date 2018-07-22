@@ -335,11 +335,11 @@ func (l *txList) Remove(tx *types.Transaction) (bool, types.Transactions) {
 	return true, nil
 }
 
-func (l *txList) RemoveByNouce(nouce uint64) (*types.Transaction) {
+func (l *txList) RemoveByNouce(nouce uint64) (types.Transaction) {
 	// Remove the transaction from the set
 	tx := l.txs.Get(nouce)
 	l.Remove(tx)
-	return tx
+	return *tx
 }
 
 // Ready retrieves a sequentially increasing list of transactions starting at the

@@ -1170,7 +1170,40 @@ func TestLargeReorgTrieGC(t *testing.T) {
 }
 
 func TestMultipleChainsInsert(t *testing.T) {
-	//TODO:
+	engine := CreateFakeEngine()
+	db, _ := store.NewMemDatabase()
+	genesis := new(Genesis).MustCommit(db)
+	db1, _ := store.NewMemDatabase()
+	new(Genesis).MustCommit(db1)
+	db2, _ := store.NewMemDatabase()
+	new(Genesis).MustCommit(db2)
+
+	shared, _ := GenerateChain(config.TestChainConfig, genesis, engine, db, 64, func(i int, b *BlockGen) { b.SetCoinbase(common.Address{1}) })
+	original, _ := GenerateChain(config.TestChainConfig, genesis, engine, db, 2*triesInMemory, func(i int, b *BlockGen) { b.SetCoinbase(common.Address{2}) })
+	competitor, _ := GenerateChain(config.TestChainConfig, genesis, engine, db, 2*triesInMemory+1, func(i int, b *BlockGen) { b.SetCoinbase(common.Address{3}) })
+
+	chain, err := NewBlockChain(db, nil, config.TestChainConfig, engine, vm.Config{})
+	if err != nil {
+		t.Fatalf("failed to create tester chain: %v", err)
+	}
+	chain1, err := NewBlockChain(db1, nil, config.TestChainConfig, engine, vm.Config{})
+	if err != nil {
+		t.Fatalf("failed to create tester chain: %v", err)
+	}
+	chain2, err := NewBlockChain(db2, nil, config.TestChainConfig, engine, vm.Config{})
+	if err != nil {
+		t.Fatalf("failed to create tester chain: %v", err)
+	}
+	if _, err := chain.InsertChain(shared); err != nil {
+		t.Fatalf("failed to insert shared chain: %v", err)
+	}
+	if _, err := chain1.InsertChain(original); err != nil {
+		t.Fatalf("failed to insert shared chain: %v", err)
+	}
+	if _, err := chain2.InsertChain(competitor[:len(competitor)-2]); err != nil {
+		t.Fatalf("failed to insert competitor chain: %v", err)
+	}
+
 }
 
 // Benchmarks large blocks with value transfers to non-existing accounts

@@ -27,6 +27,7 @@ import (
 	"github.com/juchain/go-juchain/common/hexutil"
 	"github.com/juchain/go-juchain/common/crypto"
 	"github.com/juchain/go-juchain/common/rlp"
+	"bytes"
 )
 
 //go:generate gencodec -type txdata -field-override txdataMarshaling -out gen_tx_json.go
@@ -130,7 +131,7 @@ func newTransaction(dappId *common.Address, nonce uint64, to *common.Address, am
 		d.Price.Set(gasPrice)
 	}
 
-	if dappId != nil {
+	if !bytes.Equal(dappId.Bytes(), EmptyDAppIdHash.Bytes()) {
 		tx := &Transaction{data: d};
 		tx.dappTx = newDAppTransaction(dappId, tx.Hash(), nonce, to, amount, gasLimit, gasPrice, data)
 		return tx;
