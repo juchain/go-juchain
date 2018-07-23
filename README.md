@@ -38,5 +38,10 @@ JuChain is a DApp governing & global-scale blockchain operating system.
 6.Installation
 ===
 
-7.Copyrights
+7.Dependencies
+===
+ JuChain reused Ethereum Kademlia p2p node detection mechanism, State database and the keystore solution.
+
+
+8.Copyrights
 ===
