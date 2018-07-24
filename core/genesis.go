@@ -34,6 +34,7 @@ import (
 	"github.com/juchain/go-juchain/common/log"
 	"github.com/juchain/go-juchain/config"
 	"github.com/juchain/go-juchain/common/rlp"
+	"github.com/juchain/go-juchain/vm/solc"
 )
 
 //go:generate gencodec -type Genesis -field-override genesisSpecMarshaling -out gen_genesis.go
@@ -42,7 +43,8 @@ import (
 var errGenesisNoConfig = errors.New("genesis has no chain configuration")
 
 var BlockReward = big.NewInt(5e+18)
-
+var DAPPContractBinCode = "608060405234801561001057600080fd5b50610281806100206000396000f3006080604052600436106100565763ffffffff7c010000000000000000000000000000000000000000000000000000000060003504166318160ddd811461005b57806370a0823114610082578063a9059cbb146100b0575b600080fd5b34801561006757600080fd5b506100706100f5565b60408051918252519081900360200190f35b34801561008e57600080fd5b5061007073ffffffffffffffffffffffffffffffffffffffff600435166100fb565b3480156100bc57600080fd5b506100e173ffffffffffffffffffffffffffffffffffffffff60043516602435610123565b604080519115158252519081900360200190f35b60005481565b73ffffffffffffffffffffffffffffffffffffffff1660009081526001602052604090205490565b600073ffffffffffffffffffffffffffffffffffffffff8316151561014757600080fd5b3360009081526001602052604090205482111561016357600080fd5b33600090815260016020526040902054610183908363ffffffff61022d16565b336000908152600160205260408082209290925573ffffffffffffffffffffffffffffffffffffffff8516815220546101c2908363ffffffff61023f16565b73ffffffffffffffffffffffffffffffffffffffff84166000818152600160209081526040918290209390935580518581529051919233927fddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef9281900390910190a350600192915050565b60008282111561023957fe5b50900390565b60008282018381101561024e57fe5b93925050505600a165627a7a72305820384e46d8f219435c18c8a5d60c7af323636a2b9a57c978b2660564f45f8abfec0029";
+var DAPPContractAddress common.Address;
 // Constants containing the genesis allocation of built-in genesis blocks.
 // Their content is an RLP-encoded list of (address, balance) tuples.
 // Use mkalloc.go to create/update them.
@@ -161,7 +163,7 @@ func (e *GenesisMismatchError) Error() string {
 // The returned chain configuration is never nil.
 func SetupGenesisBlock(db store.Database, genesis *Genesis) (*config.ChainConfig, common.Hash, error) {
 	if genesis != nil && genesis.Config == nil {
-		return config.AllEthashProtocolChanges, common.Hash{}, errGenesisNoConfig
+		return config.MainnetChainConfig, common.Hash{}, errGenesisNoConfig
 	}
 
 	// Just commit the new block if there is no stored genesis block.
@@ -199,16 +201,13 @@ func SetupGenesisBlock(db store.Database, genesis *Genesis) (*config.ChainConfig
 	// Special case: don't change the existing config of a non-mainnet chain if no new
 	// config is supplied. These chains would get AllProtocolChanges (and a compat error)
 	// if we just continued here.
-	if genesis == nil && stored != config.MainnetGenesisHash {
-		return storedcfg, stored, nil
-	}
+	//if genesis == nil && stored != config.MainnetGenesisHash {
+	//	return storedcfg, stored, nil
+	//}
 
 	// Check config compatibility and write the config. Compatibility errors
 	// are returned to the caller unless we're already at block zero.
 	height := GetBlockNumber(db, GetHeadHeaderHash(db))
-	if height == missingNumber {
-		return newcfg, stored, fmt.Errorf("missing block number for head header hash")
-	}
 	compatErr := storedcfg.CheckCompatible(newcfg, height)
 	if compatErr != nil && height != 0 && compatErr.RewindTo != 0 {
 		return newcfg, stored, compatErr
@@ -217,16 +216,10 @@ func SetupGenesisBlock(db store.Database, genesis *Genesis) (*config.ChainConfig
 }
 
 func (g *Genesis) configOrDefault(ghash common.Hash) *config.ChainConfig {
-	switch {
-	case g != nil:
+	if g != nil && g.Config != nil{
 		return g.Config
-	case ghash == config.MainnetGenesisHash:
-		return config.MainnetChainConfig
-	case ghash == config.TestnetGenesisHash:
-		return config.TestnetChainConfig
-	default:
-		return config.AllEthashProtocolChanges
 	}
+	return config.MainnetChainConfig
 }
 
 // ToBlock creates the genesis block and writes state of a genesis specification
@@ -235,8 +228,13 @@ func (g *Genesis) ToBlock(db store.Database) *types.Block {
 	if db == nil {
 		db, _ = store.NewMemDatabase()
 	}
+	var dappAddr *common.Address;
 	statedb, _ := state.New(common.Hash{}, state.NewDatabase(db))
 	for addr, account := range g.Alloc {
+		if dappAddr == nil {
+			dappAddr = &addr; // set the first address as the creator of dapp contract.
+		}
+		// if the balance of selected dapp account is zero, will meet gas underpriced exception.
 		statedb.AddBalance(addr, account.Balance)
 		statedb.SetCode(addr, account.Code)
 		statedb.SetNonce(addr, account.Nonce)
@@ -244,7 +242,12 @@ func (g *Genesis) ToBlock(db store.Database) *types.Block {
 			statedb.SetState(addr, key, value)
 		}
 	}
-	root := statedb.IntermediateRoot(false)
+	if dappAddr == nil {
+		// if there is no any pre allocated address, set an empty address.
+		dappAddr = &common.Address{}
+		statedb.AddBalance(*dappAddr, big.NewInt(1000000000000000000))
+		// add 1 ether to this account.
+	}
 	head := &types.Header{
 		Number:     new(big.Int).SetUint64(g.Number),
 		Nonce:      types.EncodeNonce(g.Nonce),
@@ -256,7 +259,6 @@ func (g *Genesis) ToBlock(db store.Database) *types.Block {
 		Difficulty: g.Difficulty,
 		MixDigest:  g.Mixhash,
 		Coinbase:   g.Coinbase,
-		Root:       root,
 	}
 	if g.GasLimit == 0 {
 		head.GasLimit = config.GenesisGasLimit
@@ -264,12 +266,33 @@ func (g *Genesis) ToBlock(db store.Database) *types.Block {
 	if g.Difficulty == nil {
 		head.Difficulty = config.GenesisDifficulty
 	}
+
+	// install dapp contract into genesis block
+	nonce := uint64(0);
+	amount := big.NewInt(0);
+	gasLimit := uint64(0xFFFF100);
+	gasPrice := big.NewInt(300000);
+	gpool := new(GasPool).AddGas(math.MaxUint64);
+	data := []byte(DAPPContractBinCode);
+	dapptx := types.NewContractCreation(nonce, amount, gasLimit, gasPrice, data);
+	//this special transaction does not need to sign.
+	//dapptx, err := types.SignTx(dapptx, types.MakeSigner(config.AllDPoSProtocolChanges, head.Number),nil)
+	receipt, _, err := ApplyGenesisTransaction(dappAddr, config.MainnetChainConfig, nil, &head.Coinbase, gpool, statedb, head, dapptx, &head.GasUsed, vm.Config{})
+	if err != nil {
+		log.Error("Failed to initialize DApp decentralized management contract(ApplyTx)!", err)
+		return nil
+	}
+	root := statedb.IntermediateRoot(false)
+	head.Root = root;
+	// commit state into db.
 	statedb.Commit(false)
 	statedb.Database().TrieDB().Commit(root, true)
 
-	b := types.NewBlock(head, nil, nil, nil);
+	b := types.NewBlock(head, []*types.Transaction{dapptx}, nil, []*types.Receipt{receipt})
 	log.Info("Created Genesis Block.");
 	b.ToString();
+	log.Info("Installed DApp decentralized manager. Address: " + receipt.ContractAddress.String())
+
 	return b;
 }
 
@@ -277,6 +300,9 @@ func (g *Genesis) ToBlock(db store.Database) *types.Block {
 // The block is committed as the canonical head block.
 func (g *Genesis) Commit(db store.Database) (*types.Block, error) {
 	block := g.ToBlock(db)
+	if block == nil {
+		return nil, fmt.Errorf("Failed to initialize DApp decentralized management contract!")
+	}
 	if block.Number().Sign() != 0 {
 		return nil, fmt.Errorf("can't commit genesis block with number > 0")
 	}
@@ -300,7 +326,7 @@ func (g *Genesis) Commit(db store.Database) (*types.Block, error) {
 	}
 	config0 := g.Config
 	if config0 == nil {
-		config0 = config.AllEthashProtocolChanges
+		config0 = config.MainnetChainConfig
 	}
 	return block, WriteChainConfig(db, block.Hash(), config0)
 }
@@ -333,7 +359,7 @@ func DefaultGenesisBlock() *Genesis {
 	}
 }
 
-// DefaultTestnetGenesisBlock returns the Ropsten network genesis block.
+// DefaultTestnetGenesisBlock returns the test network genesis block.
 func DefaultTestnetGenesisBlock() *Genesis {
 	return &Genesis{
 		Config:     config.TestnetChainConfig,

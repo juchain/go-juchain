@@ -99,17 +99,10 @@ func GetCanonicalHash(db DatabaseReader, number uint64) common.Hash {
 	return common.BytesToHash(data)
 }
 
-// missingNumber is returned by GetBlockNumber if no header with the
-// given block hash has been stored in the database
-const missingNumber = uint64(0xffffffffffffffff)
-
 // GetBlockNumber returns the block number assigned to a block hash
 // if the corresponding header is present in the database
 func GetBlockNumber(db DatabaseReader, hash common.Hash) uint64 {
 	data, _ := db.Get(append(blockHashPrefix, hash.Bytes()...))
-	if len(data) != 8 {
-		return missingNumber
-	}
 	return binary.BigEndian.Uint64(data)
 }
 

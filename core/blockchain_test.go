@@ -1200,9 +1200,15 @@ func TestMultipleChainsInsert(t *testing.T) {
 	if _, err := chain1.InsertChain(original); err != nil {
 		t.Fatalf("failed to insert shared chain: %v", err)
 	}
-	if _, err := chain2.InsertChain(competitor[:len(competitor)-2]); err != nil {
+	if _, err := chain2.InsertChain(competitor[:len(competitor)-10]); err != nil {
 		t.Fatalf("failed to insert competitor chain: %v", err)
 	}
+	t.Logf("chain.CurrentBlock().Number()= %v", chain.CurrentBlock().Number())
+	t.Logf("chain1.CurrentBlock().Number()= %v", chain1.CurrentBlock().Number())
+	t.Logf("chain2.CurrentBlock().Number()= %v", chain2.CurrentBlock().Number())
+	t.Logf("db.Len() = %v", db.Len())
+	t.Logf("db1.Len() = %v", db1.Len())
+	t.Logf("db2.Len() = %v", db2.Len())
 
 }
 

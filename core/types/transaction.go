@@ -298,6 +298,22 @@ func (tx *Transaction) AsMessage(s Signer) (Message, error) {
 	return msg, err
 }
 
+// This is only used for genesis transactions
+func (tx *Transaction) AsRawMessage(from *common.Address) (Message) {
+	msg := Message{
+		nonce:      tx.data.AccountNonce,
+		gasLimit:   tx.data.GasLimit,
+		gasPrice:   new(big.Int).Set(tx.data.Price),
+		from:       *from,
+		to:         tx.data.Recipient,
+		amount:     tx.data.Amount,
+		data:       tx.data.Payload,
+		checkNonce: true,
+	}
+
+	return msg
+}
+
 // WithSignature returns a new transaction with the given signature.
 // This signature needs to be formatted as described in the yellow paper (v+27).
 func (tx *Transaction) WithSignature(signer Signer, sig []byte) (*Transaction, error) {

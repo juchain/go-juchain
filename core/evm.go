@@ -63,6 +63,10 @@ func GetHashFn(ref *types.Header, chain ChainContext) func(n uint64) common.Hash
 	var cache map[uint64]common.Hash
 
 	return func(n uint64) common.Hash {
+		if chain == nil {
+			// for genesis initialzation.
+			return common.Hash{}
+		}
 		// If there's no hash cache yet, make one
 		if cache == nil {
 			cache = map[uint64]common.Hash{

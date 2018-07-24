@@ -1,0 +1,119 @@
+pragma solidity ^0.4.22;
+
+/**
+ * @title DApp Decentralized Manager
+**/
+contract DAppManager
+{
+    ////////////////////////
+    // Type declarations
+    ////////////////////////
+
+    struct DAppInformation {
+        address dappAddress;
+        string  dappName;
+        string  orgName;
+        string  orgDescription;
+        uint8   nationalityCode;
+        uint8   ledgerReplicated;
+        uint256 lastActive;
+        bytes32 icon;
+        bool    initialized;
+    }
+
+    ////////////////////////
+    // Immutable state
+    ////////////////////////
+
+    ////////////////////////
+    // Mutable state
+    ////////////////////////
+
+    mapping(address => DAppInformation) private dappInfoMap;
+
+    ////////////////////////
+    // Modifiers
+    ////////////////////////
+
+    ////////////////////////
+    // Events
+    ////////////////////////
+    event UpdateDAppInfoAccepted();
+
+    event RegisterDAppInfoAccepted();
+
+    ////////////////////////
+    // Constructor
+    ////////////////////////
+
+    constructor() internal
+    {
+    }
+
+    ////////////////////////
+    // Public functions
+    ////////////////////////
+
+    function registerDAppInfo(string dappName, string orgName, string orgDescription, uint8 nationalityCode, uint8 ledgerReplicated, bytes32 icon)
+            public
+            payable
+    {
+        require(dappInfoMap[msg.sender].initialized == false);
+        dappInfoMap[msg.sender] = DAppInformation({
+            dappAddress: msg.sender,
+            dappName: dappName,
+            orgName: orgName,
+            orgDescription: orgDescription,
+            nationalityCode: nationalityCode,
+            ledgerReplicated: ledgerReplicated,
+            lastActive: now,
+            icon: icon,
+            initialized: true
+        });
+        emit RegisterDAppInfoAccepted();
+    }
+
+    function updateDAppInfo(uint8 ledgerReplicated, bytes32 icon)
+        public
+        payable
+    {
+        require(dappInfoMap[msg.sender].initialized == true);
+        DAppInformation storage info = dappInfoMap[msg.sender];
+        info.ledgerReplicated = ledgerReplicated;
+        info.icon = icon;
+        emit UpdateDAppInfoAccepted();
+    }
+
+    function getDAppInfo(address dappId)
+        public
+        constant
+        returns (
+           address dappAddress,
+           string  dappName,
+           string  orgName,
+           string  orgDescription,
+           uint8   nationalityCode,
+           uint8   ledgerReplicated,
+           uint256 lastActive,
+           bytes32 icon
+        )
+    {
+        require(dappInfoMap[dappId].initialized == true);
+        DAppInformation storage info = dappInfoMap[dappId];
+        return (
+            info.dappAddress,
+            info.dappName,
+            info.orgName,
+            info.orgDescription,
+            info.nationalityCode,
+            info.ledgerReplicated,
+            info.lastActive,
+            info.icon
+        );
+    }
+
+    ////////////////////////
+    // Internal functions
+    ////////////////////////
+
+}

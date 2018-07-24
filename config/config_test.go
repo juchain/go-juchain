@@ -28,8 +28,8 @@ func TestCheckCompatible(t *testing.T) {
 		wantErr     *ConfigCompatError
 	}
 	tests := []test{
-		{stored: AllEthashProtocolChanges, new: AllEthashProtocolChanges, head: 0, wantErr: nil},
-		{stored: AllEthashProtocolChanges, new: AllEthashProtocolChanges, head: 100, wantErr: nil},
+		{stored: MainnetChainConfig, new: MainnetChainConfig, head: 0, wantErr: nil},
+		{stored: MainnetChainConfig, new: MainnetChainConfig, head: 100, wantErr: nil},
 	}
 
 	for _, test := range tests {

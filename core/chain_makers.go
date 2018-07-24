@@ -248,7 +248,7 @@ func newCanonical(engine consensus.Engine, n int, full bool) (store.Database, *B
 	db, _ := store.NewMemDatabase()
 	genesis := gspec.MustCommit(db)
 
-	blockchain, _ := NewBlockChain(db, nil, config.AllEthashProtocolChanges, engine, vm.Config{})
+	blockchain, _ := NewBlockChain(db, nil, config.MainnetChainConfig, engine, vm.Config{})
 	// Create and inject the requested chain
 	if n == 0 {
 		return db, blockchain, nil

@@ -636,6 +636,8 @@ func setDAppStorage(ctx *cli.Context, ks *keystore.KeyStore, cfg *protocol.Confi
 		}
 		config.DAppAddresses = &config.DAppAddress{dappAddresses};
 	} else {
+		config.DAppAddresses = &config.DAppAddress{[]common.Address{}};
+
 		// TODO: load all current assigned dapp chain addresses from DB.
 		// append(cfg.DAppAddresses, db.DAppAddresses)
 	}

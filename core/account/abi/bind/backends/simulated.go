@@ -65,7 +65,7 @@ type SimulatedBackend struct {
 // for testing purposes.
 func NewSimulatedBackend(alloc core.GenesisAlloc) *SimulatedBackend {
 	database, _ := store.NewMemDatabase()
-	genesis := core.Genesis{Config: config.AllEthashProtocolChanges, Alloc: alloc}
+	genesis := core.Genesis{Config: config.MainnetChainConfig, Alloc: alloc}
 	genesis.MustCommit(database)
 	blockchain, _ := core.NewBlockChain(database, nil, genesis.Config, nil, vm.Config{})
 

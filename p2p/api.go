@@ -1224,7 +1224,6 @@ func (args *SendTxArgs) toTransaction() *types.Transaction {
 	return types.NewDAppTransaction(args.DAppID, uint64(*args.Nonce), *args.To, (*big.Int)(args.Value), uint64(*args.Gas), (*big.Int)(args.GasPrice), input)
 }
 
-var EmptyDAppIdHash = &common.Hash{};
 // submitTransaction is a helper function that submits tx to txPool and logs a message.
 func submitTransaction(ctx context.Context, b Backend, tx *types.Transaction) (common.Hash, error) {
 	if err := b.SendTx(ctx, tx); err != nil {

@@ -33,6 +33,11 @@ import (
 	"fmt"
 )
 
+var (
+	MainnetGenesisHash = common.HexToHash("0xd94a70c63b44aae4bbb42e352c91e7a45c36c40100dfe8984c6d5c2c0c8ca1f5") // Mainnet genesis hash to enforce below configs on
+	TestnetGenesisHash = common.HexToHash("0x5352a6935b6acfbb4424a97929c02ce55883a40257932b01e73cadfc6653decb") // Testnet genesis hash to enforce below configs on
+)
+
 func CreateFakeEngine() *FakeEngine {
 	return &FakeEngine{};
 }
@@ -117,24 +122,24 @@ func (dpos *FakeAPI) Test() string {
 
 func TestDefaultGenesisBlock(t *testing.T) {
 	block := DefaultGenesisBlock().ToBlock(nil)
-	//fmt.Println(block.Hash().String())
-	if block.Hash() != config.MainnetGenesisHash {
-		t.Errorf("wrong mainnet genesis hash, got %v, want %v", block.Hash(), config.MainnetGenesisHash)
+	fmt.Println("MainnetGenesisHash: " + block.Hash().String())
+	if block.Hash() != MainnetGenesisHash {
+		t.Errorf("wrong mainnet genesis hash, got %v, want %v", block.Hash(), MainnetGenesisHash)
 	}
 	block = DefaultTestnetGenesisBlock().ToBlock(nil)
-	//fmt.Println(block.Hash().String())
-	if block.Hash() != config.TestnetGenesisHash {
-		t.Errorf("wrong testnet genesis hash, got %v, want %v", block.Hash(), config.TestnetGenesisHash)
+	fmt.Println("TestnetGenesisHash: " + block.Hash().String())
+	if block.Hash() != TestnetGenesisHash {
+		t.Errorf("wrong testnet genesis hash, got %v, want %v", block.Hash(), TestnetGenesisHash)
 	}
 }
 
 func TestSetupGenesis(t *testing.T) {
 	var (
-		customghash = common.HexToHash("0x89c99d90b79719238d2645c7642f2c9295246e80775b38cfd162b696817fbd50")
+		customghash = common.HexToHash("0x90cbee30007fad8118c90b98fb03cf3351223cd5107213a38af736976c29279c")
 		customg     = Genesis{
 			Config: &config.ChainConfig{},
 			Alloc: GenesisAlloc{
-				{1}: {Balance: big.NewInt(1), Storage: map[common.Hash]common.Hash{{1}: {1}}},
+				{1}: {Balance: big.NewInt(1000000000000000000), Storage: map[common.Hash]common.Hash{{1}: {1}}},
 			},
 		}
 		oldcustomg = customg
@@ -153,14 +158,14 @@ func TestSetupGenesis(t *testing.T) {
 				return SetupGenesisBlock(db, new(Genesis))
 			},
 			wantErr:    errGenesisNoConfig,
-			wantConfig: config.AllEthashProtocolChanges,
+			wantConfig: config.MainnetChainConfig,
 		},
 		{
 			name: "no block in DB, genesis == nil",
 			fn: func(db store.Database) (*config.ChainConfig, common.Hash, error) {
 				return SetupGenesisBlock(db, nil)
 			},
-			wantHash:   config.MainnetGenesisHash,
+			wantHash:   MainnetGenesisHash,
 			wantConfig: config.MainnetChainConfig,
 		},
 		{
@@ -169,7 +174,7 @@ func TestSetupGenesis(t *testing.T) {
 				DefaultGenesisBlock().MustCommit(db)
 				return SetupGenesisBlock(db, nil)
 			},
-			wantHash:   config.MainnetGenesisHash,
+			wantHash:   MainnetGenesisHash,
 			wantConfig: config.MainnetChainConfig,
 		},
 		{
@@ -179,7 +184,7 @@ func TestSetupGenesis(t *testing.T) {
 				return SetupGenesisBlock(db, nil)
 			},
 			wantHash:   customghash,
-			wantConfig: customg.Config,
+			wantConfig: config.MainnetChainConfig,
 		},
 		{
 			name: "custom block in DB, genesis == testnet",
@@ -187,8 +192,8 @@ func TestSetupGenesis(t *testing.T) {
 				customg.MustCommit(db)
 				return SetupGenesisBlock(db, DefaultTestnetGenesisBlock())
 			},
-			wantErr:    &GenesisMismatchError{Stored: customghash, New: config.TestnetGenesisHash},
-			wantHash:   config.TestnetGenesisHash,
+			wantErr:    &GenesisMismatchError{Stored: customghash, New: TestnetGenesisHash},
+			wantHash:   TestnetGenesisHash,
 			wantConfig: config.TestnetChainConfig,
 		},
 		{
@@ -230,7 +235,7 @@ func TestSetupGenesis(t *testing.T) {
 		db, _ := store.NewMemDatabase()
 		config, hash, err := test.fn(db)
 		// Check the return values.
-		if !reflect.DeepEqual(err, test.wantErr) {
+		if err != nil && !reflect.DeepEqual(err, test.wantErr) {
 			spew := spew.ConfigState{DisablePointerAddresses: true, DisableCapacities: true}
 			t.Errorf("%s: returned error %#v, want %#v", test.name, spew.NewFormatter(err), spew.NewFormatter(test.wantErr))
 		}

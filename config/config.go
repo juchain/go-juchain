@@ -24,11 +24,6 @@ import (
 )
 
 var (
-	MainnetGenesisHash = common.HexToHash("0x84beb7ee6a323021e409a89eafbc07bbe7f110756ba7a11047f5e1a54c1f980d") // Mainnet genesis hash to enforce below configs on
-	TestnetGenesisHash = common.HexToHash("0xd35e249c48571c2e533b372b1f4cee825b9e97f3d7be231e9a7d47f1d825b606") // Testnet genesis hash to enforce below configs on
-)
-
-var (
 	// All assigned DApps to this node.
 	DAppAddresses *DAppAddress;
 
@@ -36,20 +31,15 @@ var (
 	MainnetChainConfig = &ChainConfig{
 		ChainId:             big.NewInt(1),
 		ByzantiumBlock:      big.NewInt(0),
+		DPoS:                new(DPoSConfig),
 	}
 
 	// TestnetChainConfig contains the chain parameters to run a node on the Ropsten test network.
 	TestnetChainConfig = &ChainConfig{
 		ChainId:             big.NewInt(3),
 		ByzantiumBlock:      big.NewInt(0),
+		DPoS:                new(DPoSConfig),
 	}
-
-	// AllEthashProtocolChanges contains every protocol change (EIPs) introduced
-	// and accepted by the Juchain core developers into the Ethash consensus.
-	//
-	// This configuration is intentionally not using keyed fields to force anyone
-	// adding flags to the config to also have to set these fields.
-	AllEthashProtocolChanges = &ChainConfig{big.NewInt(1337), big.NewInt(0) , nil, nil, new(DPoSConfig)}
 
 	// AllCliqueProtocolChanges contains every protocol change (EIPs) introduced
 	// and accepted by the Juchain core developers into the Clique consensus.
