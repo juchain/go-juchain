@@ -34,6 +34,7 @@ import (
 	"github.com/juchain/go-juchain/p2p"
 	"github.com/juchain/go-juchain/rpc"
 	"github.com/prometheus/prometheus/util/flock"
+	"github.com/juchain/go-juchain/common"
 )
 
 // Node is a container on which services can be registered.
@@ -535,6 +536,10 @@ func (n *Node) DataDir() string {
 // InstanceDir retrieves the instance directory used by the protocol stack.
 func (n *Node) InstanceDir() string {
 	return n.config.instanceDir()
+}
+
+func (n *Node) DAppAddresses() []common.Address {
+	return n.config.DAppAddresses()
 }
 
 // AccountManager retrieves the account manager used by the protocol stack.

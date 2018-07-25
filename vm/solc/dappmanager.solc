@@ -16,8 +16,12 @@ contract DAppManager
         string  orgDescription;
         uint8   nationalityCode;
         uint8   ledgerReplicated;
-        uint256 lastActive;
         bytes32 icon;
+        uint8   state;
+        string  ext0;
+        string  ext1;
+        string  ext2;
+        uint256 lastActive;
         bool    initialized;
     }
 
@@ -46,7 +50,7 @@ contract DAppManager
     // Constructor
     ////////////////////////
 
-    constructor() internal
+    constructor() public
     {
     }
 
@@ -54,7 +58,7 @@ contract DAppManager
     // Public functions
     ////////////////////////
 
-    function registerDAppInfo(string dappName, string orgName, string orgDescription, uint8 nationalityCode, uint8 ledgerReplicated, bytes32 icon)
+    function registerDAppInfo(string dappName, string orgName, string orgDescription, uint8 nationalityCode, uint8 ledgerReplicated, bytes32 icon, string ext0, string  ext1, string  ext2)
             public
             payable
     {
@@ -66,19 +70,25 @@ contract DAppManager
             orgDescription: orgDescription,
             nationalityCode: nationalityCode,
             ledgerReplicated: ledgerReplicated,
-            lastActive: now,
             icon: icon,
+            state: 1,
+            ext0: ext0,
+            ext1: ext1,
+            ext2: ext2,
+            lastActive: now,
             initialized: true
+
         });
         emit RegisterDAppInfoAccepted();
     }
 
-    function updateDAppInfo(uint8 ledgerReplicated, bytes32 icon)
+    function updateDAppInfo(string orgDescription, uint8 ledgerReplicated, bytes32 icon)
         public
         payable
     {
         require(dappInfoMap[msg.sender].initialized == true);
         DAppInformation storage info = dappInfoMap[msg.sender];
+        info.orgDescription = orgDescription;
         info.ledgerReplicated = ledgerReplicated;
         info.icon = icon;
         emit UpdateDAppInfoAccepted();
@@ -94,6 +104,7 @@ contract DAppManager
            string  orgDescription,
            uint8   nationalityCode,
            uint8   ledgerReplicated,
+           uint8   state,
            uint256 lastActive,
            bytes32 icon
         )
@@ -107,6 +118,7 @@ contract DAppManager
             info.orgDescription,
             info.nationalityCode,
             info.ledgerReplicated,
+            info.state,
             info.lastActive,
             info.icon
         );

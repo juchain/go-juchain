@@ -238,9 +238,9 @@ func (bc *BlockChain) loadLastState() error {
 	blockTd := bc.GetTd(currentBlock.Hash(), currentBlock.NumberU64())
 	fastTd := bc.GetTd(currentFastBlock.Hash(), currentFastBlock.NumberU64())
 
-	log.Info("Loaded most recent local header", "number", currentHeader.Number, "hash", currentHeader.Hash(), "td", headerTd)
-	log.Info("Loaded most recent local full block", "number", currentBlock.Number(), "hash", currentBlock.Hash(), "td", blockTd)
-	log.Info("Loaded most recent local fast block", "number", currentFastBlock.Number(), "hash", currentFastBlock.Hash(), "td", fastTd)
+	log.Info("Loaded most recent local header", "bchain", bc.Genesis().DAppID().String(), "number", currentHeader.Number, "hash", currentHeader.Hash(), "td", headerTd)
+	log.Info("Loaded most recent local full block", "bchain", bc.Genesis().DAppID().String(), "number", currentBlock.Number(), "hash", currentBlock.Hash(), "td", blockTd)
+	log.Info("Loaded most recent local fast block", "bchain", bc.Genesis().DAppID().String(), "number", currentFastBlock.Number(), "hash", currentFastBlock.Hash(), "td", fastTd)
 
 	return nil
 }

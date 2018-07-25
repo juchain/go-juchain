@@ -33,9 +33,12 @@ import (
 	"github.com/juchain/go-juchain/common/log"
 	"github.com/juchain/go-juchain/p2p"
 	"github.com/juchain/go-juchain/p2p/discover"
+	"bufio"
+	"io"
 )
 
 const (
+	datadirDappKeys        = "dappkeys"           // Path within the datadir to the dapp keys
 	datadirPrivateKey      = "nodekey"            // Path within the datadir to the node's private key
 	datadirDefaultKeyStore = "keystore"           // Path within the datadir to the keystore
 	datadirStaticNodes     = "static-nodes.json"  // Path within the datadir to the static node list
@@ -228,8 +231,8 @@ func DefaultWSEndpoint() string {
 func (c *Config) NodeName() string {
 	name := c.name()
 	// Backwards compatibility: previous versions used title-cased "Geth", keep that.
-	if name == "geth" || name == "geth-testnet" {
-		name = "Geth"
+	if name == "cmd" || name == "cmd-testnet" {
+		name = "cmd"
 	}
 	if c.UserIdent != "" {
 		name += "/" + c.UserIdent
@@ -253,9 +256,10 @@ func (c *Config) name() string {
 	return c.Name
 }
 
-// These resources are resolved differently for "geth" instances.
+// These resources are resolved differently for "cmd" instances.
 var isOldGethResource = map[string]bool{
 	"chaindata":          true,
+	"dappkeys":           true,
 	"nodes":              true,
 	"nodekey":            true,
 	"static-nodes.json":  true,
@@ -270,15 +274,13 @@ func (c *Config) resolvePath(path string) string {
 	if c.DataDir == "" {
 		return ""
 	}
-	// Backwards-compatibility: ensure that data directory files created
-	// by geth 1.4 are used if they exist.
-	if c.name() == "geth" && isOldGethResource[path] {
+	//log.Info("DataDir : " + c.DataDir, "Path", path)
+	if c.name() == "cmd" && isOldGethResource[path] {
 		oldpath := ""
-		if c.Name == "geth" {
+		if c.Name == "cmd" {
 			oldpath = filepath.Join(c.DataDir, path)
 		}
 		if oldpath != "" && common.FileExist(oldpath) {
-			// TODO: print warning
 			return oldpath
 		}
 	}
@@ -331,6 +333,11 @@ func (c *Config) NodeKey() *ecdsa.PrivateKey {
 }
 
 // StaticNodes returns a list of node enode URLs configured as static nodes.
+func (c *Config) DAppAddresses() []common.Address {
+	return c.parseDAppAddresses(c.resolvePath(datadirDappKeys))
+}
+
+// StaticNodes returns a list of node enode URLs configured as static nodes.
 func (c *Config) StaticNodes() []*discover.Node {
 	return c.parsePersistentNodes(c.resolvePath(datadirStaticNodes))
 }
@@ -371,6 +378,32 @@ func (c *Config) parsePersistentNodes(path string) []*discover.Node {
 	}
 	return nodes
 }
+
+func (c *Config) parseDAppAddresses(path string) []common.Address {
+	if c.DataDir == "" {
+		return nil
+	}
+	if _, err := os.Stat(path); err != nil {
+		return nil
+	}
+	f, err := os.Open(path);
+	if err != nil {
+		return nil
+	}
+	defer f.Close()
+
+	addresses := make([]common.Address, 0)
+	rd := bufio.NewReader(f)
+	for {
+		line, err := rd.ReadString('\n') //以'\n'为结束符读入一行
+		if err != nil || io.EOF == err {
+			break
+		}
+		addresses = append(addresses, common.HexToAddress(line))
+	}
+	return addresses;
+}
+
 
 // AccountConfig determines the settings for scrypt and keydirectory
 func (c *Config) AccountConfig() (int, int, string, error) {

@@ -91,11 +91,11 @@ type JuchainService struct {
 	lock sync.RWMutex // Protects the variadic fields (e.g. gas price and etherbase)
 }
 
-// New creates a new Juchain object (including the
-// initialisation of the common Juchain object)
+// New creates a new JuchainService object (including the
+// initialization of the common Juchain objects)
 func New(ctx *node.ServiceContext, config0 *Config) (*JuchainService, error) {
 	if config0.SyncMode == downloader.LightSync {
-		return nil, errors.New("can't run eth.JuchainService in light sync mode, use les.LightEthereum")
+		return nil, errors.New("can't run JuchainService in light sync mode。")
 	}
 	if !config0.SyncMode.IsValid() {
 		return nil, fmt.Errorf("invalid sync mode %d", config0.SyncMode)
@@ -110,13 +110,15 @@ func New(ctx *node.ServiceContext, config0 *Config) (*JuchainService, error) {
 	if _, ok := genesisErr.(*config.ConfigCompatError); genesisErr != nil && !ok {
 		return nil, genesisErr
 	}
-	log.Info("Initialised chain configuration", "config0", chainConfig)
+	log.Info("Initialized main chain configuration", "config0", chainConfig)
 
 	eth := &JuchainService{
 		config:         config0,
 		chainDb:        chainDb,
 		chainConfig:    chainConfig,
 		dappConfig:     config.DAppAddresses,
+		dappChainDb:    make(map[common.Address]store.Database),
+		dappchains:     make(map[common.Address]*core.BlockChain),
 		eventMux:       ctx.EventMux,
 		accountManager: ctx.AccountManager,
 		engine:         CreateConsensusEngine(ctx, chainConfig, chainDb),
@@ -129,12 +131,20 @@ func New(ctx *node.ServiceContext, config0 *Config) (*JuchainService, error) {
 		bloomIndexer:   NewBloomIndexer(chainDb, config.BloomBitsBlocks),
 	}
 	for i := range config.DAppAddresses.Addresse {
-		dappChainDb, err := CreateDB(ctx, config0, "dappchain"+config.DAppAddresses.Addresse[i].String())
+		dappId := config.DAppAddresses.Addresse[i]
+		dbName := "dappchain" + dappId.String()
+		dappChainDb, err := CreateDB(ctx, config0, dbName)
 		if err != nil {
 			return nil, err
 		}
-		config0.Genesis.MustCommit(dappChainDb) // bind genesis with DB.
-		eth.dappChainDb[config.DAppAddresses.Addresse[i]] = dappChainDb;
+		// bind genesis with DB.
+		_, _, genesisErr := core.SetupDAppGenesisBlock(&dappId, dappChainDb, config0.Genesis)
+		if _, ok := genesisErr.(*config.ConfigCompatError); genesisErr != nil && !ok {
+			return nil, genesisErr
+		}
+		log.Info("Initialized dapp chain configuration", "dbName", dbName)
+
+		eth.dappChainDb[dappId] = dappChainDb;
 	}
 
 	log.Info("Initializing Blockchain protocol", "versions", ProtocolVersions, "network", config0.NetworkId)
@@ -157,7 +167,7 @@ func New(ctx *node.ServiceContext, config0 *Config) (*JuchainService, error) {
 	for key, dappChainDB := range eth.dappChainDb {
 		eth.dappchains[key], err = core.NewBlockChain(dappChainDB, cacheConfig, eth.chainConfig, eth.engine, vmConfig)
 		if err != nil {
-			log.Error("Fail to instantiate DAppChainDB!", "dapp id", key)
+			log.Error("Fail to instantiate DAppChainDB!", "dapp address", key)
 			return nil, err
 		}
 	}

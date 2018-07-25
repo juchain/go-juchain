@@ -627,19 +627,24 @@ func setEtherbase(ctx *cli.Context, ks *keystore.KeyStore, cfg *protocol.Config)
 	}
 }
 
-func setDAppStorage(ctx *cli.Context, ks *keystore.KeyStore, cfg *protocol.Config) {
+func setDAppStorage(ctx *cli.Context, stack *node.Node) {
+	persistAddresses := stack.DAppAddresses()
 	if ctx.GlobalIsSet(DAppAddressFlag.Name) {
 		addresses := strings.Split(ctx.GlobalString(DAppAddressFlag.Name), ",");
 		dappAddresses := make([]common.Address, len(addresses));
 		for i := range addresses {
 			dappAddresses[i] = common.HexToAddress(addresses[i])
 		}
+		dappAddresses = append(dappAddresses, persistAddresses...)
 		config.DAppAddresses = &config.DAppAddress{dappAddresses};
 	} else {
-		config.DAppAddresses = &config.DAppAddress{[]common.Address{}};
+		config.DAppAddresses = &config.DAppAddress{persistAddresses};
 
 		// TODO: load all current assigned dapp chain addresses from DB.
 		// append(cfg.DAppAddresses, db.DAppAddresses)
+	}
+	for i := range config.DAppAddresses.Addresse {
+		log.Debug("Detected DApp Address: " + config.DAppAddresses.Addresse[i].String())
 	}
 }
 
@@ -823,7 +828,7 @@ func SetEthConfig(ctx *cli.Context, stack *node.Node, cfg *protocol.Config) {
 
 	ks := stack.AccountManager().Backends(keystore.KeyStoreType)[0].(*keystore.KeyStore)
 	setEtherbase(ctx, ks, cfg)
-	setDAppStorage(ctx, ks, cfg)
+	setDAppStorage(ctx, stack)
 	setGPO(ctx, &cfg.GPO)
 	setTxPool(ctx, &cfg.TxPool)
 	setEthash(ctx, cfg)
