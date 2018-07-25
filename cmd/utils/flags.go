@@ -926,7 +926,7 @@ func MakeChainDatabase(ctx *cli.Context, stack *node.Node) store.Database {
 		cache   = ctx.GlobalInt(CacheFlag.Name) * ctx.GlobalInt(CacheDatabaseFlag.Name) / 100
 		handles = makeDatabaseHandles()
 	)
-	name := "chaindata"
+	name := "mainchain"
 	chainDb, err := stack.OpenDatabase(name, cache, handles)
 	if err != nil {
 		Fatalf("Could not open database: %v", err)

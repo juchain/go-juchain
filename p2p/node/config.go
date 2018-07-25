@@ -258,7 +258,7 @@ func (c *Config) name() string {
 
 // These resources are resolved differently for "cmd" instances.
 var isOldGethResource = map[string]bool{
-	"chaindata":          true,
+	"mainchain":          true,
 	"dappkeys":           true,
 	"nodes":              true,
 	"nodekey":            true,

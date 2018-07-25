@@ -96,7 +96,7 @@ if already existing.`,
 	copydbCommand = cli.Command{
 		Action:    utils.MigrateFlags(copyDb),
 		Name:      "copydb",
-		Usage:     "Create a local chain from a target chaindata folder",
+		Usage:     "Create a local chain from a target mainchain folder",
 		ArgsUsage: "<sourceChaindataDir>",
 		Flags: []cli.Flag{
 			utils.DataDirFlag,
@@ -156,7 +156,7 @@ func initGenesis(ctx *cli.Context) error {
 	}
 	// Open an initialise both full and light databases
 	stack := makeFullNode(ctx)
-	for _, name := range []string{"chaindata", "lightchaindata"} {
+	for _, name := range []string{"mainchain"} {
 		chaindb, err := stack.OpenDatabase(name, 0, 0)
 		if err != nil {
 			utils.Fatalf("Failed to open database: %v", err)
@@ -331,7 +331,7 @@ func exportPreimages(ctx *cli.Context) error {
 func copyDb(ctx *cli.Context) error {
 	// Ensure we have a source chain directory to copy
 	if len(ctx.Args()) != 1 {
-		utils.Fatalf("Source chaindata directory path argument missing")
+		utils.Fatalf("Source mainchain directory path argument missing")
 	}
 	// Initialize a new chain for the running node to sync into
 	stack := makeFullNode(ctx)
@@ -379,7 +379,7 @@ func copyDb(ctx *cli.Context) error {
 func removeDB(ctx *cli.Context) error {
 	stack, _ := makeConfigNode(ctx)
 
-	for _, name := range []string{"chaindata", "lightchaindata"} {
+	for _, name := range []string{"mainchain"} {
 		// Ensure the database exists in the first place
 		logger := log.New("database", name)
 

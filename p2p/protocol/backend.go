@@ -100,7 +100,7 @@ func New(ctx *node.ServiceContext, config0 *Config) (*JuchainService, error) {
 	if !config0.SyncMode.IsValid() {
 		return nil, fmt.Errorf("invalid sync mode %d", config0.SyncMode)
 	}
-	chainDb, err := CreateDB(ctx, config0, "chaindata")
+	chainDb, err := CreateDB(ctx, config0, "mainchain")
 	if err != nil {
 		return nil, err
 	}

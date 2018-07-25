@@ -443,6 +443,5 @@ func accumulateRewards(config *config.ChainConfig, state *state.StateDB, header 
 		r.Div(blockReward, big32)
 		reward.Add(reward, r)
 	}
-	//TODO: error generating merkle tree caused by Coinbase?
-	//state.AddBalance(header.Coinbase, reward)
+	state.AddBalance(header.Coinbase, reward)
 }
