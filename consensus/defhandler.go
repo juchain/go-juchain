@@ -14,7 +14,7 @@
 // You should have received a copy of the GNU Lesser General Public License
 // along with the go-juchain library. If not, see <http://www.gnu.org/licenses/>.
 
-package dpos
+package consensus
 
 import (
 	"errors"
@@ -25,7 +25,6 @@ import (
 
 	"github.com/juchain/go-juchain/common"
 	"github.com/juchain/go-juchain/common/math"
-	"github.com/juchain/go-juchain/consensus"
 	"github.com/juchain/go-juchain/core/store"
 	"github.com/juchain/go-juchain/core/state"
 	"github.com/juchain/go-juchain/core/types"
@@ -35,7 +34,10 @@ import (
 	"gopkg.in/fatih/set.v0"
 )
 
-// DElection proof-of-work protocol constants.
+// this is exactly the same file copied from dpos.handle.go
+// just want to solve the cycle dependency issue for test case.
+// Please sync this file if you made any change.
+
 var (
 	ByzantiumBlockReward   *big.Int = big.NewInt(0) // Block reward in wei for successfully mining a block upward from Byzantium
 	maxUncles                       = 2                 // Maximum number of uncles allowed in a single block
@@ -56,7 +58,41 @@ var (
 	errInvalidDifficulty = errors.New("non-positive difficulty")
 	errInvalidMixDigest  = errors.New("invalid mix digest")
 	errInvalidPoW        = errors.New("invalid proof-of-work")
+
 )
+
+// this is only used for test case.
+
+func CreateFakeEngine() Engine {
+	return New(&config.DPoSConfig{
+		PoSMode: config.ModeFake,
+	}, nil)
+}
+// NewFakeFailer creates a ethash consensus engine with a fake PoW scheme that
+// accepts all blocks as valid apart from the single one specified, though they
+// still have to conform to the Ethereum consensus rules.
+func NewFakeFailer(fail uint64) Engine {
+	return New(&config.DPoSConfig{
+		PoSMode: config.ModeFake,
+		FakeFail: fail,
+	}, nil)
+}
+// NewFakeDelayer creates a ethash consensus engine with a fake PoW scheme that
+// accepts all blocks as valid, but delays verifications by some time, though
+// they still have to conform to the Ethereum consensus rules.
+func NewFakeDelayer(delay time.Duration) Engine {
+	return New(&config.DPoSConfig{
+		PoSMode: config.ModeFake,
+		FakeDelay: delay,
+	}, nil)
+}
+// NewFullFaker creates an ethash consensus engine with a full fake scheme that
+// accepts all blocks as valid, without checking any consensus rules whatsoever.
+func NewFullFaker() Engine {
+	return New(&config.DPoSConfig{
+		PoSMode: config.ModeFullFake,
+	}, nil)
+}
 
 type DElection struct {
 	config    *config.DPoSConfig   // Consensus engine configuration parameters
@@ -77,7 +113,7 @@ func New(config *config.DPoSConfig, db store.Database) *DElection {
 	}
 }
 
-// Author implements consensus.Engine, returning the header's coinbase as the
+// Author implements Engine, returning the header's coinbase as the
 // proof-of-work verified author of the block.
 func (dpos *DElection) Author(header *types.Header) (common.Address, error) {
 	return header.Coinbase, nil
@@ -85,7 +121,7 @@ func (dpos *DElection) Author(header *types.Header) (common.Address, error) {
 
 // VerifyHeader checks whether a header conforms to the consensus rules of the
 // stock Ethereum dpos engine.
-func (dpos *DElection) VerifyHeader(chain consensus.ChainReader, header *types.Header, seal bool) error {
+func (dpos *DElection) VerifyHeader(chain ChainReader, header *types.Header, seal bool) error {
 	// Short circuit if the header is known, or it's parent not
 	number := header.Number.Uint64()
 	if chain.GetHeader(header.Hash(), number) != nil {
@@ -93,7 +129,7 @@ func (dpos *DElection) VerifyHeader(chain consensus.ChainReader, header *types.H
 	}
 	parent := chain.GetHeader(header.ParentHash, number-1)
 	if parent == nil {
-		return consensus.ErrUnknownAncestor
+		return ErrUnknownAncestor
 	}
 	// Sanity checks passed, do a proper verification
 	return dpos.verifyHeader(chain, header, parent, false, seal)
@@ -102,7 +138,7 @@ func (dpos *DElection) VerifyHeader(chain consensus.ChainReader, header *types.H
 // VerifyHeaders is similar to VerifyHeader, but verifies a batch of headers
 // concurrently. The method returns a quit channel to abort the operations and
 // a results channel to retrieve the async verifications.
-func (dpos *DElection) VerifyHeaders(chain consensus.ChainReader, headers []*types.Header, seals []bool) (chan<- struct{}, <-chan error) {
+func (dpos *DElection) VerifyHeaders(chain ChainReader, headers []*types.Header, seals []bool) (chan<- struct{}, <-chan error) {
 	// If we're running a full engine faking, accept any input as valid
 	if dpos.config.PoSMode == config.ModeFullFake || len(headers) == 0 {
 		abort, results := make(chan struct{}), make(chan error, len(headers))
@@ -164,7 +200,7 @@ func (dpos *DElection) VerifyHeaders(chain consensus.ChainReader, headers []*typ
 	return abort, errorsOut
 }
 
-func (dpos *DElection) verifyHeaderWorker(chain consensus.ChainReader, headers []*types.Header, seals []bool, index int) error {
+func (dpos *DElection) verifyHeaderWorker(chain ChainReader, headers []*types.Header, seals []bool, index int) error {
 	var parent *types.Header
 	if index == 0 {
 		parent = chain.GetHeader(headers[0].ParentHash, headers[0].Number.Uint64()-1)
@@ -172,7 +208,7 @@ func (dpos *DElection) verifyHeaderWorker(chain consensus.ChainReader, headers [
 		parent = headers[index-1]
 	}
 	if parent == nil {
-		return consensus.ErrUnknownAncestor
+		return ErrUnknownAncestor
 	}
 	if chain.GetHeader(headers[index].Hash(), headers[index].Number.Uint64()) != nil {
 		return nil // known block
@@ -182,7 +218,7 @@ func (dpos *DElection) verifyHeaderWorker(chain consensus.ChainReader, headers [
 
 // VerifyUncles verifies that the given block's uncles conform to the consensus
 // rules of the stock Ethereum dpos engine.
-func (dpos *DElection) VerifyUncles(chain consensus.ChainReader, block *types.Block) error {
+func (dpos *DElection) VerifyUncles(chain ChainReader, block *types.Block) error {
 	// Verify that there are at most 2 uncles included in this block
 	if len(block.Uncles()) > maxUncles {
 		return errTooManyUncles
@@ -231,7 +267,7 @@ func (dpos *DElection) VerifyUncles(chain consensus.ChainReader, block *types.Bl
 // verifyHeader checks whether a header conforms to the consensus rules of the
 // stock Ethereum dpos engine.
 // See YP section 4.3.4. "Block Header Validity"
-func (dpos *DElection) verifyHeader(chain consensus.ChainReader, header, parent *types.Header, uncle bool, seal bool) error {
+func (dpos *DElection) verifyHeader(chain ChainReader, header, parent *types.Header, uncle bool, seal bool) error {
 	// Ensure that the header's extra-data section is of a reasonable size
 	if uint64(len(header.Extra)) > config.MaximumExtraDataSize {
 		return fmt.Errorf("extra-data too long: %d > %d", len(header.Extra), config.MaximumExtraDataSize)
@@ -243,7 +279,7 @@ func (dpos *DElection) verifyHeader(chain consensus.ChainReader, header, parent 
 		}
 	} else {
 		if header.Time.Cmp(big.NewInt(time.Now().Add(allowedFutureBlockTime).Unix())) > 0 {
-			return consensus.ErrFutureBlock
+			return ErrFutureBlock
 		}
 	}
 	if header.Time.Cmp(parent.Time) <= 0 {
@@ -277,7 +313,7 @@ func (dpos *DElection) verifyHeader(chain consensus.ChainReader, header, parent 
 	}
 	// Verify that the block number is parent's +1
 	if diff := new(big.Int).Sub(header.Number, parent.Number); diff.Cmp(big.NewInt(1)) != 0 {
-		return consensus.ErrInvalidNumber
+		return ErrInvalidNumber
 	}
 	// Verify the engine specific seal securing the block
 	if seal {
@@ -291,7 +327,7 @@ func (dpos *DElection) verifyHeader(chain consensus.ChainReader, header, parent 
 // CalcDifficulty is the difficulty adjustment algorithm. It returns
 // the difficulty that a new block should have when created at time
 // given the parent block's time and difficulty.
-func (dpos *DElection) CalcDifficulty(chain consensus.ChainReader, time uint64, parent *types.Header) *big.Int {
+func (dpos *DElection) CalcDifficulty(chain ChainReader, time uint64, parent *types.Header) *big.Int {
 	return dpos.calcDifficultyByzantium(time, parent)
 }
 
@@ -365,9 +401,15 @@ func (dpos *DElection) calcDifficultyByzantium(time uint64, parent *types.Header
 	return x
 }
 
-// VerifySeal implements consensus.Engine, checking whether the given block satisfies
+// VerifySeal implements Engine, checking whether the given block satisfies
 // the DPoS difficulty requirements.
-func (dpos *DElection) VerifySeal(chain consensus.ChainReader, header *types.Header) error {
+func (dpos *DElection) VerifySeal(chain ChainReader, header *types.Header) error {
+	if dpos.config.PoSMode == config.ModeFake || dpos.config.PoSMode == config.ModeFullFake {
+		//time.Sleep(dpos.config.FakeDelay)
+		if dpos.config.FakeFail == header.Number.Uint64() {
+			return errInvalidPoW
+		}
+	}
 	// Ensure that we have a valid difficulty for the block
 	if header.Difficulty.Sign() <= 0 {
 		return errInvalidDifficulty
@@ -375,20 +417,20 @@ func (dpos *DElection) VerifySeal(chain consensus.ChainReader, header *types.Hea
 	return nil
 }
 
-// Prepare implements consensus.Engine, initializing the difficulty field of a
+// Prepare implements Engine, initializing the difficulty field of a
 // header to conform to the dpos protocol. The changes are done inline.
-func (dpos *DElection) Prepare(chain consensus.ChainReader, header *types.Header) error {
+func (dpos *DElection) Prepare(chain ChainReader, header *types.Header) error {
 	parent := chain.GetHeader(header.ParentHash, header.Number.Uint64()-1)
 	if parent == nil {
-		return consensus.ErrUnknownAncestor
+		return ErrUnknownAncestor
 	}
 	header.Difficulty = dpos.CalcDifficulty(chain, header.Time.Uint64(), parent)
 	return nil
 }
 
-// Finalize implements consensus.Engine, accumulating the block and uncle rewards,
+// Finalize implements Engine, accumulating the block and uncle rewards,
 // setting the final state and assembling the block.
-func (dpos *DElection) Finalize(chain consensus.ChainReader, header *types.Header, state *state.StateDB, txs []*types.Transaction, uncles []*types.Header, receipts []*types.Receipt) (*types.Block, error) {
+func (dpos *DElection) Finalize(chain ChainReader, header *types.Header, state *state.StateDB, txs []*types.Transaction, uncles []*types.Header, receipts []*types.Receipt) (*types.Block, error) {
 	// Accumulate any block and uncle rewards and commit the final state root
 	accumulateRewards(chain.Config(), state, header, uncles)
 	header.Root = state.IntermediateRoot(true)
@@ -399,7 +441,7 @@ func (dpos *DElection) Finalize(chain consensus.ChainReader, header *types.Heade
 
 // Seal generates a new block for the given input block with the local miner's
 // seal place on top.
-func (dpos *DElection) Seal(chain consensus.ChainReader, block *types.Block, stop <-chan struct{}) (*types.Block, error) {
+func (dpos *DElection) Seal(chain ChainReader, block *types.Block, stop <-chan struct{}) (*types.Block, error) {
 	header := block.Header()
 	//TODO
 	header.Nonce, header.MixDigest = types.BlockNonce{}, common.Hash{}
@@ -407,7 +449,7 @@ func (dpos *DElection) Seal(chain consensus.ChainReader, block *types.Block, sto
 }
 
 // APIs returns the RPC APIs this consensus engine provides.
-func (dpos *DElection) APIs(chain consensus.ChainReader) []rpc.API {
+func (dpos *DElection) APIs(chain ChainReader) []rpc.API {
 	return []rpc.API{{
 		Namespace: "dpos",
 		Version:   "1.0",
@@ -419,7 +461,7 @@ func (dpos *DElection) APIs(chain consensus.ChainReader) []rpc.API {
 // PublicDebugAPI is the collection of Ethereum APIs exposed over the public
 // debugging endpoint.
 type DPoSAPI struct {
-	chain  consensus.ChainReader
+	chain  ChainReader
 	dpos *DElection
 }
 

@@ -21,6 +21,7 @@ import (
 	"math/big"
 
 	"github.com/juchain/go-juchain/common"
+	"time"
 )
 
 var (
@@ -30,6 +31,7 @@ var (
 	// MainnetChainConfig is the chain parameters to run a node on the main network.
 	MainnetChainConfig = &ChainConfig{
 		ChainId:             big.NewInt(1),
+		EIP158Block:         big.NewInt(0),
 		ByzantiumBlock:      big.NewInt(0),
 		DPoS:                new(DPoSConfig),
 	}
@@ -37,6 +39,7 @@ var (
 	// TestnetChainConfig contains the chain parameters to run a node on the Ropsten test network.
 	TestnetChainConfig = &ChainConfig{
 		ChainId:             big.NewInt(3),
+		EIP158Block:         big.NewInt(0),
 		ByzantiumBlock:      big.NewInt(0),
 		DPoS:                new(DPoSConfig),
 	}
@@ -46,9 +49,19 @@ var (
 	//
 	// This configuration is intentionally not using keyed fields to force anyone
 	// adding flags to the config to also have to set these fields.
-	AllCliqueProtocolChanges = &ChainConfig{big.NewInt(1337), big.NewInt(0), nil, &CliqueConfig{Period: 0, Epoch: 30000}, nil}
+	AllCliqueProtocolChanges = &ChainConfig{
+		big.NewInt(1337),
+		big.NewInt(0),
+		big.NewInt(0),
+		&CliqueConfig{Period: 0, Epoch: 30000},
+		nil}
 
-	TestChainConfig = &ChainConfig{big.NewInt(1), big.NewInt(0), nil, nil , nil}
+	TestChainConfig = &ChainConfig{
+		big.NewInt(1),
+		big.NewInt(0),
+		big.NewInt(0),
+		nil ,
+		new(DPoSConfig)}
 	TestRules       = TestChainConfig.Rules(new(big.Int))
 )
 
@@ -70,9 +83,20 @@ type ChainConfig struct {
 }
 
 type DPoSConfig struct{
-	Period uint64 `json:"period"` // Number of seconds between blocks to enforce
-	Epoch  uint64 `json:"epoch"`  // Epoch length to reset votes and checkpoint
+	Period   uint64 `json:"period"` // Number of seconds between blocks to enforce
+	Epoch    uint64 `json:"epoch"`  // Epoch length to reset votes and checkpoint
+	PoSMode  Mode
+	FakeFail  uint64        // Block number which fails PoS check even in fake mode
+	FakeDelay time.Duration // Time delay to sleep for before returning from verify
 }
+
+// only for test purpose
+type Mode uint
+const (
+	ModeFake Mode = iota
+	ModeFullFake
+)
+
 func (c *DPoSConfig) String() string {
 	return "dpos"
 }

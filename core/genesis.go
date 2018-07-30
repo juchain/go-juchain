@@ -337,7 +337,7 @@ func (g *Genesis) ToBlock(db store.Database) *types.Block {
 	// install dapp contract into genesis block of main chain.
 	nonce := uint64(0);
 	amount := big.NewInt(0);
-	gasLimit := uint64(0xFFFF100);
+	gasLimit := head.GasLimit;
 	gasPrice := big.NewInt(300000);
 	gpool := new(GasPool).AddGas(math.MaxUint64);
 	data := []byte(DAPPContractBinCode);
@@ -346,7 +346,7 @@ func (g *Genesis) ToBlock(db store.Database) *types.Block {
 	//dapptx, err := types.SignTx(dapptx, types.MakeSigner(config.AllDPoSProtocolChanges, head.Number),nil)
 	receipt, _, err := ApplyGenesisTransaction(dappAddr, config.MainnetChainConfig, nil, &head.Coinbase, gpool, statedb, head, dapptx, &head.GasUsed, vm.Config{})
 	if err != nil {
-		log.Error("Failed to initialize DApp decentralized management contract(ApplyTx)!", err)
+		log.Error("Failed to initialize DApp decentralized management contract(ApplyTx)! ", "cause", err.Error())
 		return nil
 	}
 	root := statedb.IntermediateRoot(false)
@@ -496,8 +496,8 @@ func DefaultGenesisBlock() *Genesis {
 		Config:     config.MainnetChainConfig,
 		Nonce:      66,
 		ExtraData:  hexutil.MustDecode("0x11bbe8db4e347b4e8c937c1c8370e4b5ed33adb3db69cbdb7a38e1e50b1b82fa"),
-		GasLimit:   5000,
-		Difficulty: big.NewInt(17179869184),
+		GasLimit:   config.GenesisGasLimit,
+		Difficulty: config.GenesisDifficulty,
 		//Alloc:      decodePrealloc(mainnetAllocData),
 	}
 }

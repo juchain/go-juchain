@@ -20,105 +20,19 @@ import (
 	"math/big"
 	"reflect"
 	"testing"
-
+	"fmt"
 	"github.com/davecgh/go-spew/spew"
 	"github.com/juchain/go-juchain/common"
 	"github.com/juchain/go-juchain/core/store"
 	"github.com/juchain/go-juchain/config"
 	"github.com/juchain/go-juchain/vm/solc"
 	"github.com/juchain/go-juchain/consensus"
-	"github.com/juchain/go-juchain/core/types"
-	"github.com/juchain/go-juchain/core/state"
-	"github.com/juchain/go-juchain/rpc"
-	"fmt"
 )
 
 var (
-	MainnetGenesisHash = common.HexToHash("0xd94a70c63b44aae4bbb42e352c91e7a45c36c40100dfe8984c6d5c2c0c8ca1f5") // Mainnet genesis hash to enforce below configs on
-	TestnetGenesisHash = common.HexToHash("0x5352a6935b6acfbb4424a97929c02ce55883a40257932b01e73cadfc6653decb") // Testnet genesis hash to enforce below configs on
+	MainnetGenesisHash = common.HexToHash("0xe30558d511be2742ce0e193c453c3ebbe8dde64fb812c9c4b55ce938cc400fa5") // Mainnet genesis hash to enforce below configs on
+	TestnetGenesisHash = common.HexToHash("0xd1b1f40bbb8a5e8ac0aa0b35767e518fc131e93faed5e0955eeb1cb92c4d2993") // Testnet genesis hash to enforce below configs on
 )
-
-func CreateFakeEngine() *FakeEngine {
-	return &FakeEngine{};
-}
-
-type FakeEngine struct {
-}
-
-func (f *FakeEngine) Author(header *types.Header) (common.Address, error) {
-	return common.Address{}, nil;
-}
-
-func (f *FakeEngine) VerifyHeader(chain consensus.ChainReader, header *types.Header, seal bool) error {
-	return nil;
-}
-
-func (f *FakeEngine) VerifyHeaders(chain consensus.ChainReader, headers []*types.Header, seals []bool) (chan<- struct{}, <-chan error) {
-	abort := make(chan struct{})
-	results := make(chan error, len(headers))
-
-	go func() {
-		for i, _ := range headers {
-			err := returnEmpty();
-			fmt.Println(i);
-			select {
-			case <-abort:
-				return
-			case results <- err:
-			}
-		}
-	}()
-	return abort, results
-}
-
-func returnEmpty() error {
-	return nil;
-}
-
-func (f *FakeEngine) VerifyUncles(chain consensus.ChainReader, block *types.Block) error {
-	return nil;
-}
-
-func (f *FakeEngine) VerifySeal(chain consensus.ChainReader, header *types.Header) error {
-	return nil;
-}
-
-func (f *FakeEngine)  Prepare(chain consensus.ChainReader, header *types.Header) error {
-	return nil;
-}
-
-func (f *FakeEngine) Finalize(chain consensus.ChainReader, header *types.Header, state *state.StateDB, txs []*types.Transaction,
-	uncles []*types.Header, receipts []*types.Receipt) (*types.Block, error) {
-	return types.NewBlock(header, txs, uncles, receipts), nil
-}
-
-func (f *FakeEngine) Seal(chain consensus.ChainReader, block *types.Block, stop <-chan struct{}) (*types.Block, error) {
-	return block, nil;
-}
-
-func (f *FakeEngine) CalcDifficulty(chain consensus.ChainReader, time uint64, parent *types.Header) *big.Int {
-	return big.NewInt(123456);
-}
-
-func (f *FakeEngine) APIs(chain consensus.ChainReader) []rpc.API {
-	return []rpc.API{{
-		Namespace: "fake",
-		Version:   "1.0",
-		Service:   &FakeAPI{chain: chain},
-		Public:    false,
-	}}
-}
-
-// PublicDebugAPI is the collection of Ethereum APIs exposed over the public
-// debugging endpoint.
-type FakeAPI struct {
-	chain  consensus.ChainReader
-}
-
-func (dpos *FakeAPI) Test() string {
-	return "test";
-}
-
 
 func TestDefaultGenesisBlock(t *testing.T) {
 	block := DefaultGenesisBlock().ToBlock(nil)
@@ -211,7 +125,7 @@ func TestSetupGenesis(t *testing.T) {
 				// Commit the 'old' genesis block with Homestead transition at #2.
 				// Advance to block #4, past the homestead transition block of customg.
 				genesis := oldcustomg.MustCommit(db)
-				engine := CreateFakeEngine()
+				engine  := consensus.CreateFakeEngine()
 				bc, _ := NewBlockChain(db, nil, oldcustomg.Config, engine, vm.Config{})
 				defer bc.Stop()
 				blocks, _ := GenerateChain(oldcustomg.Config, genesis, engine, db, 4, nil)

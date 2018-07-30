@@ -34,6 +34,7 @@ import (
 	"github.com/juchain/go-juchain/common/event"
 	"github.com/juchain/go-juchain/config"
 	"github.com/juchain/go-juchain/vm/solc"
+	"github.com/juchain/go-juchain/consensus"
 )
 
 // testTxPoolConfig is a transaction pool configuration without stateful disk
@@ -91,7 +92,7 @@ func pricedDappTransaction(dapp *common.Address, nonce uint64, gaslimit uint64, 
 
 
 func setupTxPool() (*TxPool, *ecdsa.PrivateKey) {
-	engine := CreateFakeEngine()
+	engine    := consensus.CreateFakeEngine()
 	diskdb, _ := store.NewMemDatabase()
 	statedb, _ := state.New(common.Hash{}, state.NewDatabase(diskdb))
 	blockchain := &testBlockChain{statedb, 1000000, new(event.Feed)}

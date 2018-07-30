@@ -25,6 +25,7 @@ import (
 	"github.com/juchain/go-juchain/common/crypto"
 	"github.com/juchain/go-juchain/core/store"
 	"github.com/juchain/go-juchain/config"
+	"github.com/juchain/go-juchain/consensus"
 )
 
 func ExampleGenerateChain() {
@@ -41,7 +42,7 @@ func ExampleGenerateChain() {
 	// Ensure that key1 has some funds in the genesis block.
 	gspec := &Genesis{
 		Config: &config.ChainConfig{},
-		Alloc:  GenesisAlloc{addr1: {Balance: big.NewInt(1000000)}},
+		Alloc:  GenesisAlloc{addr1: {Balance: big.NewInt(10000000000000000)}},
 	}
 	genesis := gspec.MustCommit(db)
 
@@ -49,7 +50,7 @@ func ExampleGenerateChain() {
 	// each block and adds different features to gen based on the
 	// block index.
 	signer := types.HomesteadSigner{}
-	chain, _ := GenerateChain(gspec.Config, genesis, nil, db, 5, func(i int, gen *BlockGen) {
+	chain, _ := GenerateChain(gspec.Config, genesis, consensus.CreateFakeEngine(), db, 5, func(i int, gen *BlockGen) {
 		switch i {
 		case 0:
 			// In block 1, addr1 sends addr2 some ether.
@@ -78,7 +79,7 @@ func ExampleGenerateChain() {
 	})
 
 	// Import the chain. This runs all block validation rules.
-	blockchain, _ := NewBlockChain(db, nil, gspec.Config, nil, vm.Config{})
+	blockchain, _ := NewBlockChain(db, nil, gspec.Config, consensus.CreateFakeEngine(), vm.Config{})
 	defer blockchain.Stop()
 
 	if i, err := blockchain.InsertChain(chain); err != nil {
