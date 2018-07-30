@@ -30,24 +30,23 @@ import (
 
 // Constants to match up protocol versions and messages
 const (
-	eth62 = 01
-	eth63 = 02
+	OBOD01 = uint(1) //obod protocol 1.0 version
 )
 
 // Official short name of the protocol used during capability negotiation.
-var ProtocolName = "eth"
+var ProtocolName = "obod"
 
 // Supported versions of the eth protocol (first is primary).
-var ProtocolVersions = []uint{eth63, eth62}
+var ProtocolVersions = []uint{OBOD01}
 
 // Number of implemented message corresponding to different protocol versions.
-var ProtocolLengths = []uint64{1, 2}
+var ProtocolLengths = []uint64{1}
 
 const ProtocolMaxMsgSize = 10 * 1024 * 1024 // Maximum cap on the size of a protocol message
 
 // eth protocol message codes
 const (
-	// Protocol messages belonging to eth/62
+	// Protocol messages belonging to OBOD01
 	StatusMsg          = 0x00
 	NewBlockHashesMsg  = 0x01
 	TxMsg              = 0x02
@@ -56,12 +55,10 @@ const (
 	GetBlockBodiesMsg  = 0x05
 	BlockBodiesMsg     = 0x06
 	NewBlockMsg        = 0x07
-
-	// Protocol messages belonging to eth/63
-	GetNodeDataMsg = 0x0d
-	NodeDataMsg    = 0x0e
-	GetReceiptsMsg = 0x0f
-	ReceiptsMsg    = 0x10
+	GetNodeDataMsg     = 0x0d
+	NodeDataMsg        = 0x0e
+	GetReceiptsMsg     = 0x0f
+	ReceiptsMsg        = 0x10
 )
 
 type errCode int

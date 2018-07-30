@@ -270,7 +270,7 @@ func (d *Downloader) Synchronising() bool {
 
 // RegisterPeer injects a new download peer into the set of block source to be
 // used for fetching hashes and blocks from.
-func (d *Downloader) RegisterPeer(id string, version int, peer Peer) error {
+func (d *Downloader) RegisterPeer(id string, version uint, peer Peer) error {
 	logger := log.New("peer", id)
 	logger.Trace("Registering sync peer")
 	if err := d.peers.Register(newPeerConnection(id, version, peer, logger)); err != nil {
@@ -283,7 +283,7 @@ func (d *Downloader) RegisterPeer(id string, version int, peer Peer) error {
 }
 
 // RegisterLightPeer injects a light client peer, wrapping it so it appears as a regular peer.
-func (d *Downloader) RegisterLightPeer(id string, version int, peer LightPeer) error {
+func (d *Downloader) RegisterLightPeer(id string, version uint, peer LightPeer) error {
 	return d.RegisterPeer(id, version, &lightPeerWrapper{peer})
 }
 
@@ -411,7 +411,7 @@ func (d *Downloader) syncWithPeer(p *peerConnection, hash common.Hash, td *big.I
 			d.mux.Post(DoneEvent{})
 		}
 	}()
-	if p.version < eth62 {
+	if p.version < obod01 {
 		return errTooOld
 	}
 

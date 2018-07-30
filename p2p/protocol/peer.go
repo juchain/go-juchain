@@ -45,7 +45,7 @@ const (
 // PeerInfo represents a short summary of the JuchainService sub-protocol metadata known
 // about a connected peer.
 type PeerInfo struct {
-	Version    int      `json:"version"`    // JuchainService protocol version negotiated
+	Version    uint      `json:"version"`    // JuchainService protocol version negotiated
 	Difficulty *big.Int `json:"difficulty"` // Total difficulty of the peer's blockchain
 	Head       string   `json:"head"`       // SHA3 hash of the peer's best owned block
 }
@@ -56,7 +56,7 @@ type peer struct {
 	*p2p.Peer
 	rw p2p.MsgReadWriter
 
-	version  int         // Protocol version negotiated
+	version  uint         // Protocol version negotiated
 	forkDrop *time.Timer // Timed connection dropper if forks aren't validated in time
 
 	head common.Hash
@@ -67,7 +67,7 @@ type peer struct {
 	knownBlocks *set.Set // Set of block hashes known to be known by this peer
 }
 
-func newPeer(version int, p *p2p.Peer, rw p2p.MsgReadWriter) *peer {
+func newPeer(version uint, p *p2p.Peer, rw p2p.MsgReadWriter) *peer {
 	id := p.ID()
 
 	return &peer{
@@ -335,7 +335,7 @@ func (p *peer) readStatus(network uint64, status *statusData, genesis common.Has
 	if status.NetworkId != network {
 		return errResp(ErrNetworkIdMismatch, "%d (!= %d)", status.NetworkId, network)
 	}
-	if int(status.ProtocolVersion) != p.version {
+	if uint(status.ProtocolVersion) != p.version {
 		return errResp(ErrProtocolVersionMismatch, "%d (!= %d)", status.ProtocolVersion, p.version)
 	}
 	return nil

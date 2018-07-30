@@ -282,7 +282,7 @@ func (pm *DPoSProtocolManager) Stop() {
 	log.Info("DPoS Consensus stopped")
 }
 
-func (pm *DPoSProtocolManager) newPeer(pv int, p *p2p.Peer, rw p2p.MsgReadWriter) *peer {
+func (pm *DPoSProtocolManager) newPeer(pv uint, p *p2p.Peer, rw p2p.MsgReadWriter) *peer {
 	return newPeer(pv, p, newMeteredMsgWriter(rw))
 }
 

@@ -21,20 +21,15 @@ import (
 	"math/big"
 	"math/rand"
 	"testing"
-	"time"
-
 	"github.com/juchain/go-juchain/common"
 	"github.com/juchain/go-juchain/core"
 	"github.com/juchain/go-juchain/core/state"
 	"github.com/juchain/go-juchain/core/types"
-	"github.com/juchain/go-juchain/vm/solc"
 	"github.com/juchain/go-juchain/common/crypto"
 	"github.com/juchain/go-juchain/p2p/protocol/downloader"
 	"github.com/juchain/go-juchain/core/store"
-	"github.com/juchain/go-juchain/common/event"
 	"github.com/juchain/go-juchain/p2p"
 	"github.com/juchain/go-juchain/config"
-	"github.com/juchain/go-juchain/p2p/node"
 )
 
 // Tests that protocol versions and modes of operations are matched up properly.
@@ -45,8 +40,8 @@ func TestProtocolCompatibility(t *testing.T) {
 		mode       downloader.SyncMode
 		compatible bool
 	}{
-		{00, downloader.FullSync, true}, {01, downloader.FullSync, true}, {02, downloader.FullSync, true},
-		{00, downloader.FastSync, false}, {01, downloader.FastSync, false}, {02, downloader.FastSync, true},
+		{00, downloader.FullSync, true}, {OBOD01, downloader.FullSync, true},
+		{00, downloader.FastSync, false}, {OBOD01, downloader.FastSync, false},
 	}
 	// Make sure anything we screw up is restored
 	backup := ProtocolVersions
@@ -67,10 +62,9 @@ func TestProtocolCompatibility(t *testing.T) {
 }
 
 // Tests that block headers can be retrieved from a remote chain based on user queries.
-func TestGetBlockHeaders62(t *testing.T) { testGetBlockHeaders(t, 1) }
-func TestGetBlockHeaders63(t *testing.T) { testGetBlockHeaders(t, 2) }
+func TestGetBlockHeaders(t *testing.T) { testGetBlockHeaders(t, OBOD01) }
 
-func testGetBlockHeaders(t *testing.T, protocol int) {
+func testGetBlockHeaders(t *testing.T, protocol uint) {
 	pm, _ := newTestProtocolManagerMust(t, downloader.FullSync, downloader.MaxHashFetch+15, nil, nil)
 	peer, _ := newTestPeer("peer", protocol, pm, true)
 	defer peer.close()
@@ -226,10 +220,9 @@ func testGetBlockHeaders(t *testing.T, protocol int) {
 }
 
 // Tests that block contents can be retrieved from a remote chain based on their hashes.
-func TestGetBlockBodies62(t *testing.T) { testGetBlockBodies(t, 1) }
-func TestGetBlockBodies63(t *testing.T) { testGetBlockBodies(t, 2) }
+func TestGetBlockBodies(t *testing.T) { testGetBlockBodies(t, OBOD01) }
 
-func testGetBlockBodies(t *testing.T, protocol int) {
+func testGetBlockBodies(t *testing.T, protocol uint) {
 	pm, _ := newTestProtocolManagerMust(t, downloader.FullSync, downloader.MaxBlockFetch+15, nil, nil)
 	peer, _ := newTestPeer("peer", protocol, pm, true)
 	defer peer.close()
@@ -298,9 +291,9 @@ func testGetBlockBodies(t *testing.T, protocol int) {
 }
 
 // Tests that the node state database can be retrieved based on hashes.
-func TestGetNodeData63(t *testing.T) { testGetNodeData(t, 2) }
+func TestGetNodeData(t *testing.T) { testGetNodeData(t, OBOD01) }
 
-func testGetNodeData(t *testing.T, protocol int) {
+func testGetNodeData(t *testing.T, protocol uint) {
 	// Define three accounts to simulate transactions with
 	acc1Key, _ := crypto.HexToECDSA("8a1f9a8f95be41cd7ccb6168179afb4504aefe388d1e14474d32c45c72ce7b7a")
 	acc2Key, _ := crypto.HexToECDSA("49a7b37aa6f6645917e7b807e9d1c00d4fa71f18343b0d4122a4d2df64dd6fee")
@@ -390,9 +383,9 @@ func testGetNodeData(t *testing.T, protocol int) {
 }
 
 // Tests that the transaction receipts can be retrieved based on hashes.
-func TestGetReceipt63(t *testing.T) { testGetReceipt(t, 2) }
+func TestGetReceipt(t *testing.T) { testGetReceipt(t, OBOD01) }
 
-func testGetReceipt(t *testing.T, protocol int) {
+func testGetReceipt(t *testing.T, protocol uint) {
 	// Define three accounts to simulate transactions with
 	acc1Key, _ := crypto.HexToECDSA("8a1f9a8f95be41cd7ccb6168179afb4504aefe388d1e14474d32c45c72ce7b7a")
 	acc2Key, _ := crypto.HexToECDSA("49a7b37aa6f6645917e7b807e9d1c00d4fa71f18343b0d4122a4d2df64dd6fee")
@@ -449,9 +442,9 @@ func testGetReceipt(t *testing.T, protocol int) {
 }
 
 // Tests that the node state database can be retrieved based on hashes.
-func TestVoteElection(t *testing.T) { testVoteElection(t, 2) }
+func TestVoteElection(t *testing.T) { testVoteElection(t, OBOD01) }
 
-func testVoteElection(t *testing.T, protocol int) {
+func testVoteElection(t *testing.T, protocol uint) {
 	generator := func(i int, block *core.BlockGen) {}
 	// Assemble the test environment
 	pm, db := newTestProtocolManagerMust(t, downloader.FullSync, 4, generator, nil)
@@ -466,7 +459,7 @@ func testVoteElection(t *testing.T, protocol int) {
 		}
 	}
 
-	err := p2p.Send(peer.app, RegisterCandidate_Request, &VoteElectionRequest{3, currNodeIdHash})
+	err := p2p.Send(peer.app, RegisterCandidate_Request, &RegisterCandidateRequest{[]byte{1,3,35,54,3,4}})
 	if err != nil {
 		t.Fatalf("failed to send request: %v", err)
 	}
@@ -474,78 +467,8 @@ func testVoteElection(t *testing.T, protocol int) {
 	if err != nil {
 		t.Fatalf("failed to read node data response: %v", err)
 	}
-	if msg.Code != RegisterCandidate_Request {
-		t.Fatalf("response packet code mismatch: have %x, want %x", msg.Code, RegisterCandidate_Request)
+	if msg.Code != VOTE_ElectionNode_Request {
+		t.Fatalf("response packet code mismatch: have %x, want %x", msg.Code, VOTE_ElectionNode_Request)
 	}
 
-}
-
-// Tests that post eth protocol handshake, DAO fork-enabled clients also execute
-// a DAO "challenge" verifying each others' DAO fork headers to ensure they're on
-// compatible chains.
-func TestDAOChallengeNoVsNo(t *testing.T)       { testDAOChallenge(t, false, false, false) }
-func TestDAOChallengeNoVsPro(t *testing.T)      { testDAOChallenge(t, false, true, false) }
-func TestDAOChallengeProVsNo(t *testing.T)      { testDAOChallenge(t, true, false, false) }
-func TestDAOChallengeProVsPro(t *testing.T)     { testDAOChallenge(t, true, true, false) }
-func TestDAOChallengeNoVsTimeout(t *testing.T)  { testDAOChallenge(t, false, false, true) }
-func TestDAOChallengeProVsTimeout(t *testing.T) { testDAOChallenge(t, true, true, true) }
-
-func testDAOChallenge(t *testing.T, localForked, remoteForked bool, timeout bool) {
-	// Reduce the DAO handshake challenge timeout
-	if timeout {
-		defer func(old time.Duration) { daoChallengeTimeout = old }(daoChallengeTimeout)
-		daoChallengeTimeout = 500 * time.Millisecond
-	}
-	// Create a DAO aware protocol manager
-	var (
-		evmux         = new(event.TypeMux)
-		db, _         = store.NewMemDatabase()
-		config0       = &config.ChainConfig{}
-		gspec         = &core.Genesis{Config: config0}
-		genesis       = gspec.MustCommit(db)
-		blockchain, _ = core.NewBlockChain(db, nil, config0, nil, vm.Config{})
-		config2       = &node.Config{}
-	)
-	pm, err := NewProtocolManager(nil, config0, config2, downloader.FullSync, DefaultConfig.NetworkId, evmux, new(testTxPool), nil, blockchain, db)
-	if err != nil {
-		t.Fatalf("failed to start test protocol manager: %v", err)
-	}
-	pm.Start(1000)
-	defer pm.Stop()
-
-	// Connect a new peer and check that we receive the DAO challenge
-	peer, _ := newTestPeer("peer", eth63, pm, true)
-	defer peer.close()
-
-	challenge := &getBlockHeadersData{
-		Origin:  hashOrNumber{Number: 0},
-		Amount:  1,
-		Skip:    0,
-		Reverse: false,
-	}
-	if err := p2p.ExpectMsg(peer.app, GetBlockHeadersMsg, challenge); err != nil {
-		t.Fatalf("challenge mismatch: %v", err)
-	}
-	// Create a block to reply to the challenge if no timeout is simulated
-	if !timeout {
-		blocks, _ := core.GenerateChain(&config.ChainConfig{}, genesis, nil, db, 1, func(i int, block *core.BlockGen) {
-		})
-		if err := p2p.Send(peer.app, BlockHeadersMsg, []*types.Header{blocks[0].Header()}); err != nil {
-			t.Fatalf("failed to answer challenge: %v", err)
-		}
-		time.Sleep(100 * time.Millisecond) // Sleep to avoid the verification racing with the drops
-	} else {
-		// Otherwise wait until the test timeout passes
-		time.Sleep(daoChallengeTimeout + 500*time.Millisecond)
-	}
-	// Verify that depending on fork side, the remote peer is maintained or dropped
-	if localForked == remoteForked && !timeout {
-		if peers := pm.peers.Len(); peers != 1 {
-			t.Fatalf("peer count mismatch: have %d, want %d", peers, 1)
-		}
-	} else {
-		if peers := pm.peers.Len(); peers != 0 {
-			t.Fatalf("peer count mismatch: have %d, want %d", peers, 0)
-		}
-	}
 }

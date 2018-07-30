@@ -147,7 +147,7 @@ func New(ctx *node.ServiceContext, config0 *Config) (*JuchainService, error) {
 		eth.dappChainDb[dappId] = dappChainDb;
 	}
 
-	log.Info("Initializing Blockchain protocol", "versions", ProtocolVersions, "network", config0.NetworkId)
+	log.Info("Initializing Blockchain Protocols", "versions", ProtocolVersions, "network", config0.NetworkId)
 
 	if !config0.SkipBcVersionCheck {
 		bcVersion := core.GetBlockChainVersion(chainDb)

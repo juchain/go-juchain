@@ -40,6 +40,7 @@ import (
 	"github.com/juchain/go-juchain/config"
 	"github.com/juchain/go-juchain/p2p/node"
 	"github.com/juchain/go-juchain/consensus/dpos"
+	"github.com/juchain/go-juchain/core/bloombits"
 )
 
 var (
@@ -59,16 +60,37 @@ func newTestProtocolManager(mode downloader.SyncMode, blocks int, generator func
 			Alloc:  core.GenesisAlloc{testBank: {Balance: big.NewInt(1000000000000000)}},
 		}
 		genesis       = gspec.MustCommit(db)
-		engine        = dpos.New(&config.DPoSConfig{}, nil);
+		engine        = dpos.New(&config.DPoSConfig{}, db);
 		blockchain, _ = core.NewBlockChain(db, nil, gspec.Config, engine, vm.Config{})
 		config2       = &node.Config{}
+		eth           = &JuchainService{
+			config:         &DefaultConfig,
+			chainDb:        db,
+			chainConfig:    config.TestChainConfig,
+			blockchain:     blockchain,
+			dappConfig:     config.DAppAddresses,
+			dappChainDb:    make(map[common.Address]store.Database),
+			dappchains:     make(map[common.Address]*core.BlockChain),
+			eventMux:       evmux,
+			accountManager: nil,
+			engine:         engine,
+			shutdownChan:   make(chan bool),
+			stopDbUpgrade:  nil,
+			networkId:      DefaultConfig.NetworkId,
+			gasPrice:       DefaultConfig.GasPrice,
+			etherbase:      DefaultConfig.Etherbase,
+			bloomRequests:  make(chan chan *bloombits.Retrieval),
+			bloomIndexer:   NewBloomIndexer(db, config.BloomBitsBlocks),
+			txPool:         core.NewTxPool(DefaultConfig.TxPool, config.TestChainConfig, blockchain, nil),
+
+		}
 	)
 	chain, _ := core.GenerateChain(gspec.Config, genesis, engine, db, blocks, generator)
 	if _, err := blockchain.InsertChain(chain); err != nil {
 		panic(err)
 	}
 
-	pm, err := NewProtocolManager(nil, gspec.Config, config2, mode, DefaultConfig.NetworkId, evmux, &testTxPool{added: newtx}, engine, blockchain, db)
+	pm, err := NewProtocolManager(eth, gspec.Config, config2, mode, DefaultConfig.NetworkId, evmux, &testTxPool{added: newtx}, engine, blockchain, db)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -145,7 +167,7 @@ type testPeer struct {
 }
 
 // newTestPeer creates a new peer registered at the given protocol manager.
-func newTestPeer(name string, version int, pm *ProtocolManager, shake bool) (*testPeer, <-chan error) {
+func newTestPeer(name string, version uint, pm *ProtocolManager, shake bool) (*testPeer, <-chan error) {
 	// Create a message pipe to communicate through
 	app, net := p2p.MsgPipe()
 
