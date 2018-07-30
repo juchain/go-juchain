@@ -47,18 +47,18 @@ const (
 // It is not thread safe either, the encapsulating chain structures should do
 // the necessary mutex locking/unlocking.
 type HeaderChain struct {
-	config *config.ChainConfig
+	config        *config.ChainConfig
 
-	engine    consensus.Engine
+	engine        consensus.Engine
 	chainDb       store.Database
 	genesisHeader *types.Header
 
 	currentHeader     atomic.Value // Current head of the header chain (may be above the block chain!)
 	currentHeaderHash common.Hash  // Hash of the current head of the header chain (prevent recomputing all the time)
 
-	headerCache *lru.Cache // Cache for the most recent block headers
-	tdCache     *lru.Cache // Cache for the most recent block total difficulties
-	numberCache *lru.Cache // Cache for the most recent block numbers
+	headerCache   *lru.Cache // Cache for the most recent block headers
+	tdCache       *lru.Cache // Cache for the most recent block total difficulties
+	numberCache   *lru.Cache // Cache for the most recent block numbers
 
 	procInterrupt func() bool
 
@@ -113,7 +113,10 @@ func (hc *HeaderChain) GetBlockNumber(hash common.Hash) uint64 {
 	if cached, ok := hc.numberCache.Get(hash); ok {
 		return cached.(uint64)
 	}
-	number := GetBlockNumber(hc.chainDb, hash)
+	number, err := GetBlockNumber2(hc.chainDb, hash)
+	if (err != nil) {
+		return number
+	}
 	hc.numberCache.Add(hash, number)
 	return number
 }

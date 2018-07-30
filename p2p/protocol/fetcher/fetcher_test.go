@@ -30,13 +30,14 @@ import (
 	"github.com/juchain/go-juchain/common/crypto"
 	"github.com/juchain/go-juchain/core/store"
 	"github.com/juchain/go-juchain/config"
+	"github.com/juchain/go-juchain/consensus"
 )
 
 var (
 	testdb, _    = store.NewMemDatabase()
 	testKey, _   = crypto.HexToECDSA("b71c71a67e1177ad4e901695e1b4b9ee17ae16c6668d313eac2f96dbcda3f291")
 	testAddress  = crypto.PubkeyToAddress(testKey.PublicKey)
-	genesis      = core.GenesisBlockForTesting(testdb, testAddress, big.NewInt(1000000000))
+	genesis      = core.GenesisBlockForTesting(testdb, testAddress, big.NewInt(100000000000000))
 	unknownBlock = types.NewBlock(&types.Header{GasLimit: config.GenesisGasLimit}, nil, nil, nil)
 )
 
@@ -45,7 +46,7 @@ var (
 // contains a transaction and every 5th an uncle to allow testing correct block
 // reassembly.
 func makeChain(n int, seed byte, parent *types.Block) ([]common.Hash, map[common.Hash]*types.Block) {
-	blocks, _ := core.GenerateChain(config.TestChainConfig, parent, ethash.NewFaker(), testdb, n, func(i int, block *core.BlockGen) {
+	blocks, _ := core.GenerateChain(config.TestChainConfig, parent, consensus.CreateFakeEngine(), testdb, n, func(i int, block *core.BlockGen) {
 		block.SetCoinbase(common.Address{seed})
 
 		// If the block number is multiple of 3, send a bonus transaction to the miner

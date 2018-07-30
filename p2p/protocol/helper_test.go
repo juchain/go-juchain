@@ -56,7 +56,7 @@ func newTestProtocolManager(mode downloader.SyncMode, blocks int, generator func
 		db, _  = store.NewMemDatabase()
 		gspec  = &core.Genesis{
 			Config: config.TestChainConfig,
-			Alloc:  core.GenesisAlloc{testBank: {Balance: big.NewInt(1000000)}},
+			Alloc:  core.GenesisAlloc{testBank: {Balance: big.NewInt(1000000000000000)}},
 		}
 		genesis       = gspec.MustCommit(db)
 		engine        = dpos.New(&config.DPoSConfig{}, nil);

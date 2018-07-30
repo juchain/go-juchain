@@ -329,6 +329,9 @@ func TestLookupStorage(t *testing.T) {
 			t.Fatalf("tx #%d [%x]: deleted transaction returned: %v", i, tx.Hash(), txn)
 		}
 	}
+
+	blockNumber, err := GetBlockNumber2(db, common.HexToHash("0x8da907ca425a1cb78adec4145dc3dbcc746399c2fa16b79e294a39281932a163"))
+	t.Logf("BlockNumber %d, %v", blockNumber, err.Error())
 }
 
 // Tests that receipts associated with a single block can be stored and retrieved.
@@ -386,3 +389,4 @@ func TestBlockReceiptStorage(t *testing.T) {
 		t.Fatalf("deleted receipts returned: %v", rs)
 	}
 }
+

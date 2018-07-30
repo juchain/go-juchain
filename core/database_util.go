@@ -106,6 +106,15 @@ func GetBlockNumber(db DatabaseReader, hash common.Hash) uint64 {
 	return binary.BigEndian.Uint64(data)
 }
 
+func GetBlockNumber2(db DatabaseReader, hash common.Hash) (uint64, error) {
+	data, err := db.Get(append(blockHashPrefix, hash.Bytes()...))
+	if len(data) == 0 || err != nil {
+		return uint64(0), err;
+	}
+	return binary.BigEndian.Uint64(data), nil;
+}
+
+
 // GetHeadHeaderHash retrieves the hash of the current canonical head block's
 // header. The difference between this and GetHeadBlockHash is that whereas the
 // last block hash is only updated upon a full block import, the last header
