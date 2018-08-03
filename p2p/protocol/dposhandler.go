@@ -18,55 +18,60 @@
 package protocol
 
 import (
-	"encoding/json"
 	"time"
-	"strings"
-	"math/rand"
 	"strconv"
-	"bytes"
 	"sync"
-
+	"github.com/juchain/go-juchain/common"
+	"github.com/juchain/go-juchain/common/rlp"
+	"github.com/juchain/go-juchain/common/crypto/sha3"
+	"github.com/juchain/go-juchain/common/log"
 	"github.com/juchain/go-juchain/core"
 	"github.com/juchain/go-juchain/p2p/protocol/downloader"
-	"github.com/juchain/go-juchain/common/log"
 	"github.com/juchain/go-juchain/p2p"
 	"github.com/juchain/go-juchain/p2p/discover"
 	"github.com/juchain/go-juchain/p2p/node"
-	"github.com/juchain/go-juchain/common"
 	"github.com/juchain/go-juchain/consensus"
 	"github.com/juchain/go-juchain/consensus/dpos"
 	"github.com/juchain/go-juchain/config"
-	"github.com/pkg/errors"
-
+	"reflect"
 	"fmt"
 )
 
 // DPoS packaging handler.
+/**
+   Sample code:
+   for round i
+   dlist_i = get N delegates sort by votes
+   dlist_i = mixorder(dlist_i)
+   loop
+       slot = global_time_offset / block_interval
+       pos = slot % N
+       if dlist_i[pos] exists in this node
+           generateBlock(keypair of dlist_i[pos])
+       else
+           skip
+ */
 var (
-	EMPTY_NODEINFO   p2p.NodeInfo;
-	VotingInterval   uint32 = 5;  // vote for packaging node in every 5 seconds.
-	ElectingInterval uint32 = 600; // elect for new node in every 600 seconds.
-	CandidateNumber  uint8 = 21; // we make 21 candidates as the best group for packaging.
+	currNodeId           string;           // current short node id.
+	currNodeIdHash       []byte;           // short node id hash.
+	TotalDelegatorNumber uint8  = 31;                               // we make 31 candidates as the best group for packaging.
+	SmallPeriodInterval  uint32 = 5;                                // small period for packaging node in every 5 seconds.
+	GigPeriodInterval    uint32 = uint32(TotalDelegatorNumber) * 5; // create a big period for all delegated nodes in every 155 seconds.
 
-	electionInfo     *ElectionInfo; // we use two versions of election info for switching election node smoothly.
-	nextElectionInfo *ElectionInfo;
-	currNodeId       string; //= "" current short node id.
-	currNodeIdHash   []byte; // short node id hash.
-	currVotingPool   *LocalVoteInfo; // only for the election node.
-	currCandidatesTable  []string; // only for the election node.
+	BigPeriodHistorySize  uint8 = 10; // keep 10 records for the confirmation of delayed block
+	GigPeriodHistory      = make([]GigPeriodTable, 0); // <GigPeriodTable>
+	GigPeriodInstance     *GigPeriodTable; // we use two versions of election info for switching delegated nodes smoothly.
+	NextGigPeriodInstance *GigPeriodTable;
 
-	blockchainRef *core.BlockChain;
+	DelegatorsTable       []string; // only for all delegated node ids. the table will receive from a voting contract.
+	DelegatorNodes        []*discover.Node; // all delegated peers. = make([]*discover.Node, 0, len(urls))
+
+	blockchainRef         *core.BlockChain;
 )
 
-type ElectionInfo struct {
-	enodestate       uint8; //= STATE_LOOKING
-	electionTickets  uint8; //= 0
-	electionNodeId   string; //= ""
-	electionNodeIdHash []byte; // the election node id.
-
-	latestActiveENode  time.Time;// = time.Now(); // the check whether the election node is active or not.
-	// error handlers
-	eNodeMismatchCounter uint8; // the mismatching counter of all responses form all election nodes.
+// Delegator table refers to the voting contract.
+type DelegatorVotingManager interface {
+	Refresh() (DelegatorsTable []string, DelegatorNodes []*discover.Node)
 }
 
 type DPoSProtocolManager struct {
@@ -76,10 +81,10 @@ type DPoSProtocolManager struct {
 
 	// channels for fetcher, syncer, txsyncLoop
 	newPeerCh     chan *peer;
-	voteTrigger   chan bool;
 	lock          *sync.Mutex; // protects running
 
-	packager      *dpos.Packager;
+	packager       *dpos.Packager;
+	votingManager  *DelegatorVotingManager;
 }
 
 // NewProtocolManager returns a new ethereum sub protocol manager. The JuchainService sub protocol manages peers capable
@@ -89,195 +94,185 @@ func NewDPoSProtocolManager(eth *JuchainService, ethManager *ProtocolManager, co
 	// Create the protocol manager with the base fields
 	blockchainRef = blockchain;
 	manager := &DPoSProtocolManager{
-		networkId:   networkId,
-		ethManager:  ethManager,
-		blockchain:  blockchain,
-		newPeerCh:   make(chan *peer),
-		voteTrigger: make(chan bool),
-		lock:        &sync.Mutex{},
-		packager:    dpos.NewPackager(config, engine, DefaultConfig.Etherbase, eth, eth.EventMux()),
+		networkId:         networkId,
+		ethManager:        ethManager,
+		blockchain:        blockchain,
+		newPeerCh:         make(chan *peer),
+		lock:              &sync.Mutex{},
+		packager:          dpos.NewPackager(config, engine, DefaultConfig.Etherbase, eth, eth.EventMux()),
 	}
-
 	currNodeId = discover.PubkeyID(&config2.NodeKey().PublicKey).TerminalString();
 	currNodeIdHash = common.Hex2Bytes(currNodeId);
-	electionInfo = nil;
-	nextElectionInfo = &ElectionInfo{
-		STATE_LOOKING,
-		0,
-		"",
-		nil,
-		time.Now(),
-		0,
-	};
-	// we make 21 candidates as the best group for packaging.
-	currCandidatesTable = make([]string, 0, CandidateNumber);
+	DelegatorsTable = []string{currNodeId}; //preconfigure only used in dev env.
+
 	return manager
 }
 
 func (pm *DPoSProtocolManager) Start(maxPeers int) {
 	log.Info("Starting DPoS Consensus")
 
-	pm.packager.Start();
-	go pm.electNodeSafely();
-	go pm.voteSafely();
-	time.AfterFunc(time.Second*time.Duration(ElectingInterval), pm.scheduleElecting);
-	time.AfterFunc(time.Second*time.Duration(VotingInterval), pm.scheduleVoting);
-}
-
-func (pm *DPoSProtocolManager) scheduleVoting() {
-	pm.voteTrigger <- true;
-	time.AfterFunc(time.Second*time.Duration(VotingInterval), pm.scheduleVoting);
-}
-
-func (pm *DPoSProtocolManager) isElectionNode() bool {
-	return electionInfo != nil && electionInfo.electionNodeId == currNodeId;
-}
-
-func (pm *DPoSProtocolManager) scheduleElecting() {
-	log.Info("Elect for next round...");
-	nextElectionInfo = &ElectionInfo{
-		STATE_LOOKING,
-		0,
-		"",
-		nil,
-		time.Now(),
-		0,
-	};
-	pm.electNodeSafely();
-	time.AfterFunc(time.Second*time.Duration(ElectingInterval), pm.scheduleElecting);
-}
-
-var electingNow = false;
-func (pm *DPoSProtocolManager) electNodeSafely() {
-	if (electingNow) {
-		return;
+	if pm.isDelegatedNode() {
+		pm.packager.Start();
+		go pm.syncDelegatedNodeSafely();
+		go pm.roundRobinSafely();
+		time.AfterFunc(time.Second*time.Duration(GigPeriodInterval), pm.scheduleSyncBigPeriod);
+		time.AfterFunc(time.Second*time.Duration(1), pm.scheduleSmallPeriod);;
 	}
-	electingNow = true;
-	pm.electNode0();
-	electingNow = false;
 }
+
+func (pm *DPoSProtocolManager) scheduleSmallPeriod() {
+	pm.roundRobinSafely();
+	time.AfterFunc(time.Second*time.Duration(1), pm.scheduleSmallPeriod);
+}
+
+func (pm *DPoSProtocolManager) scheduleSyncBigPeriod() {
+	pm.syncDelegatedNodeSafely();
+	time.AfterFunc(time.Second*time.Duration(GigPeriodInterval), pm.scheduleSyncBigPeriod);
+}
+
 // this is a loop function for electing node.
-func (pm *DPoSProtocolManager) electNode0() {
-	switch (nextElectionInfo.enodestate) {
-	case STATE_STOP:
-		return;
-	case STATE_LOOKING:
-		{
-			// initialize the tickets with the number of all peers connected.
-			nextElectionInfo.latestActiveENode = time.Now();
-			nextElectionInfo.eNodeMismatchCounter = 0;
-			nextElectionInfo.electionTickets = uint8(len(pm.ethManager.peers.peers));
-			if (nextElectionInfo.electionTickets == 0) {
-				log.Debug("Looking for election node but no any peer found, enode state: " + strconv.Itoa(int(nextElectionInfo.enodestate)));
-				// we choose rand number as the interval to reduce the conflict while electing.
-				time.AfterFunc(time.Second*time.Duration(rand.Intn(5)), pm.electNodeSafely);
-				return;
-			}
-
-			for _, peer := range pm.ethManager.peers.peers {
-				err := peer.SendVoteElectionRequest(&VoteElectionRequest{nextElectionInfo.electionTickets, currNodeIdHash});
-				if (err != nil) {
-					log.Warn("Error occurred while sending VoteElectionRequest: " + err.Error())
-				}
-			}
-			log.Debug("Start looking for election node... my tickets: " + strconv.Itoa(int(nextElectionInfo.electionTickets)) + ", enodestate: " + strconv.Itoa(int(nextElectionInfo.enodestate)));
-			time.AfterFunc(time.Second*time.Duration(VotingInterval), pm.electNodeSafely);
-			break;
-		}
-	case STATE_SELECTED:
-		{
-			if (nextElectionInfo.eNodeMismatchCounter > 1) {
-				log.Warn("More then two peers reported different election node, reset election process!");
-				nextElectionInfo = &ElectionInfo{
-					STATE_LOOKING,
-					0,
-					"",
-					nil,
-					time.Now(),
-					0,
-				};
-				pm.electNodeSafely();
-				return;
-			}
-			//if (len(nextElectionInfo.currCandidatesTable) == nextElectionInfo.electionTickets) {
-
-			//}
-			if (nextElectionInfo != electionInfo) {
-				electionInfo = nextElectionInfo;
-				log.Info("Switched the new election round. node id: " + nextElectionInfo.electionNodeId);
-			}
-			break;
-		}
-	}
-
-	if (electionInfo == nil) {
+func (pm *DPoSProtocolManager) syncDelegatedNodeSafely() {
+	if !pm.isDelegatedNode() {
+		// only candidate node is able to participant to this process.
 		return;
 	}
-	switch (electionInfo.enodestate) {
-	case STATE_STOP:
-		return;
-	case STATE_SELECTED:
-		{
-			if (!pm.isElectionNode()) {
-				pm.registerCandidate();
+	log.Info("Preparing for next big period...");
+	// TODO: pull the newest delegators from voting contract.
+	// DelegatorsTable, DelegatorNodes = pm.votingManager.Refresh()
+	if uint8(len(GigPeriodHistory)) >= BigPeriodHistorySize {
+		GigPeriodHistory = GigPeriodHistory[1:] //remove the first old one.
+	}
+	if NextGigPeriodInstance != nil {
+		// keep the big period history for block validation.
+		GigPeriodHistory[len(GigPeriodHistory)-1] = *NextGigPeriodInstance;
+	}
+	// make sure all delegators are synced at this round.
+	NextGigPeriodInstance = &GigPeriodTable{
+		STATE_LOOKING,
+		DelegatorsTable,
+		SignCandidates(DelegatorsTable),
+		0,
+		time.Now().Unix() + int64(GigPeriodInterval),
+	};
 
-				//check whether the current election node is still alive or not
-				//log.Info("latest check : "+strconv.Itoa(int(time.Now().Unix() - latestActiveENode.Unix())));
-				if ((time.Now().Unix() - electionInfo.latestActiveENode.Unix()) >= int64(VotingInterval*3)) {
-					log.Info("Election connection is inactive from last " + strconv.Itoa(int(time.Now().Unix()-electionInfo.latestActiveENode.Unix())) + " seconds, reset the election state!");
-					electionInfo.latestActiveENode = time.Now();
-					currCandidatesTable = make([]string, 0, CandidateNumber);
-					nextElectionInfo = &ElectionInfo{
-						STATE_LOOKING,
-						0,
-						"",
-						nil,
-						time.Now(),
-						0,
+	if len(DelegatorsTable) == 0 || pm.ethManager.peers.Len() == 0 {
+		log.Info("Sorry, could not detect any delegator found!");
+		return;
+	}
+	//send this round to all delegated peers.
+	//all delegated must giving the response in SYNC_BIGPERIOD_RESPONSE state.
+	for _, delegator := range NextGigPeriodInstance.delegatedNodes {
+		if pm.ethManager.peers.Peer(delegator) == nil {
+			//todo: add DelegatorNodes[i] into peers table.
+		}
+		err := pm.ethManager.peers.Peer(delegator).SendSyncBigPeriodRequest(
+			&SyncBigPeriodRequest{NextGigPeriodInstance.delegatedNodes,
+			NextGigPeriodInstance.delegatedNodesSign, currNodeIdHash});
+		if err != nil {
+			log.Debug("Error occurred while sending SyncBigPeriodRequest: " + err.Error())
+		}
+	}
+}
+
+// handleMsg is invoked whenever an inbound message is received from a remote
+// peer. The remote connection is torn down upon returning any error.
+func (pm *DPoSProtocolManager) handleMsg(msg *p2p.Msg, p *peer) error {
+	pm.lock.Lock()
+	defer pm.lock.Unlock()
+	// Handle the message depending on its contents
+	switch {
+	case msg.Code == SYNC_BIGPERIOD_REQUEST:
+		var request SyncBigPeriodRequest;
+		if err := msg.Decode(&request); err != nil {
+			return errResp(DPOSErrDecode, "%v: %v", msg, err);
+		}
+		if SignCandidates(request.DelegatedTable) != request.DelegatedTableSign {
+			return errResp(DPOSErroDelegatorSign, "");
+		}
+
+		state := uint8(STATE_CONFIRMED);
+		if len(DelegatorsTable) > len(request.DelegatedTable) || !reflect.DeepEqual(DelegatorsTable, request.DelegatedTable) {
+			//todo refresh table if mismatch.
+
+			//after refreshing is still mismatching,
+			state = uint8(STATE_MISMATCHED);
+		}
+		return p.SendSyncBigPeriodResponse(&SyncBigPeriodResponse{
+			request.DelegatedTable,
+			request.DelegatedTableSign,
+			state,
+			currNodeIdHash});
+
+	case msg.Code == SYNC_BIGPERIOD_RESPONSE:
+		var response SyncBigPeriodResponse;
+		if err := msg.Decode(&response); err != nil {
+			return errResp(DPOSErrDecode, "%v: %v", msg, err);
+		}
+		if NextGigPeriodInstance.state == STATE_CONFIRMED {
+			return nil;
+		}
+		if response.State == STATE_CONFIRMED {
+			NextGigPeriodInstance.confirmedTickets++;
+		}
+		// TODO: need a counter to be confirmed from 2/3 nodes.
+		if NextGigPeriodInstance.confirmedTickets == uint8(len(NextGigPeriodInstance.delegatedNodes)) {
+			NextGigPeriodInstance.state = STATE_CONFIRMED;
+
+			if GigPeriodInstance != nil {
+				//switch to GigPeriodInstance when the next round begins.
+				leftTime := (GigPeriodInstance.activeTime + int64(GigPeriodInterval)) - time.Now().Unix()
+				time.AfterFunc(time.Second*time.Duration(leftTime), func() {
+					GigPeriodInstance = &GigPeriodTable{
+						GigPeriodInstance.state,
+						GigPeriodInstance.delegatedNodes,
+						GigPeriodInstance.delegatedNodesSign,
+						GigPeriodInstance.confirmedTickets,
+						GigPeriodInstance.activeTime,
 					};
-				}
+					log.Info(fmt.Sprintf("Switched the new election round. %d ", len(NextGigPeriodInstance.delegatedNodes)));
+				});
+			} else {
+				//TODO:
+				GigPeriodInstance = &GigPeriodTable{
+					GigPeriodInstance.state,
+					GigPeriodInstance.delegatedNodes,
+					GigPeriodInstance.delegatedNodesSign,
+					GigPeriodInstance.confirmedTickets,
+					GigPeriodInstance.activeTime,
+				};
+				log.Info(fmt.Sprintf("Switched the new election round. %d ", len(NextGigPeriodInstance.delegatedNodes)));
 			}
-			//loop for next time.
-			time.AfterFunc(time.Second*time.Duration(VotingInterval), pm.electNodeSafely);
-			return;
 		}
+		return nil;
+	default:
+		return errResp(ErrInvalidMsgCode, "%v", msg.Code)
 	}
+	return nil
 }
 
 // the node would not be a candidate if it is not qualified.
-func (pm *DPoSProtocolManager) isCandidateNode() bool {
-	for i :=0; i < len(currCandidatesTable); i++ {
-		if (currCandidatesTable[i] == currNodeId) {
+func (pm *DPoSProtocolManager) isDelegatedNode() bool {
+	for i :=0; i < len(DelegatorsTable); i++ {
+		if DelegatorsTable[i] == currNodeId {
 			return true;
 		}
 	}
 	return false;
 }
 
-// register as packaging candidate node.
-// we will select the good nodes as the candidates.
-func (pm *DPoSProtocolManager) registerCandidate() {
-	if (pm.isCandidateNode()) {
-		return;
+func (pm *DPoSProtocolManager) isDelegatedNode2(nodeId string) bool {
+	for i :=0; i < len(DelegatorsTable); i++ {
+		if DelegatorsTable[i] == nodeId {
+			return true;
+		}
 	}
-	c := pm.ethManager.peers.PeersById(electionInfo.electionNodeId);
-	if (c != nil) {
-		// we supported two approches to register the node as candidate.
-		// 1. an outside solution for electing candidate such as EOS block produces.
-		// 2. a default solution for electing candidate in simple way such as following.
-		c.SendRegisterCandidateRequest(&RegisterCandidateRequest{currNodeIdHash});
-		log.Debug("Registering myself as candicate...");
-	}
+	return false;
 }
 
 func (pm *DPoSProtocolManager) Stop() {
-	if (electionInfo != nil) {
-		electionInfo.enodestate = STATE_STOP;
+	if pm.isDelegatedNode() {
+		pm.packager.Stop();
 	}
-	if (nextElectionInfo != nil) {
-		nextElectionInfo.enodestate = STATE_STOP;
-	}
-	pm.packager.Stop();
 	// Quit the sync loop.
 	log.Info("DPoS Consensus stopped")
 }
@@ -286,478 +281,94 @@ func (pm *DPoSProtocolManager) newPeer(pv uint, p *p2p.Peer, rw p2p.MsgReadWrite
 	return newPeer(pv, p, newMeteredMsgWriter(rw))
 }
 
-// handleMsg is invoked whenever an inbound message is received from a remote
-// peer. The remote connection is torn down upon returning any error.
-func (pm *DPoSProtocolManager) handleMsg(msg *p2p.Msg, p *peer) error {
-	pm.lock.Lock()
-	defer pm.lock.Unlock()
-	if (electionInfo != nil) {
-		electionInfo.latestActiveENode = time.Now();
+// --------------------Packaging Process-------------------//
+// start round robin for packaging blocks in small period.
+func (self *DPoSProtocolManager) roundRobinSafely() {
+	if !self.isDelegatedNode() || GigPeriodInstance == nil {
+		return;
 	}
-	// Handle the message depending on its contents
-	switch {
-	case msg.Code == VOTE_ElectionNode_Request:
-		var request VoteElectionRequest;
-		if err := msg.Decode(&request); err != nil {
-			return errResp(DPOSErrDecode, "%v: %v", msg, err);
-		}
-		//log.Info("Received election node request: " + common.Bytes2Hex(request.NodeId) + ", tickets: " + strconv.Itoa(int(request.Tickets)));
-		if (nextElectionInfo.enodestate == STATE_SELECTED && nextElectionInfo.electionNodeId != "") {
-			log.Debug("Request Node has an election node now " + nextElectionInfo.electionNodeId);
-			return p.SendVoteElectionResponse(&VoteElectionResponse{nextElectionInfo.electionTickets, STATE_SELECTED, nextElectionInfo.electionNodeIdHash});
-		} else {
-			if (request.Tickets > nextElectionInfo.electionTickets) {
-				nextElectionInfo.enodestate = STATE_SELECTED;
-				nextElectionInfo.electionNodeIdHash = request.NodeId[:8];
-				nextElectionInfo.electionNodeId = common.Bytes2Hex(request.NodeId[:8]);
-
-				log.Info("confirmed the request node as the election node: " + nextElectionInfo.electionNodeId);
-				// remote won.
-				return p.SendVoteElectionResponse(&VoteElectionResponse{nextElectionInfo.electionTickets, STATE_SELECTED, nextElectionInfo.electionNodeIdHash});
-			} else {
-				// I won.
-				nextElectionInfo.enodestate = STATE_SELECTED;
-				nextElectionInfo.electionNodeId = common.Bytes2Hex(currNodeIdHash);
-				nextElectionInfo.electionNodeIdHash = currNodeIdHash;
-
-				return p.SendVoteElectionResponse(&VoteElectionResponse{nextElectionInfo.electionTickets, STATE_SELECTED, nextElectionInfo.electionNodeIdHash});
-			}
-		}
-	case msg.Code == VOTE_ElectionNode_Response:
-		var response VoteElectionResponse;
-		if err := msg.Decode(&response); err != nil {
-			return errResp(DPOSErrDecode, "%v: %v", msg, err);
-		}
-		//log.Info("Received election node response: " + strconv.Itoa(int(response.Tickets)));
-		if (nextElectionInfo.enodestate == STATE_SELECTED) {
-			// error handling.
-			if (nextElectionInfo.electionNodeId != common.Bytes2Hex(response.ElectionNodeId)) {
-				nextElectionInfo.eNodeMismatchCounter ++;
-			}
-			//log.Info("Node has an election node now.");
-			return nil;
-		}
-		if (response.State == STATE_SELECTED && response.ElectionNodeId != nil) {
-			nextElectionInfo.enodestate = STATE_SELECTED;
-			nextElectionInfo.electionNodeId = common.Bytes2Hex(response.ElectionNodeId);
-			nextElectionInfo.electionNodeIdHash = response.ElectionNodeId;
-
-			log.Debug("Confirmed as the election node: " + nextElectionInfo.electionNodeId);
-		}
-		return nil;
-	case msg.Code == RegisterCandidate_Request:
-		if (!pm.isElectionNode()) {
-			return nil;
-		}
-		// Decode the VotePresidentRequest
-		var request RegisterCandidateRequest;
-		if err := msg.Decode(&request); err != nil {
-			return errResp(DPOSErrDecode, "%v: %v", msg, err);
-		}
-		if (len(currCandidatesTable) < int(CandidateNumber)) {
-			flagb := false;
-			flaga := false;
-			for i :=0; i < len(currCandidatesTable); i++ {
-				if (currCandidatesTable[i] == nextElectionInfo.electionNodeId) {
-					flaga = true;
-				}
-				if (currCandidatesTable[i] == common.Bytes2Hex(request.CandidateId)) {
-					flagb = true;
-				}
-			}
-			// we just reuse the previous CandidatesTable for next election pool.
-			if (!flaga) {
-				currCandidatesTable = append(currCandidatesTable, nextElectionInfo.electionNodeId);
-			}
-			if (!flagb) {
-				currCandidatesTable = append(currCandidatesTable, common.Bytes2Hex(request.CandidateId));
-				log.Info("ElectionServer accepted a candidate: " + common.Bytes2Hex(request.CandidateId));
-			}
-			return p.SendRegisterCandidateResponse(&RegisterCandidateResponse{currCandidatesTable,request.CandidateId, DPOSMSG_SUCCESS });
-		} else {
-			return p.SendRegisterCandidateResponse(&RegisterCandidateResponse{currCandidatesTable,request.CandidateId, DPOSErroCandidateFull });
-		}
-	case msg.Code == RegisterCandidate_Response:
-		var response RegisterCandidateResponse;
-		if err := msg.Decode(&response); err != nil {
-			return errResp(DPOSErrDecode, "%v: %v", msg, err);
-		}
-		tableStr := "";
-		currCandidatesTable = response.Candidates;
-		for i :=0; i<len(currCandidatesTable); i++ {
-			tableStr += currCandidatesTable[i] + ",";
-		}
-		log.Info("Received newest candidate table: " + tableStr);
-		if (response.Code == DPOSMSG_SUCCESS) {
-			log.Info("Election node confirmed mine as the candidate.");
-		} else {
-			log.Info("Election node rejected mine as the candidate with error code " + strconv.Itoa(int(response.Code)));
-		}
-		return nil;
-//----------------------Election process end------------------------------//
-
-
-//----------------------Vote process start--------------------------------//
-	case msg.Code == VOTE_PRESIDENT_Request:
-		var request VotePresidentRequest;
-		if err := msg.Decode(&request); err != nil {
-			return errResp(DPOSErrDecode, "%v: %v", msg, err);
-		}
-		//log.Debug("received a vote request: ");
-		if (request.CandicateIds == nil || len(request.CandicateIds) == 0) {
-			log.Warn("VotePresidentRequest is invalid! ");
-			fmt.Sprintf("%+v", request);
-			if (pm.sendVoteResponseToElectionNode(&VotePresidentResponse{request.Round, byte(0),
-				request.ElectionId, DPOSErroVOTE_VERIFY_FAILURE})) {
-				return nil;
-			} else {
-				return errors.New("unable to send the response to election node!");
-			}
-		}
-		length := len(request.CandicateIds);
-		selectedPId := rand.Intn(length); //TODO: use this strategy by default.
-		log.Debug("voted for president id: " + strconv.Itoa(selectedPId));
-		if pm.sendVoteResponseToElectionNode(&VotePresidentResponse{request.Round, uint8(selectedPId),
-			request.ElectionId, DPOSMSG_SUCCESS}) {
-			return nil;
-		} else {
-			return errors.New("unable to send the response to election node!");
-		}
-	case msg.Code == VOTE_PRESIDENT_Response:
-		var response VotePresidentResponse;
-		if err := msg.Decode(&response); err != nil {
-			return errResp(DPOSErrDecode, "%v: %v", msg, err);
-		}
-		log.Debug("received a vote response with round " + strconv.FormatUint(response.Round, 10) + ", candidate: " + strconv.FormatUint(uint64(response.CandicateIndex), 10));
-		if (pm.isElectionNode() && response.Code == DPOSMSG_SUCCESS) {//&& currVotingPool.round == response.Round
-			currVotingPool.voteFor(response.CandicateIndex);
-			return nil;
-		} else {
-			log.Warn("VotePresidentResponse error!");
-			if currVotingPool.round != response.Round {
-				errors.New("VotePresidentResponse round Id does not match current round! result: ");
-			}
-			if (!bytes.Equal(electionInfo.electionNodeIdHash, response.ElectionId)) {
-				return errors.New("Packaging election Id does not match! Elected president node performs bad, remove it from candicate list. Response:");
-			}
-			//TODO:
-			return nil;
-		}
-	case msg.Code == DPOS_PACKAGE_REQUEST:
-		var request PackageRequest;
-		if err := msg.Decode(&request); err != nil {
-			return errResp(DPOSErrDecode, "%v: %v", msg, err);
-		}
-		log.Debug("received package request: " + strconv.FormatUint(request.Round, 10));
-		if (electionInfo.electionNodeId == p.id && bytes.Equal(electionInfo.electionNodeIdHash, request.ElectionId) && currNodeId == request.PresidentId) {
-			// check the best block whether is synchronized or not.
-			//SyncStatus syncStatus = syncManager.getSyncStatus();
-			//if (1000 > (pm.blockchain.CurrentBlock().NumberU64() + 1)) {//allowed 1 block gap.
-			//	log.Info("Failed to package block due to blocks syncing is not completed yet. {}", syncStatus.toString());
-			//	pm.sendPackageResponseToElectionNode(&PackageResponse{request.round, request.presidentId,
-			//		request.electionId, nil,DPOSErroPACKAGE_NOTSYNC});
-			//	return nil;
-			//}
-
-			if pm.sendPackageResponseToElectionNode(pm.generateBlock(&request)) {
-				return nil;
-			} else {
-				return errors.New("unable to send the response to election node!");
-			}
-		} else {
-			log.Warn("Packaging node Id does not match! Request: {}");
-			emptyByte := make([]byte, 0);
-			if pm.sendPackageResponseToElectionNode(&PackageResponse{request.Round,
-				request.PresidentId, request.ElectionId, common.BytesToHash(emptyByte), DPOSErroPACKAGE_VERIFY_FAILURE }) {
-				return nil;
-			} else {
-				return errors.New("unable to send the response to election node!");
-			}
-		}
-	case msg.Code == DPOS_PACKAGE_RESPONSE:
-		var response PackageResponse;
-		if err := msg.Decode(&response); err != nil {
-			return errResp(DPOSErrDecode, "%v: %v", msg, err);
-		}
-		log.Debug("received package response: ");
-		fmt.Sprintf("%+v", response);
-		if (pm.isElectionNode() && p.id == currVotingPool.selectNodeId && response.Code == DPOSMSG_SUCCESS) {
-			// got the new generated block and verify.
-			//TODO: headerValidator.validateAndLog(response.getBlockHeader(), logger);
-			//currVotingPool.confirmSync(currVotingPool.round, response.PresidentId);
-			return nil;
-		} else {
-			log.Warn("Packaging response error! Elected president node performs bad, remove it from candicate list. Response: {}", response);
-			if (!bytes.Equal(electionInfo.electionNodeIdHash, response.ElectionId) || p.id != currVotingPool.selectNodeId) {
-				return errors.New("Packaging election Id does not match! Elected president node performs bad, remove it from candicate list. Response:");
-			}
-			if (response.Code == DPOSErroPACKAGE_EMPTY) {
-				// it's empty package, reset voting pool. reset.
-				currVotingPool = nil;
-				return errors.New("Packaging block is skipped due to there was no transaction found at the remote peer.");
-			}
-			if (response.Code == DPOSErroPACKAGE_NOTSYNC) {
-				currVotingPool.confirmSyncFailed(response.PresidentId);
-				return errors.New("Blocks syncing of Elected president has not completed yet. remove it from candicate list. Response: {}");
-			}
-		}
-	default:
-		return errResp(ErrInvalidMsgCode, "%v", msg.Code)
+	// generate block by election node.
+	if GigPeriodInstance.isMyTurn() {
+		log.Info("it's my turn now " + time.Now().String());
+		round := blockchainRef.CurrentFastBlock().Header().Round;
+		block := self.packager.GenerateNewBlock(round+1, currNodeId);
+		block.ToString();
+		//response := &PackageResponse{block.Round(), currNodeId, block.Hash(),DPOSMSG_SUCCESS};
 	}
-	return nil
 }
-
-func (pm *DPoSProtocolManager) generateBlock(request *PackageRequest) *PackageResponse {
-	block := pm.packager.GenerateNewBlock(request.Round, request.PresidentId);
-	block.ToString();
-	return &PackageResponse{request.Round, request.PresidentId, electionInfo.electionNodeIdHash, block.Hash(),DPOSMSG_SUCCESS};
+// this GigPeriodTable only serves for delegators.
+type GigPeriodTable struct {
+	state              uint8;       // STATE_LOOKING
+	delegatedNodes     []string;    // all 31 nodes id
+	delegatedNodesSign common.Hash; // a security sign for all delegated nodes which can be verified from node array.
+	confirmedTickets   uint8;       // 31 node must be confirmed this ticket or must equal to delegatedNodes length.
+	activeTime         int64;       // Unix timestamp for all nodes.
 }
-
-func (self *DPoSProtocolManager) sendVoteRequest(request *VotePresidentRequest) bool {
-	flag := false;
-	for _, peer := range self.ethManager.peers.peers {
-		peer.SendVotePresidentRequest(request);
-		flag = true;
-	}
-	return flag;
-}
-
-func (self *DPoSProtocolManager) sendPackageResponseToElectionNode(response *PackageResponse) bool {
-	c := self.ethManager.peers.PeersById(electionInfo.electionNodeId);
-	if (c == nil) {
-		log.Warn("Election peer does not exit! unable to send response to the election node.");
-		return false;
-	}
-	c.SendPackageResponse(response);
-	return true;
-}
-
-func (self *DPoSProtocolManager) sendVoteResponseToElectionNode(response *VotePresidentResponse) bool {
-	c := self.ethManager.peers.PeersById(electionInfo.electionNodeId);
-	if (c == nil) {
-		log.Warn("Election peer does not exit! unable to send response to the election node.");
-		return false;
-	}
-	c.SendVotePresidentResponse(response);
-	return true;
-}
-
-func (self *DPoSProtocolManager) sendConfirmedSyncToElectionNode(response *ConfirmedSyncMessage) bool {
-	c := self.ethManager.peers.PeersById(electionInfo.electionNodeId);
-	if (c == nil) {
-		log.Warn("Election peer does not exit! unable to send response to the election node.");
-		return false;
-	}
-	c.SendConfirmedSyncMessage(response);
-	return true;
-}
-
-func (self *DPoSProtocolManager) sendPackageRequest(response *PackageRequest) bool {
-	c := self.ethManager.peers.PeersById(response.PresidentId);
-	if (c == nil) {
-		log.Warn("Peer does not exit! unable to send packaging request to voted node " + response.PresidentId);
-		return false;
-	}
-	c.SendPackageRequest(response);
-	return true;
-}
-
-
-// --------------------Voting Process-------------------//
-// start voting for president and packaging blocks in every round.
-func (self *DPoSProtocolManager) voteSafely() {
-	for
-	{
-		<-self.voteTrigger;
-		if (!self.isElectionNode() || len(currCandidatesTable) < 0) {
-			continue;
+func (t *GigPeriodTable) wasHisTurn(round uint64, nodeId string, minedTime int64) bool {
+	for i :=0; i < len(t.delegatedNodes); i++ {
+		if t.delegatedNodes[i] == nodeId {
+			beatStartTime := t.activeTime + (int64(i) * int64(SmallPeriodInterval))
+			if beatStartTime <= minedTime && (beatStartTime+ int64(SmallPeriodInterval)) >= minedTime {
+				return true;
+			}
 		}
-		round := uint64(1);
-		// copy all candidates' table.
-		currCandidates := make([]string, len(currCandidatesTable));
-		copy(currCandidates, currCandidatesTable);
-		if (currVotingPool != nil) {
-			// to make sure the health candidate pool of next voting, we'd better to remove the unconfirmed node
-			// due to any possible issue including blocks in syncing, network unstability and etc.
-			round = currVotingPool.round + 1;
-			unconfirmedNode := make([]string, 0, len(currVotingPool.confirmedPool));
-			for k, v := range currVotingPool.confirmedPool {
-				if v == 0 {
-					unconfirmedNode = append(unconfirmedNode, k);
-				}
-			}
-			if (len(unconfirmedNode) > 0) {
-				log.Info("Unconfirmed sync block candidates: " + strings.Join(unconfirmedNode, ", "));
-			}
-			// let's remove the unconfirmed candidates for next round.
-			for _, nodeId := range unconfirmedNode {
-				for i, n := range currCandidates {
-					if (nodeId == n) {
-						self.removeCanditate(currCandidates, i);
-						break;
+	}
+	// check the history.
+	if len(GigPeriodHistory) > 0 {
+		for _, v := range GigPeriodHistory {
+			if v.activeTime <= minedTime && (v.activeTime+ int64(SmallPeriodInterval)) >= minedTime {
+				for i :=0; i < len(v.delegatedNodes); i++ {
+					if v.delegatedNodes[i] == nodeId {
+						//todo check round as well.
+						return true;
 					}
 				}
 			}
-		} else {
-			// query the round number from last block.
-			round = blockchainRef.CurrentFastBlock().Header().Round + 1;
-		}
-		if (len(currCandidates) == 0) {
-			// no any qualified candidate. set for next round.
-			currVotingPool = nil;
-			log.Warn("no any candidate confirmed the block synced in this round " + strconv.FormatUint(round, 10) + ", revote again!");
-			return;
-		}
-		if (round < 1) {
-			round = 1;
-		}
-
-		currVotingPool = NewLocalVoteInfo(currCandidates, round);
-		vrequest := &VotePresidentRequest{round, currVotingPool.getCandicatesIndex(),
-			electionInfo.electionNodeIdHash};
-		// broadcast this vote request to all nodes.
-		if (self.sendVoteRequest(vrequest)) {
-			log.Info("Voting the presidents: " + currVotingPool.toString());
-
-			// wait for voting result in the gap of 1 second which is applicable.
-			time.Sleep(time.Second * time.Duration(1));
-
-			// new request for packaging the block to remote peer.
-			selectNode, p, err := currVotingPool.maxTicket();
-			if (err != nil) {
-				log.Warn("no any candidate confirmed the block synced in this round " + strconv.FormatUint(round, 10) + ", revote again!");
-				return;
-			}
-
-			prequest := &PackageRequest{currVotingPool.round, selectNode,
-				electionInfo.electionNodeIdHash};
-			log.Info("Voted info: " + currVotingPool.toString() + ", PackageRequest to: " + prequest.PresidentId);
-
-			if (selectNode == currNodeId) {
-				// generate block by election node.
-				self.generateBlock(prequest);
-			} else {
-				if (self.sendPackageRequest(prequest)) {
-					// all candidates must sending the confirmed sync message after mining new block.
-					// this is important to make sure who are the best candidates in the next round.
-					log.Info("Voted info: " + currVotingPool.toString() + ", Node info: " + selectNode);
-				} else {
-					self.removeCanditate(currCandidatesTable, int(p));
-					currVotingPool = nil;
-					log.Warn("Failed to package the block from president(" + prequest.PresidentId + ") with " + strconv.FormatUint(prequest.Round, 10) + " round, revote again!");
-				}
-			}
-
-		} else {
-			log.Debug("Discard this round during none of candidate's connection existing: " + currVotingPool.toString());
-			currVotingPool = nil;
 		}
 	}
+	return false;
 }
-func (self *DPoSProtocolManager) removeCanditate(s []string, i int) []string {
+func (t *GigPeriodTable) isMyTurn() bool {
+	for i :=0; i < len(t.delegatedNodes); i++ {
+		if t.delegatedNodes[i] == currNodeId {
+			beatStartTime := t.activeTime + (int64(i) * int64(SmallPeriodInterval))
+			currTime := time.Now().Unix()
+			// we only give 4s to avoid the mismatched timestamp issue of last packaging.
+			if beatStartTime <= currTime && (beatStartTime+ int64(SmallPeriodInterval)) > currTime {
+				return true;
+			}
+		}
+	}
+	return false;
+}
+func (t *GigPeriodTable) whosTurn() string {
+	currTime := time.Now().Unix()
+	for i :=0; i < len(t.delegatedNodes); i++ {
+		beatStartTime := t.activeTime + (int64(i) * int64(SmallPeriodInterval))
+		if beatStartTime <= currTime && (beatStartTime+ int64(SmallPeriodInterval)) >= currTime {
+			return "{round: " + strconv.Itoa(i) + ", delegator: " + t.delegatedNodes[i] + " }";
+		}
+	}
+	return "";
+}
+func (t *GigPeriodTable) isDelegatedNode(nodeId string) bool {
+	for i :=0; i < len(t.delegatedNodes); i++ {
+		if t.delegatedNodes[i] == nodeId {
+			return true;
+		}
+	}
+	return false;
+}
+
+func RemoveCanditate(s []string, i int) []string {
 	s[len(s)-1], s[i] = s[i], s[len(s)-1]
 	return s[:len(s)-1]
 }
-func NewLocalVoteInfo(currCandidatesTable []string, round uint64)(*LocalVoteInfo) {
-	if (len(currCandidatesTable) >= 8) {
-		log.Warn("candicates of each round must be less then from 8");
-	}
-	confirmedPool := make(map[string]uint32);
-	votingPool := make(map[uint8]uint32);
-	votingCandidcates := make(map[uint32]string);
-	for i, c := range currCandidatesTable {
-		votingCandidcates[uint32(i)] = c;
-		votingPool[uint8(i)] = 0;
-		confirmedPool[c] = 0;
-	}
-	return &LocalVoteInfo{false, round, "",confirmedPool,
-		votingPool, votingCandidcates};
-}
-type LocalVoteInfo struct {
-	isClosed           bool
-	round              uint64
-	selectNodeId       string; // current id of selected node for packaging.
-	confirmedPool      map[string]uint32
-	votingPool         map[uint8]uint32
-	votingCandidcates  map[uint32]string
-}
-func (t *LocalVoteInfo) voteFor(candicateIndex uint8) {
-	if (t.isClosed) {
-		return;
-	}
-	v, ok := t.votingPool[candicateIndex];
-	if (ok) {
-		t.votingPool[candicateIndex] = v+1;
-		log.Debug("Just voted for president id: " + strconv.Itoa(int(candicateIndex)) + ", total tickets: "+ strconv.Itoa(int(v+1)) +" in "+ strconv.FormatUint(t.round, 10) +" round.");
-	}
-}
-func (t *LocalVoteInfo) confirmSync(round uint64, nodeId string) {
-	if (t.isClosed) {
-		return;
-	}
-	if (round == t.round) {
-		v, ok:=t.confirmedPool[nodeId];
-		if (ok) {
-			t.confirmedPool[nodeId] = v+1;
-			log.Debug("Just confirmed syncing completed "+nodeId+" in "+strconv.FormatUint(t.round, 10)+" round.");
-		} else {
-			// allows to be joined again.
-			t.confirmedPool[nodeId] = 1;
-		}
-	}
-}
-func (t *LocalVoteInfo) confirmSyncFailed(pnodeId string) {
-	if (t.isClosed) {
-		return;
-	}
-	for _, v := range t.votingCandidcates {
-		if (v != pnodeId) {
-			t.confirmedPool[pnodeId] = 1;
-		}
-	}
-}
-func (t *LocalVoteInfo) getCandicatesIndex() ([]uint8) {
-	indexes := make([]uint8, len(t.votingPool))
-	i := 0;
-	for k, _ := range t.votingPool {
-		indexes[i] = k;
-		i++;
-	}
-	return indexes;
-}
-func (t *LocalVoteInfo) maxTicket() (string, uint8, error) {
-	t.isClosed = true;
-	if (len(t.votingPool) == 0) {
-		return "", 0, errors.New("No voting information for any candidate!");
-	}
-	m := uint32(0);
-	position := uint8(0);
-	for i, v := range t.votingPool {
-		if (v > m) {
-			m = v;
-		}
-		position = i;
-	}
-	t.selectNodeId = t.votingCandidcates[m];
-	return t.votingCandidcates[m], position, nil;
-}
-func (t *LocalVoteInfo) minTicket() (string, uint8, error) {
-	t.isClosed = true;
-	if (len(t.votingPool) == 0) {
-		return "", 0, errors.New("No voting information for any candidate!");
-	}
-	m := uint32(0xFFFFFFFF);
-	position := uint8(0);
-	for i, v := range t.votingPool {
-		if (v < m) {
-			m = v;
-		}
-		position = i;
-	}
-	return t.votingCandidcates[m], position, nil;
-}
-func (t *LocalVoteInfo) toString() string {
-	jsonString, _ := json.Marshal(t.votingPool);
-	jsonString2, _ := json.Marshal(t.confirmedPool);
-	return "{round: " + strconv.FormatUint(t.round, 10) + ", votingPool: " + string(jsonString) + ", confirmedPool: " +string(jsonString2)+ " }";
+
+func SignCandidates(candidates []string) common.Hash {
+	var signCandidates = []byte{}
+	hw := sha3.NewKeccak256()
+	rlp.Encode(hw, candidates)
+	hw.Sum(signCandidates)
+	return common.BytesToHash(signCandidates)
 }

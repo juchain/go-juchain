@@ -35,16 +35,9 @@ const (
 	DPOSProtocolMaxMsgSize = 10 * 1024 // Maximum cap on the size of a protocol message
 
 	// Protocol messages belonging to dpos/10
-	RegisterCandidate_Request   = 0xa0
-	RegisterCandidate_Response  = 0xa1
-	VOTE_ElectionNode_Request   = 0xa2
-    VOTE_ElectionNode_Response  = 0xa3
-	VOTE_PRESIDENT_Request      = 0xa4
-	VOTE_PRESIDENT_Response     = 0xa5
-	VOTE_PRESIDENT_BROADCAST    = 0xa6
-	DPOS_PACKAGE_REQUEST        = 0xa7
-	DPOS_PACKAGE_RESPONSE       = 0xa8
-	CONFIRMED_BLOCK_SYNC        = 0xa9
+	SYNC_BIGPERIOD_REQUEST      = 0xa1
+	SYNC_BIGPERIOD_RESPONSE     = 0xa2
+	CONFIRMED_BLOCK_SYNC        = 0xa3
 
 	DPOSMSG_SUCCESS = iota
 	DPOSErrMsgTooLarge
@@ -58,11 +51,12 @@ const (
 	DPOSErroPACKAGE_EMPTY
 	DPOSErroVOTE_VERIFY_FAILURE
 	DPOSErroCandidateFull
+	DPOSErroDelegatorSign
 
 	// election node
 	STATE_LOOKING  = 0xb0
-	STATE_SELECTED = 0xb1
-	STATE_STOP = 0xbb
+	STATE_CONFIRMED = 0xb1
+	STATE_MISMATCHED = 0xb2
 )
 
 type DPOSErrCode int
@@ -81,56 +75,35 @@ var DPOSerrorToString = map[int]string{
 	DPOSErroPACKAGE_VERIFY_FAILURE: "Packaging node Id does not match",
 	DPOSErroPACKAGE_FAILURE:        "Failed to package the block",
 	DPOSErroPACKAGE_NOTSYNC:        "Failed to package block due to blocks syncing is not completed yet",
-	DPOSErroPACKAGE_EMPTY:          "Packaging block is skipped due to there was no transaction found at the remote peer.",
+	DPOSErroPACKAGE_EMPTY:          "Packaging block is skipped due to there was no transaction found at the remote peer",
 	DPOSErroVOTE_VERIFY_FAILURE:    "VotePresidentRequest is invalid",
+	DPOSErroDelegatorSign:          "Delegators' signature is incorrect",
 }
 
 //
-type VoteElectionRequest struct {
-	Tickets       uint8
-	NodeId        []byte
+type SyncBigPeriodRequest struct {
+	DelegatedTable     []string; // all 31 nodes id
+	DelegatedTableSign common.Hash;
+	NodeId             []byte
 }
 
 //
-type VoteElectionResponse struct {
-	Tickets        uint8
-	State          uint8
-	ElectionNodeId []byte
-}
-
-//
-type VotePresidentRequest struct {
-	Round         uint64
-	CandicateIds  []uint8
-	ElectionId    []byte
-}
-
-//
-type VotePresidentResponse struct {
-	Round          uint64
-	CandicateIndex uint8
-	ElectionId     []byte
-	Code           uint8
-}
-
-//
-type VotedPresidentBroadcast struct {
-	Round         uint64
-	PresidentId   []byte
-	ElectionId    []byte
+type SyncBigPeriodResponse struct {
+	DelegatedTable     []string; // all 31 nodes id
+	DelegatedTableSign common.Hash;
+	State              uint8
+	nodeId             []byte
 }
 
 //
 type PackageRequest struct {
 	Round         uint64
 	PresidentId   string
-	ElectionId    []byte
 }
 
 type PackageResponse struct {
 	Round         uint64
 	PresidentId   string
-	ElectionId    []byte
 	NewBlockHeader common.Hash
 	Code          uint8
 }

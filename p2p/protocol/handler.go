@@ -313,9 +313,9 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 	}
 	defer msg.Discard()
 
-	if (msg.Code >= RegisterCandidate_Request) {
+	if msg.Code >= SYNC_BIGPERIOD_REQUEST {
 		if err := pm.dposManager.handleMsg(&msg, p); err != nil {
-			p.Log().Info("DPoS message handling failed", "err", err)
+			p.Log().Warn("DPoS message handling failed", "err", err)
 			return err
 		}
 		return nil;
@@ -590,6 +590,10 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		}
 		request.Block.ReceivedAt = msg.ReceivedAt
 		request.Block.ReceivedFrom = p
+
+		if GigPeriodInstance.wasHisTurn(request.Block.Round(), request.Block.PesidentID(), request.Block.Time().Int64()) {
+			return errResp(ErrInvalidTimestamp, "");
+		}
 
 		// Mark the peer as owning the block and schedule it for import
 		p.MarkBlock(request.Block.Hash())

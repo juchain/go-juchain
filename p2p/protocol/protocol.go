@@ -73,6 +73,7 @@ const (
 	ErrNoStatusMsg
 	ErrExtraStatusMsg
 	ErrSuspendedPeer
+	ErrInvalidTimestamp
 )
 
 func (e errCode) String() string {
@@ -90,6 +91,7 @@ var errorToString = map[int]string{
 	ErrNoStatusMsg:             "No status message",
 	ErrExtraStatusMsg:          "Extra status message",
 	ErrSuspendedPeer:           "Suspended peer",
+	ErrInvalidTimestamp:        "Block timestamp is invalid from delegators table",
 }
 
 type txPool interface {

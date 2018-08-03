@@ -41,7 +41,6 @@ func TestProtocolCompatibility(t *testing.T) {
 		compatible bool
 	}{
 		{00, downloader.FullSync, true}, {OBOD01, downloader.FullSync, true},
-		{00, downloader.FastSync, false}, {OBOD01, downloader.FastSync, false},
 	}
 	// Make sure anything we screw up is restored
 	backup := ProtocolVersions
@@ -226,7 +225,7 @@ func testGetBlockBodies(t *testing.T, protocol uint) {
 	pm, _ := newTestProtocolManagerMust(t, downloader.FullSync, downloader.MaxBlockFetch+15, nil, nil)
 	peer, _ := newTestPeer("peer", protocol, pm, true)
 	defer peer.close()
-
+	defer pm.Stop()
 	// Create a batch of tests for various scenarios
 	limit := downloader.MaxBlockFetch
 	tests := []struct {
@@ -333,6 +332,7 @@ func testGetNodeData(t *testing.T, protocol uint) {
 	pm, db := newTestProtocolManagerMust(t, downloader.FullSync, 4, generator, nil)
 	peer, _ := newTestPeer("peer", protocol, pm, true)
 	defer peer.close()
+	defer pm.Stop()
 
 	// Fetch for now the entire chain store
 	hashes := []common.Hash{}
@@ -425,6 +425,7 @@ func testGetReceipt(t *testing.T, protocol uint) {
 	pm, _ := newTestProtocolManagerMust(t, downloader.FullSync, 4, generator, nil)
 	peer, _ := newTestPeer("peer", protocol, pm, true)
 	defer peer.close()
+	defer pm.Stop()
 
 	// Collect the hashes to request, and the response to expect
 	hashes, receipts := []common.Hash{}, []types.Receipts{}
@@ -439,6 +440,7 @@ func testGetReceipt(t *testing.T, protocol uint) {
 	if err := p2p.ExpectMsg(peer.app, 0x10, receipts); err != nil {
 		t.Errorf("receipts mismatch: %v", err)
 	}
+
 }
 
 // Tests that the node state database can be retrieved based on hashes.
@@ -450,6 +452,30 @@ func testVoteElection(t *testing.T, protocol uint) {
 	pm, db := newTestProtocolManagerMust(t, downloader.FullSync, 4, generator, nil)
 	peer, _ := newTestPeer("peer", protocol, pm, true)
 	defer peer.close()
+	defer pm.Stop();
+
+	DelegatorsTable = []string{peer.ID().TerminalString()}
+
+	// Fetch for now the entire chain store
+	hashes := []common.Hash{}
+	for _, key := range db.Keys() {
+		if len(key) == len(common.Hash{}) {
+			hashes = append(hashes, common.BytesToHash(key))
+		}
+	}
+}
+
+
+func TestVoteElection2(t *testing.T) { testVoteElection2(t, OBOD01) }
+
+func testVoteElection2(t *testing.T, protocol uint) {
+	DelegatorsTable = []string{"cf31324329d16155"}
+	generator := func(i int, block *core.BlockGen) {}
+	// Assemble the test environment
+	pm, db := newTestProtocolManagerMust(t, downloader.FullSync, 4, generator, nil)
+	peer, _ := newTestPeer("peer", protocol, pm, true)
+	defer peer.close()
+	defer pm.Stop()
 
 	// Fetch for now the entire chain store
 	hashes := []common.Hash{}
@@ -459,16 +485,5 @@ func testVoteElection(t *testing.T, protocol uint) {
 		}
 	}
 
-	err := p2p.Send(peer.app, RegisterCandidate_Request, &RegisterCandidateRequest{[]byte{1,3,35,54,3,4}})
-	if err != nil {
-		t.Fatalf("failed to send request: %v", err)
-	}
-	msg, err := peer.app.ReadMsg()
-	if err != nil {
-		t.Fatalf("failed to read node data response: %v", err)
-	}
-	if msg.Code != VOTE_ElectionNode_Request {
-		t.Fatalf("response packet code mismatch: have %x, want %x", msg.Code, VOTE_ElectionNode_Request)
-	}
-
+	//time.Sleep(time.Second * time.Duration(5))
 }
