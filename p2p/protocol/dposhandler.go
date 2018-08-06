@@ -78,8 +78,6 @@ type DPoSProtocolManager struct {
 	ethManager    *ProtocolManager;
 	blockchain    *core.BlockChain;
 
-	// channels for fetcher, syncer, txsyncLoop
-	newPeerCh     chan *peer;
 	lock          *sync.Mutex; // protects running
 
 	packager       *dpos.Packager;
@@ -95,7 +93,6 @@ func NewDPoSProtocolManager(eth *JuchainService, ethManager *ProtocolManager, co
 		networkId:         networkId,
 		ethManager:        ethManager,
 		blockchain:        blockchain,
-		newPeerCh:         make(chan *peer),
 		lock:              &sync.Mutex{},
 		packager:          dpos.NewPackager(config, engine, DefaultConfig.Etherbase, eth, eth.EventMux()),
 	}
@@ -105,7 +102,7 @@ func NewDPoSProtocolManager(eth *JuchainService, ethManager *ProtocolManager, co
 	return manager
 }
 
-func (pm *DPoSProtocolManager) Start(maxPeers int) {
+func (pm *DPoSProtocolManager) Start() {
 	log.Info("Starting DPoS Packaging Consensus")
 
 	if pm.isDelegatedNode() {

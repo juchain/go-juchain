@@ -82,7 +82,7 @@ type ProtocolManager struct {
 
 	SubProtocols []p2p.Protocol
 
-	dposManager *DPoSProtocolManager
+	dposManager *DVoteProtocolManager
 
 	eventMux      *event.TypeMux
 	txCh          chan core.TxPreEvent
@@ -116,7 +116,7 @@ func NewProtocolManager(eth *JuchainService, config *config.ChainConfig, config2
 		txsyncCh:    make(chan *txsync),
 		quitSync:    make(chan struct{}),
 	}
-	manager.dposManager = NewDPoSProtocolManager(eth, manager, config, config2, mode, networkId, blockchain, engine);
+	manager.dposManager = NewDVoteProtocolManager(eth, manager, config, config2, mode, networkId, blockchain, engine);
 
 	// Figure out whether to allow fast sync or not
 	if mode == downloader.FastSync && blockchain.CurrentBlock().NumberU64() > 0 {
@@ -134,7 +134,7 @@ func NewProtocolManager(eth *JuchainService, config *config.ChainConfig, config2
 		manager.SubProtocols = append(manager.SubProtocols, p2p.Protocol{
 			Name:    ProtocolName,
 			Version: version,
-			Length:  CONFIRMED_BLOCK_SYNC, // the maxinum number of all messages.
+			Length:  SYNC_BIGPERIOD_RESPONSE, // the maxinum number of all messages.
 			Run: func(p *p2p.Peer, rw p2p.MsgReadWriter) error {
 				peer := manager.newPeer(version, p, rw)
 				select {
@@ -313,7 +313,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 	}
 	defer msg.Discard()
 
-	if msg.Code >= RegisterCandidate_Request {
+	if msg.Code >= VOTE_ElectionNode_Request {
 		if err := pm.dposManager.handleMsg(&msg, p); err != nil {
 			p.Log().Warn("DPoS message handling failed", "err", err)
 			return err

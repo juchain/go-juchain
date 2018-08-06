@@ -35,16 +35,11 @@ const (
 	DPOSProtocolMaxMsgSize = 10 * 1024 // Maximum cap on the size of a protocol message
 
 	// Protocol messages belonging to dpos/10
-	RegisterCandidate_Request   = 0xa0
-	RegisterCandidate_Response  = 0xa1
-	VOTE_ElectionNode_Request   = 0xa2
-	VOTE_ElectionNode_Response  = 0xa3
-	DPOS_PACKAGE_REQUEST        = 0xa7
-	DPOS_PACKAGE_RESPONSE       = 0xa8
-	CONFIRMED_BLOCK_SYNC        = 0xa9
-
+	VOTE_ElectionNode_Request   = 0xa1
+	VOTE_ElectionNode_Response  = 0xa2
 	SYNC_BIGPERIOD_REQUEST      = 0xb1
 	SYNC_BIGPERIOD_RESPONSE     = 0xb2
+
 
 	DPOSMSG_SUCCESS = iota
 	DPOSErrMsgTooLarge
@@ -61,16 +56,17 @@ const (
 	DPOSErroDelegatorSign
 
 	// voting sync status
-	STATE_VOTE_LOOKING  = 0xb0
-	STATE_VOTE_SELECTED = 0xb1
-	STATE_VOTE_STOP = 0xb2
+	VOTESTATE_LOOKING  = 0xb0
+	VOTESTATE_SELECTED = 0xb1
+	VOTESTATE_STOP     = 0xb2
+	VOTESTATE_MISMATCHED_ROUND = 0xb2
 
 	// delegator sync status
-	STATE_LOOKING  = 0xb0
-	STATE_CONFIRMED = 0xb1
+	STATE_LOOKING   = 0xc0
+	STATE_CONFIRMED = 0xc1
 	// sync response
-	STATE_MISMATCHED_ROUND = 0xb2
-	STATE_MISMATCHED_DNUMBER = 0xb3
+	STATE_MISMATCHED_ROUND = 0xc2
+	STATE_MISMATCHED_DNUMBER = 0xc3
 )
 
 type DPOSErrCode int
@@ -144,12 +140,14 @@ type ConfirmedSyncMessage struct {
 }
 
 type VoteElectionRequest struct {
+	Round         uint64
 	Tickets       uint8
 	NodeId        []byte
 }
 
 //
 type VoteElectionResponse struct {
+	Round         uint64
 	Tickets        uint8
 	State          uint8
 	ElectionNodeId []byte
