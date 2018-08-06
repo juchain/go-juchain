@@ -35,9 +35,16 @@ const (
 	DPOSProtocolMaxMsgSize = 10 * 1024 // Maximum cap on the size of a protocol message
 
 	// Protocol messages belonging to dpos/10
-	SYNC_BIGPERIOD_REQUEST      = 0xa1
-	SYNC_BIGPERIOD_RESPONSE     = 0xa2
-	CONFIRMED_BLOCK_SYNC        = 0xa3
+	RegisterCandidate_Request   = 0xa0
+	RegisterCandidate_Response  = 0xa1
+	VOTE_ElectionNode_Request   = 0xa2
+	VOTE_ElectionNode_Response  = 0xa3
+	DPOS_PACKAGE_REQUEST        = 0xa7
+	DPOS_PACKAGE_RESPONSE       = 0xa8
+	CONFIRMED_BLOCK_SYNC        = 0xa9
+
+	SYNC_BIGPERIOD_REQUEST      = 0xb1
+	SYNC_BIGPERIOD_RESPONSE     = 0xb2
 
 	DPOSMSG_SUCCESS = iota
 	DPOSErrMsgTooLarge
@@ -53,7 +60,12 @@ const (
 	DPOSErroCandidateFull
 	DPOSErroDelegatorSign
 
-	// sync status
+	// voting sync status
+	STATE_VOTE_LOOKING  = 0xb0
+	STATE_VOTE_SELECTED = 0xb1
+	STATE_VOTE_STOP = 0xb2
+
+	// delegator sync status
 	STATE_LOOKING  = 0xb0
 	STATE_CONFIRMED = 0xb1
 	// sync response
@@ -105,11 +117,13 @@ type SyncBigPeriodResponse struct {
 type PackageRequest struct {
 	Round         uint64
 	PresidentId   string
+	ElectionId    []byte
 }
 
 type PackageResponse struct {
 	Round         uint64
 	PresidentId   string
+	ElectionId    []byte
 	NewBlockHeader common.Hash
 	Code          uint8
 }
@@ -127,4 +141,38 @@ type RegisterCandidateResponse struct {
 type ConfirmedSyncMessage struct {
 	Rounds        []uint64
 	CandidateId   []byte
+}
+
+type VoteElectionRequest struct {
+	Tickets       uint8
+	NodeId        []byte
+}
+
+//
+type VoteElectionResponse struct {
+	Tickets        uint8
+	State          uint8
+	ElectionNodeId []byte
+}
+
+//
+type VotePresidentRequest struct {
+	Round         uint64
+	CandicateIds  []uint8
+	ElectionId    []byte
+}
+
+//
+type VotePresidentResponse struct {
+	Round          uint64
+	CandicateIndex uint8
+	ElectionId     []byte
+	Code           uint8
+}
+
+//
+type VotedPresidentBroadcast struct {
+	Round         uint64
+	PresidentId   []byte
+	ElectionId    []byte
 }

@@ -37,7 +37,8 @@ import (
 	"fmt"
 )
 
-// DPoS packaging handler.
+// DPoS consensus handler of delegator packaging process.
+// only 31 delegators voted, then this process will be started.
 /**
    Sample code:
    for round i
@@ -65,8 +66,6 @@ var (
 
 	DelegatorsTable   []string;         // only for all delegated node ids. the table will receive from a voting contract.
 	DelegatorNodeInfo []*discover.Node; // all delegated peers. = make([]*discover.Node, 0, len(urls))
-
-	blockchainRef         *core.BlockChain;
 )
 
 // Delegator table refers to the voting contract.
@@ -92,7 +91,6 @@ type DPoSProtocolManager struct {
 func NewDPoSProtocolManager(eth *JuchainService, ethManager *ProtocolManager, config *config.ChainConfig, config2 *node.Config,
 	mode downloader.SyncMode, networkId uint64, blockchain *core.BlockChain, engine consensus.Engine) (*DPoSProtocolManager) {
 	// Create the protocol manager with the base fields
-	blockchainRef = blockchain;
 	manager := &DPoSProtocolManager{
 		networkId:         networkId,
 		ethManager:        ethManager,
@@ -108,7 +106,7 @@ func NewDPoSProtocolManager(eth *JuchainService, ethManager *ProtocolManager, co
 }
 
 func (pm *DPoSProtocolManager) Start(maxPeers int) {
-	log.Info("Starting DPoS Consensus")
+	log.Info("Starting DPoS Packaging Consensus")
 
 	if pm.isDelegatedNode() {
 		pm.packager.Start();
@@ -357,7 +355,7 @@ func (self *DPoSProtocolManager) roundRobinSafely() {
 	// generate block by election node.
 	if GigPeriodInstance.isMyTurn() {
 		log.Info("it's my turn now " + time.Now().String());
-		round := blockchainRef.CurrentFastBlock().Header().Round;
+		round := self.blockchain.CurrentFastBlock().Header().Round;
 		block := self.packager.GenerateNewBlock(round+1, currNodeId);
 		block.ToString();
 		//response := &PackageResponse{block.Round(), currNodeId, block.Hash(),DPOSMSG_SUCCESS};

@@ -313,7 +313,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 	}
 	defer msg.Discard()
 
-	if msg.Code >= SYNC_BIGPERIOD_REQUEST {
+	if msg.Code >= RegisterCandidate_Request {
 		if err := pm.dposManager.handleMsg(&msg, p); err != nil {
 			p.Log().Warn("DPoS message handling failed", "err", err)
 			return err
