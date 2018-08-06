@@ -53,10 +53,12 @@ const (
 	DPOSErroCandidateFull
 	DPOSErroDelegatorSign
 
-	// election node
+	// sync status
 	STATE_LOOKING  = 0xb0
 	STATE_CONFIRMED = 0xb1
-	STATE_MISMATCHED = 0xb2
+	// sync response
+	STATE_MISMATCHED_ROUND = 0xb2
+	STATE_MISMATCHED_DNUMBER = 0xb3
 )
 
 type DPOSErrCode int
@@ -82,6 +84,8 @@ var DPOSerrorToString = map[int]string{
 
 //
 type SyncBigPeriodRequest struct {
+	Round              uint64;
+	activeTime         int64;
 	DelegatedTable     []string; // all 31 nodes id
 	DelegatedTableSign common.Hash;
 	NodeId             []byte
@@ -89,6 +93,8 @@ type SyncBigPeriodRequest struct {
 
 //
 type SyncBigPeriodResponse struct {
+	Round              uint64;
+	activeTime         int64;
 	DelegatedTable     []string; // all 31 nodes id
 	DelegatedTableSign common.Hash;
 	State              uint8
