@@ -287,14 +287,16 @@ func (pm *DVoteProtocolManager) handleMsg(msg *p2p.Msg, p *peer) error {
 			}
 			//log.Info("Node has an election node now.");
 			return nil;
-		}
-		if response.State == VOTESTATE_SELECTED && response.ElectionNodeId != nil {
+		} else if nextElectionInfo.enodestate == VOTESTATE_LOOKING && response.State == VOTESTATE_SELECTED {
 			nextElectionInfo.enodestate = VOTESTATE_SELECTED;
 			nextElectionInfo.electionNodeId = common.Bytes2Hex(response.ElectionNodeId);
 			nextElectionInfo.electionNodeIdHash = response.ElectionNodeId;
-			if nextElectionInfo != electionInfo {
-				electionInfo = nextElectionInfo;
-				log.Debug("Confirmed as the election node: " + nextElectionInfo.electionNodeId);
+			electionInfo = nextElectionInfo;
+			log.Debug("Confirmed as the election node: " + nextElectionInfo.electionNodeId);
+		} else {
+			if response.State == VOTESTATE_MISMATCHED_ROUND {
+				//todo: update round and resend
+
 			}
 		}
 		return nil;

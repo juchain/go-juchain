@@ -237,10 +237,6 @@ func (p *peer) SendSyncBigPeriodResponse(response *SyncBigPeriodResponse) error 
 	//p.Log().Debug("register as candidate response", "count", len(response))
 	return p2p.Send(p.rw, SYNC_BIGPERIOD_RESPONSE, response)
 }
-func (p *peer) SendConfirmedSyncMessage(request *ConfirmedSyncMessage) error {
-	//p.Log().Debug("register as candidate response", "count", len(response))
-	return p2p.Send(p.rw, CONFIRMED_BLOCK_SYNC, request)
-}
 func (p *peer) SendVoteElectionRequest(request *VoteElectionRequest) error {
 	//p.Log().Debug("register as candidate request", "count", len(request))
 	return p2p.Send(p.rw, VOTE_ElectionNode_Request, request)
@@ -248,22 +244,6 @@ func (p *peer) SendVoteElectionRequest(request *VoteElectionRequest) error {
 func (p *peer) SendVoteElectionResponse(response *VoteElectionResponse) error {
 	//p.Log().Debug("register as candidate response", "count", len(response))
 	return p2p.Send(p.rw, VOTE_ElectionNode_Response, response)
-}
-func (p *peer) SendRegisterCandidateRequest(request *RegisterCandidateRequest) error {
-	//p.Log().Debug("register as candidate request", "count", len(request))
-	return p2p.Send(p.rw, RegisterCandidate_Request, request)
-}
-func (p *peer) SendRegisterCandidateResponse(response *RegisterCandidateResponse) error {
-	//p.Log().Debug("register as candidate response", "count", len(response))
-	return p2p.Send(p.rw, RegisterCandidate_Response, response)
-}
-func (p *peer) SendPackageRequest(request *PackageRequest) error {
-	//p.Log().Debug("register as candidate response", "count", len(response))
-	return p2p.Send(p.rw, DPOS_PACKAGE_REQUEST, request)
-}
-func (p *peer) SendPackageResponse(response *PackageResponse) error {
-	//p.Log().Debug("register as candidate response", "count", len(response))
-	return p2p.Send(p.rw, DPOS_PACKAGE_RESPONSE, response)
 }
 
 // Handshake executes the eth protocol handshake, negotiating version number,
