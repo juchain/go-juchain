@@ -1,0 +1,161 @@
+pragma solidity ^0.4.22;
+
+library SafeMath {
+  function mul(uint256 a, uint256 b) internal pure returns (uint256) {
+    uint256 c = a * b;
+    assert(a == 0 || c / a == b);
+    return c;
+  }
+
+  function div(uint256 a, uint256 b) internal pure returns (uint256) {
+    // assert(b > 0); // Solidity automatically throws when dividing by 0
+    uint256 c = a / b;
+    // assert(a == b * c + a % b); // There is no case in which this doesn't hold
+    return c;
+  }
+
+  function sub(uint256 a, uint256 b) internal pure returns (uint256) {
+    assert(b <= a);
+    return a - b;
+  }
+
+  function add(uint256 a, uint256 b) internal pure returns (uint256) {
+    uint256 c = a + b;
+    assert(c >= a);
+    return c;
+  }
+
+  function toUINT112(uint256 a) internal pure returns(uint112) {
+    assert(uint112(a) == a);
+    return uint112(a);
+  }
+
+  function toUINT120(uint256 a) internal pure returns(uint120) {
+    assert(uint120(a) == a);
+    return uint120(a);
+  }
+
+  function toUINT128(uint256 a) internal pure returns(uint128) {
+    assert(uint128(a) == a);
+    return uint128(a);
+  }
+}
+
+/**
+ * @title DPoS Ballot for 31 delegators
+**/
+contract DPOSBallot
+{
+    using SafeMath for uint256;
+
+    // It will represent a single voter.
+    // every user has only one ticket.
+    struct Voter {
+        //uint ticket;  // voted ticket
+        string nodeid; // voted delegator
+    }
+
+    struct Delegator {
+        string  ip;  //
+        uint    port; //
+        uint256 ticket; // the voted ticket of a delegator
+    }
+
+    address public birusu; //god of destruction
+
+    // This declares a state variable that
+    // stores a `Voter` struct for each possible address.
+    string[] delegatorIds;
+    mapping(string  => Delegator) private delegators;
+    mapping(address => Voter) private voters;
+
+    event NotifyRegistered();
+    event NotifyVoted();
+
+    /// Create a new ballot to choose one of `proposalNames`.
+    constructor() public {
+        birusu = msg.sender;
+    }
+
+    function register(string nodeid, string ip, uint port) public payable {
+        Delegator storage d = delegators[nodeid];
+        require(d.port > 0);
+        delegators[nodeid] = Delegator({ip: ip, port: port, ticket: 0});
+        delegatorIds.push(nodeid);
+        emit NotifyRegistered();
+    }
+
+    /// Give your vote (including votes delegated to you)
+    function vote(string nodeid) public payable {
+        Delegator storage d = delegators[nodeid];
+        require(d.port > 0);
+        Voter storage sender = voters[msg.sender];
+        if (bytes(sender.nodeid).length == 0) {
+            sender.nodeid = nodeid;
+        } else {
+            Delegator storage old = delegators[sender.nodeid];
+            old.ticket.sub(1);
+        }
+        d.ticket.add(1);
+        emit NotifyVoted();
+    }
+
+    //running sorter is hard in solidity vm.
+    //the best optimization is of course to sort the array off-chain
+    //and only check on-chain whether it is sorted or not.
+    function delegatorList() public view
+            returns (string result)
+    {
+        string memory delima = ":";
+        string memory items = "";
+        for (uint i = 0; i < delegatorIds.length; i++) {
+            Delegator storage d = delegators[delegatorIds[i]];
+            if (d.ticket > 0){
+                items = strConcat(items, delegatorIds[i], delima, uint2str(d.ticket), ",");
+            }
+        }
+        return items;
+    }
+
+    function delegatorInfo(string nodeid) public view
+            returns (string ip, uint port, uint256 ticket)
+    {
+        Delegator storage d = delegators[nodeid];
+        return (d.ip, d.port, d.ticket);
+    }
+
+    function strConcat(string _a, string _b, string _c, string _d,  string _e) internal pure returns (string){
+        bytes memory _ba = bytes(_a);
+        bytes memory _bb = bytes(_b);
+        bytes memory _bc = bytes(_c);
+        bytes memory _bd = bytes(_d);
+        bytes memory _be = bytes(_e);
+        string memory abcde = new string(_ba.length + _bb.length + _bc.length + _bd.length + _be.length);
+        bytes memory babcde = bytes(abcde);
+        uint k = 0;
+        for (uint i = 0; i < _ba.length; i++) babcde[k++] = _ba[i];
+        for (i = 0; i < _bb.length; i++) babcde[k++] = _bb[i];
+        for (i = 0; i < _bc.length; i++) babcde[k++] = _bc[i];
+        for (i = 0; i < _bd.length; i++) babcde[k++] = _bd[i];
+        for (i = 0; i < _be.length; i++) babcde[k++] = _be[i];
+        return string(babcde);
+    }
+
+    function uint2str(uint i) internal pure returns (string){
+        if (i == 0) return "0";
+        uint j = i;
+        uint length;
+        while (j != 0){
+            length++;
+            j /= 10;
+        }
+        bytes memory bstr = new bytes(length);
+        uint k = length - 1;
+        while (i != 0){
+            bstr[k--] = byte(48 + i % 10);
+            i /= 10;
+        }
+        return string(bstr);
+    }
+
+}

@@ -47,6 +47,11 @@ var (
 	nextElectionInfo *ElectionInfo;
 )
 
+// Delegator table refers to the voting contract.
+type DelegatorVotingManager interface {
+	Refresh() (DelegatorsTable []string, DelegatorNodes []*discover.Node)
+}
+
 type ElectionInfo struct {
 	round            uint64;
 	enodestate       uint8; //= VOTESTATE_LOOKING

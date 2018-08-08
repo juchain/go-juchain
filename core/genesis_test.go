@@ -30,8 +30,8 @@ import (
 )
 
 var (
-	MainnetGenesisHash = common.HexToHash("0xe30558d511be2742ce0e193c453c3ebbe8dde64fb812c9c4b55ce938cc400fa5") // Mainnet genesis hash to enforce below configs on
-	TestnetGenesisHash = common.HexToHash("0xd1b1f40bbb8a5e8ac0aa0b35767e518fc131e93faed5e0955eeb1cb92c4d2993") // Testnet genesis hash to enforce below configs on
+	MainnetGenesisHash = common.HexToHash("0xaac5a02784773dad8b576cd7434cca5a6865566a5ca0ae0dc69a4d64a7597995") // Mainnet genesis hash to enforce below configs on
+	TestnetGenesisHash = common.HexToHash("0x10236961b6d4c17462d88af07224782bc626066f750dd7ed09581fa67a4277fc") // Testnet genesis hash to enforce below configs on
 )
 
 func TestDefaultGenesisBlock(t *testing.T) {
@@ -49,7 +49,7 @@ func TestDefaultGenesisBlock(t *testing.T) {
 
 func TestSetupGenesis(t *testing.T) {
 	var (
-		customghash = common.HexToHash("0x90cbee30007fad8118c90b98fb03cf3351223cd5107213a38af736976c29279c")
+		customghash = common.HexToHash("0x3f26eafc08da45cf4f1da01c60d50e153af2a036a562fcf872a8a58de0658f36")
 		customg     = Genesis{
 			Config: &config.ChainConfig{},
 			Alloc: GenesisAlloc{

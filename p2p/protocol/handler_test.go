@@ -449,8 +449,10 @@ func TestVoteElection(t *testing.T) { testVoteElection(t, OBOD01) }
 func testVoteElection(t *testing.T, protocol uint) {
 	generator := func(i int, block *core.BlockGen) {}
 	// Assemble the test environment
-	pm, db := newTestProtocolManagerMust(t, downloader.FullSync, 4, generator, nil)
-	peer, _ := newTestPeer("peer", protocol, pm, true)
+	pm, db   := newTestProtocolManagerMust(t, downloader.FullSync, 4, generator, nil)
+	peer, _  := newTestPeer("peer", protocol, pm, true)
+	peer1, _ := newTestPeer("peer1", protocol, pm, true)
+	peer2, _ := newTestPeer("peer2", protocol, pm, true)
 	defer peer.close()
 	defer pm.Stop();
 
@@ -474,6 +476,8 @@ func testVoteElection2(t *testing.T, protocol uint) {
 	// Assemble the test environment
 	pm, db := newTestProtocolManagerMust(t, downloader.FullSync, 4, generator, nil)
 	peer, _ := newTestPeer("peer", protocol, pm, true)
+	peer1, _ := newTestPeer("peer1", protocol, pm, true)
+	peer2, _ := newTestPeer("peer2", protocol, pm, true)
 	defer peer.close()
 	defer pm.Stop()
 

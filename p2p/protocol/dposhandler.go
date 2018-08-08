@@ -68,11 +68,6 @@ var (
 	DelegatorNodeInfo []*discover.Node; // all delegated peers. = make([]*discover.Node, 0, len(urls))
 )
 
-// Delegator table refers to the voting contract.
-type DelegatorVotingManager interface {
-	Refresh() (DelegatorsTable []string, DelegatorNodes []*discover.Node)
-}
-
 type DPoSProtocolManager struct {
 	networkId     uint64;
 	ethManager    *ProtocolManager;
