@@ -485,7 +485,7 @@ func testVoteElection(t *testing.T, protocol uint) {
 	if NextElectionInfo.electionTickets >= 2 {
 		t.Errorf("returned %v want     %v", NextElectionInfo.electionTickets, 2)
 	}
-	if NextElectionInfo.enodestate != VOTESTATE_SELECTED {
+	if NextElectionInfo.enodestate == VOTESTATE_SELECTED {
 		t.Errorf("returned %v want     %v", NextElectionInfo.enodestate, VOTESTATE_SELECTED)
 	}
 
@@ -495,10 +495,48 @@ func testVoteElection(t *testing.T, protocol uint) {
 	if NextElectionInfo.round != 1 {
 		t.Errorf("returned %v want     %v", NextElectionInfo.round, 2)
 	}
+	if NextElectionInfo.enodestate == VOTESTATE_SELECTED {
+		t.Errorf("returned %v want     %v", NextElectionInfo.enodestate, VOTESTATE_SELECTED)
+	}
+
+	//Mismatched request.round with less value
+	p2p.Send(peer1.app, VOTE_ElectionNode_Request, &VoteElectionRequest{0,
+		2, currNodeIdHash})
+	if NextElectionInfo.round != 1 {
+		t.Errorf("returned %v want     %v", NextElectionInfo.round, 2)
+	}
+	if NextElectionInfo.enodestate == VOTESTATE_SELECTED {
+		t.Errorf("returned %v want     %v", NextElectionInfo.enodestate, VOTESTATE_SELECTED)
+	}
+
+	//Mismatched request.round with greater value
+	p2p.Send(peer1.app, VOTE_ElectionNode_Request, &VoteElectionRequest{2,
+		2, currNodeIdHash})
+	if NextElectionInfo.round != 1 {
+		t.Errorf("returned %v want     %v", NextElectionInfo.round, 2)
+	}
+	if NextElectionInfo.enodestate == VOTESTATE_SELECTED {
+		t.Errorf("returned %v want     %v", NextElectionInfo.enodestate, VOTESTATE_SELECTED)
+	}
+
+	//Voted Election Response must not have VOTESTATE_SELECTED state. rejected!
+	p2p.Send(peer.app, VOTE_ElectionNode_Response, &VoteElectionResponse{1,
+		2, NextElectionInfo.activeTime,
+		VOTESTATE_SELECTED,currNodeIdHash})
+	p2p.Send(peer.app, VOTE_ElectionNode_Response, &VoteElectionResponse{1,
+		2, NextElectionInfo.activeTime,
+		VOTESTATE_MISMATCHED_ROUND,currNodeIdHash})
+
+	//Confirmed the final election node:
+	p2p.Send(peer.app, VOTE_ElectionNode_Broadcast, &BroadcastVotedElection{1,
+		2, VOTESTATE_MISMATCHED_ROUND,currNodeIdHash})
+	p2p.Send(peer.app, VOTE_ElectionNode_Broadcast, &BroadcastVotedElection{1,
+		2, VOTESTATE_MISMATCHED_ROUND,currNodeIdHash})
+	p2p.Send(peer.app, VOTE_ElectionNode_Broadcast, &BroadcastVotedElection{1,
+		2, VOTESTATE_MISMATCHED_ROUND,currNodeIdHash})
 	if NextElectionInfo.enodestate != VOTESTATE_SELECTED {
 		t.Errorf("returned %v want     %v", NextElectionInfo.enodestate, VOTESTATE_SELECTED)
 	}
 
-	DelegatorsTable = []string{peer.ID().TerminalString()}
 	TestMode = false
 }

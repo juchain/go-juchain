@@ -59,10 +59,10 @@ type ElectionInfo struct {
 	enodestate       uint8; //= VOTESTATE_LOOKING
 	electionTickets  uint32; // default tickets which counts on all peers.
 	confirmedTickets map[string]uint32; // confirmed tickets from all peers. <nodeid><tickets>
-	mismatchCounter  uint32; // the mismatching counter of all responses form all election nodes.
 	electionNodeId   string; //= ""
 	electionNodeIdHash []byte; // the election node id.
 
+	activeTime         int64; // active time of next round.
 	latestActiveENode  time.Time;// = time.Now(); // the check whether the election node is active or not.
 }
 
@@ -149,9 +149,10 @@ func (pm *DVoteProtocolManager) scheduleElecting() {
 	NextElectionInfo = &ElectionInfo{
 		round,
 		VOTESTATE_LOOKING,
-		0, make(map[string]uint32), 0,
+		0, make(map[string]uint32),
 		currNodeId,
 		currNodeIdHash,
+		time.Now().Unix() + int64(ElectingInterval),
 		time.Now(),
 	};
 	log.Info(fmt.Sprintf("Elect for next round %v...", round));
@@ -226,10 +227,13 @@ func (pm *DVoteProtocolManager) handleMsg(msg *p2p.Msg, p *peer) error {
 		if err := msg.Decode(&request); err != nil {
 			return errResp(DPOSErrDecode, "%v: %v", msg, err);
 		}
-		log.Debug(fmt.Sprintf("received request round %v, nodeid %v, CurrRound %v", request.Round, common.Bytes2Hex(request.NodeId), NextElectionInfo.round));
+		log.Debug(fmt.Sprintf("Received request round %v, nodeid %v, CurrRound %v", request.Round, common.Bytes2Hex(request.NodeId), NextElectionInfo.round));
 		if request.Round == NextElectionInfo.round {
 			if NextElectionInfo.enodestate == VOTESTATE_SELECTED {
 				log.Debug("I am in agreed state " + NextElectionInfo.electionNodeId);
+				if TestMode {
+					return nil;
+				}
 				return p.SendBroadcastVotedElection(&BroadcastVotedElection{
 					NextElectionInfo.round,
 					NextElectionInfo.electionTickets,
@@ -237,13 +241,12 @@ func (pm *DVoteProtocolManager) handleMsg(msg *p2p.Msg, p *peer) error {
 					NextElectionInfo.electionNodeIdHash});
 			} else {
 				if request.Tickets > NextElectionInfo.electionTickets {
-					NextElectionInfo.enodestate = VOTESTATE_SELECTED;
 					NextElectionInfo.electionNodeIdHash = request.NodeId[:8];
 					NextElectionInfo.electionNodeId = common.Bytes2Hex(request.NodeId[:8]);
 
-					log.Debug("agreed the request node as the election node: " + NextElectionInfo.electionNodeId);
+					log.Debug("Agreed the request node as the election node: " + NextElectionInfo.electionNodeId);
 					if TestMode {
-						return nil; // the state machine controlled by the test case in test mode
+						return nil;
 					}
 					// remote win.
 					// broadcast to all peers again.
@@ -265,52 +268,95 @@ func (pm *DVoteProtocolManager) handleMsg(msg *p2p.Msg, p *peer) error {
 			}
 		} else if request.Round < NextElectionInfo.round {
 			log.Debug(fmt.Sprintf("Mismatched request.round %v, CurrRound %v: ", request.Round, NextElectionInfo.round))
+			if TestMode {
+				return nil;
+			}
 			return p.SendVoteElectionResponse(&VoteElectionResponse{
 				NextElectionInfo.round,
 				NextElectionInfo.electionTickets,
+				NextElectionInfo.activeTime,
 				VOTESTATE_MISMATCHED_ROUND,
 				NextElectionInfo.electionNodeIdHash});
 		} else if request.Round > NextElectionInfo.round {
-			//TODO:
+			if NextElectionInfo.enodestate == VOTESTATE_SELECTED {
+				if TestMode {
+					return nil;
+				}
+				return p.SendVoteElectionResponse(&VoteElectionResponse{
+					NextElectionInfo.round,
+					NextElectionInfo.electionTickets,
+					NextElectionInfo.activeTime,
+					VOTESTATE_MISMATCHED_ROUND,
+					NextElectionInfo.electionNodeIdHash});
+			} else if NextElectionInfo.enodestate == VOTESTATE_LOOKING {
+				//skip
+			}
+			log.Debug(fmt.Sprintf("Mismatched request.round %v, CurrRound %v: ", request.Round, NextElectionInfo.round))
 			//NextElectionInfo.round
+
 		}
 	case msg.Code == VOTE_ElectionNode_Response:
 		var response VoteElectionResponse;
 		if err := msg.Decode(&response); err != nil {
 			return errResp(DPOSErrDecode, "%v: %v", msg, err);
 		}
-		if NextElectionInfo.enodestate == VOTESTATE_SELECTED {
-			//log.Info("Node has an election node now.");
-			return nil;
-		}
+		log.Info("Received a voted response: " + common.Bytes2Hex(response.ElectionNodeId));
 		if response.State == VOTESTATE_SELECTED {
-			log.Warn("Voted Election Response must not have VOTESTATE_SELECTED state. rejected!")
+			log.Debug("Voted Election Response must not have VOTESTATE_SELECTED state. rejected!")
 			//VOTE_ElectionNode_Broadcast only have VOTESTATE_SELECTED state.
 			return nil;
-		} else if response.State == VOTESTATE_MISMATCHED_ROUND {
-			//todo: update round and resend
-
+		} else if response.State == VOTESTATE_MISMATCHED_ROUND && NextElectionInfo.enodestate == VOTESTATE_LOOKING {
+			log.Info(fmt.Sprintf("Mismatched round %v, switch to %v", NextElectionInfo.round, response.Round))
+			// update round and resend
+			NextElectionInfo = &ElectionInfo{
+				response.Round,
+				VOTESTATE_LOOKING,
+				0, make(map[string]uint32),
+				currNodeId,
+				currNodeIdHash,
+				response.ActiveTime,
+				time.Now(),
+			};
+			pm.electNodeSafely()
 		}
 		return nil;
 	case msg.Code == VOTE_ElectionNode_Broadcast:
-		if NextElectionInfo.enodestate == VOTESTATE_SELECTED {
-			//log.Info("Node has an election node now.");
-			return nil;
-		}
 		var response BroadcastVotedElection;
 		if err := msg.Decode(&response); err != nil {
 			return errResp(DPOSErrDecode, "%v: %v", msg, err);
 		}
+		log.Debug("Received broadcast message: " + common.Bytes2Hex(response.ElectionNodeId));
 		// just calculate the voted tickets.
 		NextElectionInfo.confirmedTickets[common.Bytes2Hex(response.ElectionNodeId)] ++;
-		//log.Info("Received election node response: " + strconv.Itoa(int(response.Tickets)));
-
-		//TODO: need a counter to be confirmed from 2/3 nodes.
-		if NextElectionInfo.enodestate == VOTESTATE_LOOKING && NextElectionInfo.confirmedTickets[currNodeId] >= uint32(len(pm.ethManager.peers.peers)) {
+		maxTickets, bestNodeId := uint32(0), "";
+		for key, value := range NextElectionInfo.confirmedTickets {
+			if maxTickets < value {
+				maxTickets = value;
+				bestNodeId = key;
+			}
+		}
+		if NextElectionInfo.enodestate == VOTESTATE_SELECTED {
+			//skip
+		} else if NextElectionInfo.enodestate == VOTESTATE_LOOKING && maxTickets >= NextElectionInfo.electionTickets {
 			NextElectionInfo.enodestate = VOTESTATE_SELECTED;
+			NextElectionInfo.electionNodeId = bestNodeId;
+			NextElectionInfo.electionNodeIdHash = []byte(bestNodeId);
 
-			// todo: when do we switch this new data? ElectionInfo0 = NextElectionInfo;
-			log.Info("Confirmed as the election node: " + NextElectionInfo.electionNodeId);
+			// when do we switch this new data? ElectionInfo0 = NextElectionInfo;
+			log.Info("Confirmed the final election node: " + NextElectionInfo.electionNodeId);
+			leftTime := NextElectionInfo.activeTime - time.Now().Unix()
+			time.AfterFunc(time.Second*time.Duration(leftTime), func() {
+				ElectionInfo0 = &ElectionInfo{
+					NextElectionInfo.round,
+					NextElectionInfo.enodestate,
+					NextElectionInfo.electionTickets,
+					NextElectionInfo.confirmedTickets,
+					NextElectionInfo.electionNodeId,
+					NextElectionInfo.electionNodeIdHash,
+					NextElectionInfo.activeTime,
+					NextElectionInfo.latestActiveENode,
+				};
+			});
 		}
 		return nil;
 	default:

@@ -148,8 +148,9 @@ type VoteElectionRequest struct {
 
 //
 type VoteElectionResponse struct {
-	Round         uint64
+	Round          uint64
 	Tickets        uint32
+	ActiveTime     int64
 	State          uint8
 	ElectionNodeId []byte
 }
