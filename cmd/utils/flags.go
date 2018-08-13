@@ -888,7 +888,7 @@ func SetEthConfig(ctx *cli.Context, stack *node.Node, cfg *protocol.Config) {
 func RegisterEthService(stack *node.Node, cfg *protocol.Config) {
 	var err error
 	err = stack.Register(func(ctx *node.ServiceContext) (node.Service, error) {
-		fullNode, err := protocol.New(ctx, cfg)
+		fullNode, err := protocol.New(stack, ctx, cfg)
 		return fullNode, err
 	})
 

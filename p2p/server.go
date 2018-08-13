@@ -83,11 +83,6 @@ type Config struct {
 	// with the rest of the network.
 	BootstrapNodes []*discover.Node
 
-	// BootstrapNodesV5 are used to establish connectivity
-	// with the rest of the network using the V5 discovery
-	// protocol.
-	BootstrapNodesV5 []*discover.Node `toml:",omitempty"`
-
 	// Static nodes are used as pre-configured connections which are always
 	// maintained and re-connected on disconnects.
 	StaticNodes []*discover.Node

@@ -359,6 +359,7 @@ func (g *Genesis) ToBlock(db store.Database) *types.Block {
 		return nil
 	}
 
+	head.GasLimit = head.GasUsed
 	root := statedb.IntermediateRoot(false)
 	head.Root = root;
 	// commit state into db.

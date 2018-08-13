@@ -70,13 +70,14 @@ var (
 
 type DPoSProtocolManager struct {
 	networkId     uint64;
+	eth           *JuchainService;
 	ethManager    *ProtocolManager;
 	blockchain    *core.BlockChain;
 
 	lock          *sync.Mutex; // protects running
 
 	packager       *dpos.Packager;
-	votingManager  *DelegatorVotingManager;
+	votingManager  DelegatorVotingManager;
 }
 
 // NewProtocolManager returns a new ethereum sub protocol manager. The JuchainService sub protocol manages peers capable
@@ -86,6 +87,7 @@ func NewDPoSProtocolManager(eth *JuchainService, ethManager *ProtocolManager, co
 	// Create the protocol manager with the base fields
 	manager := &DPoSProtocolManager{
 		networkId:         networkId,
+		eth:               eth,
 		ethManager:        ethManager,
 		blockchain:        blockchain,
 		lock:              &sync.Mutex{},
@@ -126,8 +128,8 @@ func (pm *DPoSProtocolManager) syncDelegatedNodeSafely() {
 		return;
 	}
 	log.Info("Preparing for next big period...");
-	// TODO: pull the newest delegators from voting contract.
-	// DelegatorsTable, DelegatorNodeInfo = pm.votingManager.Refresh()
+	// pull the newest delegators from voting contract.
+	DelegatorsTable, DelegatorNodeInfo = pm.votingManager.Refresh()
 	if uint8(len(GigPeriodHistory)) >= BigPeriodHistorySize {
 		GigPeriodHistory = GigPeriodHistory[1:] //remove the first old one.
 	}
@@ -162,17 +164,26 @@ func (pm *DPoSProtocolManager) trySyncAllDelegators() {
 	//send this round to all delegated peers.
 	//all delegated must giving the response in SYNC_BIGPERIOD_RESPONSE state.
 	for _, delegator := range NextGigPeriodInstance.delegatedNodes {
+		// make sure all delegator are alive.
 		if pm.ethManager.peers.Peer(delegator) == nil {
-			//todo: add DelegatorNodeInfo[i] into peers table.
-		}
-		err := pm.ethManager.peers.Peer(delegator).SendSyncBigPeriodRequest(
-			&SyncBigPeriodRequest{NextGigPeriodInstance.round,
-				NextGigPeriodInstance.activeTime,
-				NextGigPeriodInstance.delegatedNodes,
-				NextGigPeriodInstance.delegatedNodesSign,
-				currNodeIdHash});
-		if err != nil {
-			log.Debug("Error occurred while sending SyncBigPeriodRequest: " + err.Error())
+			// try to add DelegatorNodeInfo[i] into peers table.
+			// but can't talk to it directly.
+			for i,e := range DelegatorsTable {
+				if e == delegator {
+					pm.eth.server.AddPeer(DelegatorNodeInfo[i]);
+					break;
+				}
+			}
+		} else {
+			err := pm.ethManager.peers.Peer(delegator).SendSyncBigPeriodRequest(
+				&SyncBigPeriodRequest{NextGigPeriodInstance.round,
+					NextGigPeriodInstance.activeTime,
+					NextGigPeriodInstance.delegatedNodes,
+					NextGigPeriodInstance.delegatedNodesSign,
+					currNodeIdHash});
+			if err != nil {
+				log.Debug("Error occurred while sending SyncBigPeriodRequest: " + err.Error())
+			}
 		}
 	}
 }
@@ -226,7 +237,8 @@ func (pm *DPoSProtocolManager) handleMsg(msg *p2p.Msg, p *peer) error {
 			}
 			if !reflect.DeepEqual(DelegatorsTable, request.DelegatedTable) {
 				if len(DelegatorsTable) < len(request.DelegatedTable) {
-					//todo refresh table if mismatch.
+					// refresh table if mismatch.
+					DelegatorsTable, DelegatorNodeInfo = pm.votingManager.Refresh()
 				}
 				if !reflect.DeepEqual(DelegatorsTable, request.DelegatedTable) {
 					// i got more then you, reject your request.
@@ -272,8 +284,9 @@ func (pm *DPoSProtocolManager) handleMsg(msg *p2p.Msg, p *peer) error {
 			};
 			pm.trySyncAllDelegators()
 		} else if response.State == STATE_MISMATCHED_DNUMBER {
-			//todo: force to refresh table
-
+			// force to refresh table
+			DelegatorsTable, DelegatorNodeInfo = pm.votingManager.Refresh()
+			//pm.syncDelegatedNodeSafely()
 		}
 		// TODO: need a counter to be confirmed from 2/3 nodes.
 		if NextGigPeriodInstance.confirmedTickets == uint8(len(NextGigPeriodInstance.delegatedNodes)) {

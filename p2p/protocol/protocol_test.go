@@ -40,7 +40,7 @@ var testAccount, _ = crypto.HexToECDSA("b71c71a67e1177ad4e901695e1b4b9ee17ae16c6
 func TestStatusMsgErrors(t *testing.T) { testStatusMsgErrors(t, OBOD01) }
 
 func testStatusMsgErrors(t *testing.T, protocol uint) {
-	pm, _ := newTestProtocolManagerMust(t, downloader.FullSync, 0, nil, nil)
+	pm, _ := newTestProtocolManagerMust(t, downloader.FullSync, 0, nil, nil,true)
 	var (
 		genesis = pm.blockchain.Genesis()
 		head    = pm.blockchain.CurrentHeader()
@@ -96,7 +96,7 @@ func TestRecvTransactions62(t *testing.T) { testRecvTransactions(t, OBOD01) }
 
 func testRecvTransactions(t *testing.T, protocol uint) {
 	txAdded := make(chan []*types.Transaction)
-	pm, _ := newTestProtocolManagerMust(t, downloader.FullSync, 0, nil, txAdded)
+	pm, _ := newTestProtocolManagerMust(t, downloader.FullSync, 0, nil, txAdded, true)
 	pm.acceptTxs = 1 // mark synced to accept transactions
 	p, _ := newTestPeer("peer", protocol, pm, true)
 	defer pm.Stop()
@@ -122,7 +122,7 @@ func testRecvTransactions(t *testing.T, protocol uint) {
 func TestSendTransactions(t *testing.T) { testSendTransactions(t, OBOD01) }
 
 func testSendTransactions(t *testing.T, protocol uint) {
-	pm, _ := newTestProtocolManagerMust(t, downloader.FullSync, 0, nil, nil)
+	pm, _ := newTestProtocolManagerMust(t, downloader.FullSync, 0, nil, nil,true)
 	defer pm.Stop()
 
 	// Fill the pool with big transactions.

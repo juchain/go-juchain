@@ -859,7 +859,7 @@ func TestLogReorgs(t *testing.T) {
 		db, _   = store.NewMemDatabase()
 		// this code generates a log
 		code    = common.Hex2Bytes("60606040525b7f24ec1d3ff24c2f6ff210738839dbc339cd45a5294d85c79361016243157aae7b60405180905060405180910390a15b600a8060416000396000f360606040526008565b00")
-		gspec   = &Genesis{Config: config.TestChainConfig, Alloc: GenesisAlloc{addr1: {Balance: big.NewInt(10000000000000)}}}
+		gspec   = &Genesis{Config: config.TestChainConfig, Alloc: GenesisAlloc{addr1: {Balance: big.NewInt(1000000000000000)}}}
 		genesis = gspec.MustCommit(db)
 		signer  = types.NewEIP155Signer(gspec.Config.ChainId)
 		engine  = consensus.CreateFakeEngine()
@@ -906,7 +906,7 @@ func TestReorgSideEvent(t *testing.T) {
 		addr1   = crypto.PubkeyToAddress(key1.PublicKey)
 		gspec   = &Genesis{
 			Config: config.TestChainConfig,
-			Alloc:  GenesisAlloc{addr1: {Balance: big.NewInt(10000000000000)}},
+			Alloc:  GenesisAlloc{addr1: {Balance: big.NewInt(1000000000000000)}},
 		}
 		genesis = gspec.MustCommit(db)
 		signer  = types.NewEIP155Signer(gspec.Config.ChainId)

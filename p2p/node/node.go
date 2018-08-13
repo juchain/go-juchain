@@ -48,6 +48,7 @@ type Node struct {
 
 	serverConfig p2p.Config
 	server       *p2p.Server // Currently running P2P networking layer
+	Server0       *p2p.Server // share it
 
 	serviceFuncs []ServiceConstructor     // Service constructors (in dependency order)
 	services     map[reflect.Type]Service // Currently running services
@@ -223,6 +224,7 @@ func (n *Node) Start() error {
 	// Finish initializing the startup
 	n.services = services
 	n.server = running
+	n.Server0 = running
 	n.stop = make(chan struct{})
 
 	return nil

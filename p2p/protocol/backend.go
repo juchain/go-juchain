@@ -54,6 +54,7 @@ type LesServer interface {
 
 // Juchain implements the Juchain full node service.
 type JuchainService struct {
+	server      *p2p.Server
 	config      *Config
 	chainConfig *config.ChainConfig
 	dappConfig  *config.DAppAddress
@@ -93,7 +94,7 @@ type JuchainService struct {
 
 // New creates a new JuchainService object (including the
 // initialization of the common Juchain objects)
-func New(ctx *node.ServiceContext, config0 *Config) (*JuchainService, error) {
+func New(node *node.Node, ctx *node.ServiceContext, config0 *Config) (*JuchainService, error) {
 	if config0.SyncMode == downloader.LightSync {
 		return nil, errors.New("can't run JuchainService in light sync mode。")
 	}
@@ -113,6 +114,7 @@ func New(ctx *node.ServiceContext, config0 *Config) (*JuchainService, error) {
 	log.Info("Initialized main chain configuration", "config0", chainConfig)
 
 	eth := &JuchainService{
+		server:         node.Server0,
 		config:         config0,
 		chainDb:        chainDb,
 		chainConfig:    chainConfig,
@@ -186,7 +188,6 @@ func New(ctx *node.ServiceContext, config0 *Config) (*JuchainService, error) {
 	if eth.protocolManager, err = NewProtocolManager(eth, eth.chainConfig, ctx.Config, config0.SyncMode, config0.NetworkId, eth.eventMux, eth.txPool, eth.engine, eth.blockchain, chainDb); err != nil {
 		return nil, err
 	}
-
 	eth.ApiBackend = &EthApiBackend{eth, nil}
 	gpoconfig := config0.GPO
 	if gpoconfig.Default == nil {

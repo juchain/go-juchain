@@ -30,6 +30,9 @@ import (
 	"github.com/juchain/go-juchain/core/store"
 	"github.com/juchain/go-juchain/p2p"
 	"github.com/juchain/go-juchain/config"
+	"github.com/juchain/go-juchain/p2p/discover"
+	"os"
+	"github.com/juchain/go-juchain/common/log"
 )
 
 // Tests that protocol versions and modes of operations are matched up properly.
@@ -50,7 +53,7 @@ func TestProtocolCompatibility(t *testing.T) {
 	for i, tt := range tests {
 		ProtocolVersions = []uint{tt.version}
 
-		pm, _, err := newTestProtocolManager(tt.mode, 0, nil, nil)
+		pm, _, err := newTestProtocolManager(tt.mode, 0, nil, nil, true)
 		if pm != nil {
 			defer pm.Stop()
 		}
@@ -64,7 +67,7 @@ func TestProtocolCompatibility(t *testing.T) {
 func TestGetBlockHeaders(t *testing.T) { testGetBlockHeaders(t, OBOD01) }
 
 func testGetBlockHeaders(t *testing.T, protocol uint) {
-	pm, _ := newTestProtocolManagerMust(t, downloader.FullSync, downloader.MaxHashFetch+15, nil, nil)
+	pm, _ := newTestProtocolManagerMust(t, downloader.FullSync, downloader.MaxHashFetch+15, nil, nil, true)
 	peer, _ := newTestPeer("peer", protocol, pm, true)
 	defer peer.close()
 
@@ -222,7 +225,7 @@ func testGetBlockHeaders(t *testing.T, protocol uint) {
 func TestGetBlockBodies(t *testing.T) { testGetBlockBodies(t, OBOD01) }
 
 func testGetBlockBodies(t *testing.T, protocol uint) {
-	pm, _ := newTestProtocolManagerMust(t, downloader.FullSync, downloader.MaxBlockFetch+15, nil, nil)
+	pm, _ := newTestProtocolManagerMust(t, downloader.FullSync, downloader.MaxBlockFetch+15, nil, nil, true)
 	peer, _ := newTestPeer("peer", protocol, pm, true)
 	defer peer.close()
 	defer pm.Stop()
@@ -329,7 +332,7 @@ func testGetNodeData(t *testing.T, protocol uint) {
 		}
 	}
 	// Assemble the test environment
-	pm, db := newTestProtocolManagerMust(t, downloader.FullSync, 4, generator, nil)
+	pm, db := newTestProtocolManagerMust(t, downloader.FullSync, 4, generator, nil, true)
 	peer, _ := newTestPeer("peer", protocol, pm, true)
 	defer peer.close()
 	defer pm.Stop()
@@ -422,7 +425,7 @@ func testGetReceipt(t *testing.T, protocol uint) {
 		}
 	}
 	// Assemble the test environment
-	pm, _ := newTestProtocolManagerMust(t, downloader.FullSync, 4, generator, nil)
+	pm, _ := newTestProtocolManagerMust(t, downloader.FullSync, 4, generator, nil, true)
 	peer, _ := newTestPeer("peer", protocol, pm, true)
 	defer peer.close()
 	defer pm.Stop()
@@ -443,51 +446,59 @@ func testGetReceipt(t *testing.T, protocol uint) {
 
 }
 
+
+type DelegatorVotingManagerImpl struct{}
+func (d *DelegatorVotingManagerImpl) Refresh() (delegatorsTable []string, delegatorNodes []*discover.Node) {
+	return []string{}, []*discover.Node{}
+}
+
 // Tests that the node state database can be retrieved based on hashes.
 func TestVoteElection(t *testing.T) { testVoteElection(t, OBOD01) }
 
 func testVoteElection(t *testing.T, protocol uint) {
+	log.Root().SetHandler(log.LvlFilterHandler(log.LvlDebug, log.StreamHandler(os.Stderr, log.TerminalFormat(false))))
+	TestMode = true;
 	generator := func(i int, block *core.BlockGen) {}
-	// Assemble the test environment
-	pm, db   := newTestProtocolManagerMust(t, downloader.FullSync, 4, generator, nil)
+	// Assemble the testing environment
+	pm, _   := newTestProtocolManagerMust(t, downloader.FullSync, 4, generator, nil, false)
 	peer, _  := newTestPeer("peer", protocol, pm, true)
-	peer1, _ := newTestPeer("peer1", protocol, pm, true)
-	peer2, _ := newTestPeer("peer2", protocol, pm, true)
+	peer1, _  := newTestPeer("peer1", protocol, pm, true)
+	defer peer1.close()
 	defer peer.close()
 	defer pm.Stop();
 
+	pm.dposManager.scheduleElecting()
+
+	//expects I win. simply skip this request
+	p2p.Send(peer.app, VOTE_ElectionNode_Request, &VoteElectionRequest{1,
+		NextElectionInfo.electionTickets, currNodeIdHash})
+	if NextElectionInfo.enodestate != VOTESTATE_LOOKING {
+		t.Errorf("returned %v want     %v", NextElectionInfo.enodestate, VOTESTATE_LOOKING)
+	}
+
+	//expects agreed the request node as the election node
+	p2p.Send(peer.app, VOTE_ElectionNode_Request, &VoteElectionRequest{1,
+		2, currNodeIdHash})
+	if NextElectionInfo.round != 1 {
+		t.Errorf("returned %v want     %v", NextElectionInfo.round, 2)
+	}
+	if NextElectionInfo.electionTickets >= 2 {
+		t.Errorf("returned %v want     %v", NextElectionInfo.electionTickets, 2)
+	}
+	if NextElectionInfo.enodestate != VOTESTATE_SELECTED {
+		t.Errorf("returned %v want     %v", NextElectionInfo.enodestate, VOTESTATE_SELECTED)
+	}
+
+	//I am in agreed state already.
+	p2p.Send(peer1.app, VOTE_ElectionNode_Request, &VoteElectionRequest{1,
+		2, currNodeIdHash})
+	if NextElectionInfo.round != 1 {
+		t.Errorf("returned %v want     %v", NextElectionInfo.round, 2)
+	}
+	if NextElectionInfo.enodestate != VOTESTATE_SELECTED {
+		t.Errorf("returned %v want     %v", NextElectionInfo.enodestate, VOTESTATE_SELECTED)
+	}
+
 	DelegatorsTable = []string{peer.ID().TerminalString()}
-
-	// Fetch for now the entire chain store
-	hashes := []common.Hash{}
-	for _, key := range db.Keys() {
-		if len(key) == len(common.Hash{}) {
-			hashes = append(hashes, common.BytesToHash(key))
-		}
-	}
-}
-
-
-func TestVoteElection2(t *testing.T) { testVoteElection2(t, OBOD01) }
-
-func testVoteElection2(t *testing.T, protocol uint) {
-	DelegatorsTable = []string{"cf31324329d16155"}
-	generator := func(i int, block *core.BlockGen) {}
-	// Assemble the test environment
-	pm, db := newTestProtocolManagerMust(t, downloader.FullSync, 4, generator, nil)
-	peer, _ := newTestPeer("peer", protocol, pm, true)
-	peer1, _ := newTestPeer("peer1", protocol, pm, true)
-	peer2, _ := newTestPeer("peer2", protocol, pm, true)
-	defer peer.close()
-	defer pm.Stop()
-
-	// Fetch for now the entire chain store
-	hashes := []common.Hash{}
-	for _, key := range db.Keys() {
-		if len(key) == len(common.Hash{}) {
-			hashes = append(hashes, common.BytesToHash(key))
-		}
-	}
-
-	//time.Sleep(time.Second * time.Duration(5))
+	TestMode = false
 }
