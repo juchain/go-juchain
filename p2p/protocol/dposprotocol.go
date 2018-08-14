@@ -94,7 +94,7 @@ var DPOSerrorToString = map[int]string{
 //
 type SyncBigPeriodRequest struct {
 	Round              uint64;
-	activeTime         int64;
+	ActiveTime         uint64;
 	DelegatedTable     []string; // all 31 nodes id
 	DelegatedTableSign common.Hash;
 	NodeId             []byte
@@ -103,7 +103,7 @@ type SyncBigPeriodRequest struct {
 //
 type SyncBigPeriodResponse struct {
 	Round              uint64;
-	activeTime         int64;
+	ActiveTime         uint64;
 	DelegatedTable     []string; // all 31 nodes id
 	DelegatedTableSign common.Hash;
 	State              uint8
@@ -143,6 +143,7 @@ type ConfirmedSyncMessage struct {
 type VoteElectionRequest struct {
 	Round         uint64
 	Tickets       uint32
+	ActiveTime    uint64
 	NodeId        []byte
 }
 
@@ -150,14 +151,15 @@ type VoteElectionRequest struct {
 type VoteElectionResponse struct {
 	Round          uint64
 	Tickets        uint32
-	ActiveTime     int64
+	ActiveTime     uint64
 	State          uint8
 	ElectionNodeId []byte
 }
 
 type BroadcastVotedElection struct {
-	Round         uint64
+	Round          uint64
 	Tickets        uint32
+	ActiveTime     uint64
 	State          uint8
 	ElectionNodeId []byte
 }

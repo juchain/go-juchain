@@ -33,6 +33,7 @@ import (
 	"github.com/juchain/go-juchain/p2p/discover"
 	"os"
 	"github.com/juchain/go-juchain/common/log"
+	"time"
 )
 
 // Tests that protocol versions and modes of operations are matched up properly.
@@ -467,56 +468,78 @@ func testVoteElection(t *testing.T, protocol uint) {
 	defer peer.close()
 	defer pm.Stop();
 
-	pm.dposManager.scheduleElecting()
+	NodeAIdHash := common.Hex2Bytes("aaaaa111");
+	NodeBIdHash := common.Hex2Bytes("bbbbb111");
 
+	pm.dposManager.scheduleElecting()
+	activeTime := NextElectionInfo.activeTime;
 	//expects I win. simply skip this request
 	p2p.Send(peer.app, VOTE_ElectionNode_Request, &VoteElectionRequest{1,
-		NextElectionInfo.electionTickets, currNodeIdHash})
-	if NextElectionInfo.enodestate != VOTESTATE_LOOKING {
+		100, activeTime, currNodeIdHash})
+	time.Sleep(time.Millisecond * time.Duration(500))
+	if NextElectionInfo.enodestate != VOTESTATE_SELECTED {
+		t.Errorf("returned %v want     %v", NextElectionInfo.enodestate, VOTESTATE_SELECTED)
+	}
+	if NextElectionInfo.activeTime != activeTime {
 		t.Errorf("returned %v want     %v", NextElectionInfo.enodestate, VOTESTATE_LOOKING)
 	}
 
 	//expects agreed the request node as the election node
 	p2p.Send(peer.app, VOTE_ElectionNode_Request, &VoteElectionRequest{1,
-		2, currNodeIdHash})
+		2, activeTime, currNodeIdHash})
+	time.Sleep(time.Millisecond * time.Duration(500))
 	if NextElectionInfo.round != 1 {
 		t.Errorf("returned %v want     %v", NextElectionInfo.round, 2)
 	}
-	if NextElectionInfo.electionTickets >= 2 {
-		t.Errorf("returned %v want     %v", NextElectionInfo.electionTickets, 2)
-	}
-	if NextElectionInfo.enodestate == VOTESTATE_SELECTED {
+	t.Logf("electionTickets returned %v", NextElectionInfo.electionTickets)
+
+	if NextElectionInfo.enodestate != VOTESTATE_SELECTED {
 		t.Errorf("returned %v want     %v", NextElectionInfo.enodestate, VOTESTATE_SELECTED)
+	}
+	if NextElectionInfo.activeTime != activeTime {
+		t.Errorf("returned %v want     %v", NextElectionInfo.enodestate, VOTESTATE_LOOKING)
 	}
 
 	//I am in agreed state already.
 	p2p.Send(peer1.app, VOTE_ElectionNode_Request, &VoteElectionRequest{1,
-		2, currNodeIdHash})
+		2, activeTime, NodeAIdHash})
+	time.Sleep(time.Millisecond * time.Duration(500))
 	if NextElectionInfo.round != 1 {
 		t.Errorf("returned %v want     %v", NextElectionInfo.round, 2)
 	}
-	if NextElectionInfo.enodestate == VOTESTATE_SELECTED {
+	if NextElectionInfo.enodestate != VOTESTATE_SELECTED {
 		t.Errorf("returned %v want     %v", NextElectionInfo.enodestate, VOTESTATE_SELECTED)
+	}
+	if NextElectionInfo.activeTime != activeTime {
+		t.Errorf("returned %v want     %v", NextElectionInfo.enodestate, VOTESTATE_LOOKING)
 	}
 
 	//Mismatched request.round with less value
 	p2p.Send(peer1.app, VOTE_ElectionNode_Request, &VoteElectionRequest{0,
-		2, currNodeIdHash})
+		2, activeTime, NodeAIdHash})
+	time.Sleep(time.Millisecond * time.Duration(500))
 	if NextElectionInfo.round != 1 {
 		t.Errorf("returned %v want     %v", NextElectionInfo.round, 2)
 	}
-	if NextElectionInfo.enodestate == VOTESTATE_SELECTED {
+	if NextElectionInfo.enodestate != VOTESTATE_SELECTED {
 		t.Errorf("returned %v want     %v", NextElectionInfo.enodestate, VOTESTATE_SELECTED)
+	}
+	if NextElectionInfo.activeTime != activeTime {
+		t.Errorf("returned %v want     %v", NextElectionInfo.enodestate, VOTESTATE_LOOKING)
 	}
 
 	//Mismatched request.round with greater value
 	p2p.Send(peer1.app, VOTE_ElectionNode_Request, &VoteElectionRequest{2,
-		2, currNodeIdHash})
+		2, activeTime, currNodeIdHash})
+	time.Sleep(time.Millisecond * time.Duration(500))
 	if NextElectionInfo.round != 1 {
 		t.Errorf("returned %v want     %v", NextElectionInfo.round, 2)
 	}
-	if NextElectionInfo.enodestate == VOTESTATE_SELECTED {
+	if NextElectionInfo.enodestate != VOTESTATE_SELECTED {
 		t.Errorf("returned %v want     %v", NextElectionInfo.enodestate, VOTESTATE_SELECTED)
+	}
+	if NextElectionInfo.activeTime != activeTime {
+		t.Errorf("returned %v want     %v", NextElectionInfo.enodestate, VOTESTATE_LOOKING)
 	}
 
 	//Voted Election Response must not have VOTESTATE_SELECTED state. rejected!
@@ -529,14 +552,74 @@ func testVoteElection(t *testing.T, protocol uint) {
 
 	//Confirmed the final election node:
 	p2p.Send(peer.app, VOTE_ElectionNode_Broadcast, &BroadcastVotedElection{1,
-		2, VOTESTATE_MISMATCHED_ROUND,currNodeIdHash})
+		2, activeTime, VOTESTATE_MISMATCHED_ROUND,currNodeIdHash})
 	p2p.Send(peer.app, VOTE_ElectionNode_Broadcast, &BroadcastVotedElection{1,
-		2, VOTESTATE_MISMATCHED_ROUND,currNodeIdHash})
+		2, activeTime, VOTESTATE_MISMATCHED_ROUND,NodeAIdHash})
 	p2p.Send(peer.app, VOTE_ElectionNode_Broadcast, &BroadcastVotedElection{1,
-		2, VOTESTATE_MISMATCHED_ROUND,currNodeIdHash})
+		2, activeTime, VOTESTATE_MISMATCHED_ROUND,NodeAIdHash})
+	time.Sleep(time.Millisecond * time.Duration(500))
 	if NextElectionInfo.enodestate != VOTESTATE_SELECTED {
 		t.Errorf("returned %v want     %v", NextElectionInfo.enodestate, VOTESTATE_SELECTED)
 	}
+	if NextElectionInfo.activeTime != activeTime {
+		t.Errorf("returned %v want     %v", NextElectionInfo.enodestate, VOTESTATE_LOOKING)
+	}
+
+	// switch to next round.
+	pm.dposManager.scheduleElecting()
+	if NextElectionInfo.round != 2 {
+		t.Errorf("returned %v want     %v", NextElectionInfo.round, 2)
+	}
+	if NextElectionInfo.enodestate != VOTESTATE_LOOKING {
+		t.Errorf("returned %v want     %v", NextElectionInfo.enodestate, VOTESTATE_LOOKING)
+	}
+	if LastElectedNodeId != common.Bytes2Hex(NodeAIdHash) {
+		t.Errorf("returned %v want     %v", LastElectedNodeId, common.Bytes2Hex(NodeAIdHash))
+	}
+
+	//Mismatched request.round
+	p2p.Send(peer.app, VOTE_ElectionNode_Request, &VoteElectionRequest{1,
+		NextElectionInfo.electionTickets, activeTime, currNodeIdHash})
+	time.Sleep(time.Millisecond * time.Duration(500))
+	if NextElectionInfo.enodestate != VOTESTATE_LOOKING {
+		t.Errorf("returned %v want     %v", NextElectionInfo.enodestate, VOTESTATE_LOOKING)
+	}
+	p2p.Send(peer.app, VOTE_ElectionNode_Request, &VoteElectionRequest{3,
+		NextElectionInfo.electionTickets, activeTime,currNodeIdHash})
+	time.Sleep(time.Millisecond * time.Duration(500))
+	if NextElectionInfo.enodestate != VOTESTATE_LOOKING {
+		t.Errorf("returned %v want     %v", NextElectionInfo.enodestate, VOTESTATE_LOOKING)
+	}
+	p2p.Send(peer.app, VOTE_ElectionNode_Broadcast, &BroadcastVotedElection{2,
+		2, activeTime, VOTESTATE_MISMATCHED_ROUND,currNodeIdHash})
+	p2p.Send(peer.app, VOTE_ElectionNode_Broadcast, &BroadcastVotedElection{2,
+		3, activeTime, VOTESTATE_MISMATCHED_ROUND,NodeBIdHash})
+	p2p.Send(peer.app, VOTE_ElectionNode_Broadcast, &BroadcastVotedElection{2,
+		4, activeTime, VOTESTATE_MISMATCHED_ROUND,NodeBIdHash})
+	time.Sleep(time.Millisecond * time.Duration(500))
+	if NextElectionInfo.enodestate != VOTESTATE_SELECTED {
+		t.Errorf("returned %v want     %v", NextElectionInfo.enodestate, VOTESTATE_SELECTED)
+	}
+
+	pm.dposManager.scheduleElecting()
+	TestMode = false
+}
+
+func TestDPosDelegator(t *testing.T) {
+	log.Root().SetHandler(log.LvlFilterHandler(log.LvlDebug, log.StreamHandler(os.Stderr, log.TerminalFormat(false))))
+	TestMode = true;
+	generator := func(i int, block *core.BlockGen) {}
+	// Assemble the testing environment
+	pm, _   := newTestProtocolManagerMust(t, downloader.FullSync, 4, generator, nil, false)
+	peer, _  := newTestPeer("peer", OBOD01, pm, true)
+	peer1, _  := newTestPeer("peer1", OBOD01, pm, true)
+	defer peer1.close()
+	defer peer.close()
+	defer pm.Stop();
+
+
+
+
 
 	TestMode = false
 }

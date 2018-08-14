@@ -145,9 +145,9 @@ func (pm *DPoSProtocolManager) syncDelegatedNodeSafely() {
 	if NextGigPeriodInstance != nil {
 		round = NextGigPeriodInstance.round + 1
 	}
-	activeTime := time.Now().Unix() + int64(GigPeriodInterval)
+	activeTime := uint64(time.Now().Unix() + int64(GigPeriodInterval))
 	if GigPeriodInstance != nil {
-		activeTime = GigPeriodInstance.activeTime + int64(GigPeriodInterval)
+		activeTime = GigPeriodInstance.activeTime + uint64(GigPeriodInterval)
 	}
 	// make sure all delegators are synced at this round.
 	NextGigPeriodInstance = &GigPeriodTable{
@@ -280,7 +280,7 @@ func (pm *DPoSProtocolManager) handleMsg(msg *p2p.Msg, p *peer) error {
 				response.DelegatedTable,
 				response.DelegatedTableSign,
 				0,
-				response.activeTime,
+				response.ActiveTime,
 			};
 			pm.trySyncAllDelegators()
 		} else if response.State == STATE_MISMATCHED_DNUMBER {
@@ -293,7 +293,7 @@ func (pm *DPoSProtocolManager) handleMsg(msg *p2p.Msg, p *peer) error {
 			NextGigPeriodInstance.state = STATE_CONFIRMED;
 
 			//switch to GigPeriodInstance when the next round begins.
-			leftTime := NextGigPeriodInstance.activeTime - time.Now().Unix()
+			leftTime := int64(NextGigPeriodInstance.activeTime) - time.Now().Unix()
 			time.AfterFunc(time.Second*time.Duration(leftTime), func() {
 				GigPeriodInstance = &GigPeriodTable{
 					NextGigPeriodInstance.round,
@@ -373,12 +373,12 @@ type GigPeriodTable struct {
 	delegatedNodes     []string;    // all 31 nodes id
 	delegatedNodesSign common.Hash; // a security sign for all delegated nodes which can be verified from node array.
 	confirmedTickets   uint8;       // 31 node must be confirmed this ticket or must equal to delegatedNodes length.
-	activeTime         int64;       // Unix timestamp for all nodes.
+	activeTime         uint64;       // Unix timestamp for all nodes.
 }
 func (t *GigPeriodTable) wasHisTurn(round uint64, nodeId string, minedTime int64) bool {
 	for i :=0; i < len(t.delegatedNodes); i++ {
 		if t.delegatedNodes[i] == nodeId {
-			beatStartTime := t.activeTime + (int64(i) * int64(SmallPeriodInterval))
+			beatStartTime := int64(t.activeTime) + (int64(i) * int64(SmallPeriodInterval))
 			if beatStartTime <= minedTime && (beatStartTime+ int64(SmallPeriodInterval)) >= minedTime {
 				return true;
 			}
@@ -387,7 +387,7 @@ func (t *GigPeriodTable) wasHisTurn(round uint64, nodeId string, minedTime int64
 	// check the history.
 	if len(GigPeriodHistory) > 0 {
 		for _, v := range GigPeriodHistory {
-			if v.activeTime <= minedTime && (v.activeTime+ int64(SmallPeriodInterval)) >= minedTime {
+			if int64(v.activeTime) <= minedTime && (int64(v.activeTime) + int64(SmallPeriodInterval)) >= minedTime {
 				for i :=0; i < len(v.delegatedNodes); i++ {
 					if v.delegatedNodes[i] == nodeId {
 						//todo check round as well.
@@ -402,7 +402,7 @@ func (t *GigPeriodTable) wasHisTurn(round uint64, nodeId string, minedTime int64
 func (t *GigPeriodTable) isMyTurn() bool {
 	for i :=0; i < len(t.delegatedNodes); i++ {
 		if t.delegatedNodes[i] == currNodeId {
-			beatStartTime := t.activeTime + (int64(i) * int64(SmallPeriodInterval))
+			beatStartTime := int64(t.activeTime) + (int64(i) * int64(SmallPeriodInterval))
 			currTime := time.Now().Unix()
 			// we only give 4s to avoid the mismatched timestamp issue of last packaging.
 			if beatStartTime <= currTime && (beatStartTime+ int64(SmallPeriodInterval)) > currTime {
@@ -415,7 +415,7 @@ func (t *GigPeriodTable) isMyTurn() bool {
 func (t *GigPeriodTable) whosTurn() string {
 	currTime := time.Now().Unix()
 	for i :=0; i < len(t.delegatedNodes); i++ {
-		beatStartTime := t.activeTime + (int64(i) * int64(SmallPeriodInterval))
+		beatStartTime := int64(t.activeTime) + (int64(i) * int64(SmallPeriodInterval))
 		if beatStartTime <= currTime && (beatStartTime+ int64(SmallPeriodInterval)) >= currTime {
 			return "Who's turn: {position: " + strconv.Itoa(i) + ", delegator: " + t.delegatedNodes[i] + " }";
 		}
