@@ -107,7 +107,7 @@ type SyncBigPeriodResponse struct {
 	DelegatedTable     []string; // all 31 nodes id
 	DelegatedTableSign common.Hash;
 	State              uint8
-	nodeId             []byte
+	NodeId             []byte
 }
 
 //

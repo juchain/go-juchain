@@ -33,8 +33,8 @@ import (
 	"github.com/juchain/go-juchain/consensus"
 	"github.com/juchain/go-juchain/consensus/dpos"
 	"github.com/juchain/go-juchain/config"
-	"reflect"
 	"fmt"
+	"reflect"
 )
 
 // DPoS consensus handler of delegator packaging process.
@@ -64,9 +64,25 @@ var (
 	GigPeriodInstance     *GigPeriodTable; // we use two versions of election info for switching delegated nodes smoothly.
 	NextGigPeriodInstance *GigPeriodTable;
 
+	VotingAccessor  DelegatorAccessor; // responsible for access voting data.
 	DelegatorsTable   []string;         // only for all delegated node ids. the table will receive from a voting contract.
 	DelegatorNodeInfo []*discover.Node; // all delegated peers. = make([]*discover.Node, 0, len(urls))
+
 )
+
+// Delegator table refers to the voting contract.
+type DelegatorAccessor interface {
+	Refresh() (delegatorsTable []string, delegatorNodes []*discover.Node)
+}
+
+// only for test purpose.
+type DelegatorAccessorTestImpl struct {
+	currNodeId           string;           // current short node id.
+	currNodeIdHash       []byte;           // short node id hash.
+}
+func (d *DelegatorAccessorTestImpl) Refresh() (delegatorsTable []string, delegatorNodes []*discover.Node) {
+	return []string{d.currNodeId}, []*discover.Node{}
+}
 
 type DPoSProtocolManager struct {
 	networkId     uint64;
@@ -75,13 +91,12 @@ type DPoSProtocolManager struct {
 	blockchain    *core.BlockChain;
 
 	lock          *sync.Mutex; // protects running
-
-	packager       *dpos.Packager;
-	votingManager  DelegatorVotingManager;
+	packager      *dpos.Packager;
+	t1            *time.Timer; // global synchronized timer.
 }
 
-// NewProtocolManager returns a new ethereum sub protocol manager. The JuchainService sub protocol manages peers capable
-// with the ethereum network.
+// NewProtocolManager returns a new obod sub protocol manager. The JuchainService sub protocol manages peers capable
+// with the obod network.
 func NewDPoSProtocolManager(eth *JuchainService, ethManager *ProtocolManager, config *config.ChainConfig, config2 *node.Config,
 	mode downloader.SyncMode, networkId uint64, blockchain *core.BlockChain, engine consensus.Engine) (*DPoSProtocolManager) {
 	// Create the protocol manager with the base fields
@@ -95,30 +110,35 @@ func NewDPoSProtocolManager(eth *JuchainService, ethManager *ProtocolManager, co
 	}
 	currNodeId = discover.PubkeyID(&config2.NodeKey().PublicKey).TerminalString();
 	currNodeIdHash = common.Hex2Bytes(currNodeId);
-
+	if TestMode {
+		VotingAccessor = &DelegatorAccessorTestImpl{currNodeId:currNodeId, currNodeIdHash:currNodeIdHash};
+	}
 	return manager
 }
 
 func (pm *DPoSProtocolManager) Start() {
-	log.Info("Starting DPoS Packaging Consensus")
-
+	if TestMode {
+		DelegatorsTable = []string{currNodeId}
+	}
 	if pm.isDelegatedNode() {
+		log.Info("I am a delegator.")
 		pm.packager.Start();
-		go pm.syncDelegatedNodeSafely();
-		go pm.roundRobinSafely();
-		time.AfterFunc(time.Second*time.Duration(GigPeriodInterval), pm.scheduleSyncBigPeriod);
-		time.AfterFunc(time.Second*time.Duration(1), pm.scheduleSmallPeriod);;
+		go pm.schedule();
+		if !TestMode {
+			time.AfterFunc(time.Second*time.Duration(SmallPeriodInterval), pm.syncDelegatedNodeSafely) //initial attempt.
+		}
 	}
 }
 
-func (pm *DPoSProtocolManager) scheduleSmallPeriod() {
-	pm.roundRobinSafely();
-	time.AfterFunc(time.Second*time.Duration(1), pm.scheduleSmallPeriod);
-}
-
-func (pm *DPoSProtocolManager) scheduleSyncBigPeriod() {
-	pm.syncDelegatedNodeSafely();
-	time.AfterFunc(time.Second*time.Duration(GigPeriodInterval), pm.scheduleSyncBigPeriod);
+func (pm *DPoSProtocolManager) schedule() {
+	t2 := time.NewTimer(time.Second * time.Duration(1))
+	for {
+		select {
+		case <-t2.C:
+			go pm.roundRobinSafely();
+			t2 = time.NewTimer(time.Second * time.Duration(1))
+		}
+	}
 }
 
 // this is a loop function for electing node.
@@ -129,38 +149,60 @@ func (pm *DPoSProtocolManager) syncDelegatedNodeSafely() {
 	}
 	log.Info("Preparing for next big period...");
 	// pull the newest delegators from voting contract.
-	DelegatorsTable, DelegatorNodeInfo = pm.votingManager.Refresh()
+	DelegatorsTable, DelegatorNodeInfo = VotingAccessor.Refresh()
 	if uint8(len(GigPeriodHistory)) >= BigPeriodHistorySize {
 		GigPeriodHistory = GigPeriodHistory[1:] //remove the first old one.
 	}
 	if len(DelegatorsTable) == 0 || pm.ethManager.peers.Len() == 0 {
-		log.Info("Sorry, could not detect any delegator found!");
+		log.Info("Sorry, could not detect any delegator!");
 		return;
 	}
+	round := uint64(1)
+	activeTime := uint64(time.Now().Unix() + int64(GigPeriodInterval))
 	if NextGigPeriodInstance != nil {
+		if !TestMode {
+			gap := int64(NextGigPeriodInstance.activeTime) - time.Now().Unix()
+			if gap > 2 || gap < -2 {
+				log.Warn(fmt.Sprintf("Scheduling of the new electing round is improper! current gap: %v seconds", gap))
+				//restart the scheduler
+				NextElectionInfo = nil;
+				pm.syncDelegatedNodeSafely();
+				return;
+			}
+		}
+		round = NextGigPeriodInstance.round + 1
+		activeTime = GigPeriodInstance.activeTime + uint64(GigPeriodInterval)
 		// keep the big period history for block validation.
 		GigPeriodHistory[len(GigPeriodHistory)-1] = *NextGigPeriodInstance;
+
+		GigPeriodInstance = &GigPeriodTable{
+			NextGigPeriodInstance.round,
+			NextGigPeriodInstance.state,
+			NextGigPeriodInstance.delegatedNodes,
+			NextGigPeriodInstance.delegatedNodesSign,
+			NextGigPeriodInstance.confirmedTickets,
+			NextGigPeriodInstance.confirmedBestNode,
+			NextGigPeriodInstance.activeTime,
+		};
+		log.Info(fmt.Sprintf("Switched the new big period round. %d ", GigPeriodInstance.round));
 	}
-	round := uint64(1)
-	if NextGigPeriodInstance != nil {
-		round = NextGigPeriodInstance.round + 1
-	}
-	activeTime := uint64(time.Now().Unix() + int64(GigPeriodInterval))
-	if GigPeriodInstance != nil {
-		activeTime = GigPeriodInstance.activeTime + uint64(GigPeriodInterval)
-	}
+
 	// make sure all delegators are synced at this round.
 	NextGigPeriodInstance = &GigPeriodTable{
 		round,
 		STATE_LOOKING,
 		DelegatorsTable,
 		SignCandidates(DelegatorsTable),
-		0,
+		make(map[string]uint32),
+		make(map[string]*GigPeriodTable),
 		activeTime,
 	};
 	pm.trySyncAllDelegators()
 }
 func (pm *DPoSProtocolManager) trySyncAllDelegators() {
+	if TestMode {
+		return;
+	}
 	//send this round to all delegated peers.
 	//all delegated must giving the response in SYNC_BIGPERIOD_RESPONSE state.
 	for _, delegator := range NextGigPeriodInstance.delegatedNodes {
@@ -205,112 +247,179 @@ func (pm *DPoSProtocolManager) handleMsg(msg *p2p.Msg, p *peer) error {
 		}
 		if DelegatorsTable == nil || len(DelegatorsTable) == 0 {
 			// i am not ready.
+			log.Info("I am not ready!!!")
 			return nil;
 		}
-		if NextGigPeriodInstance.state == STATE_CONFIRMED {
-			if request.Round < NextGigPeriodInstance.round {
-				return p.SendSyncBigPeriodResponse(&SyncBigPeriodResponse{
-					NextGigPeriodInstance.round,
-					NextGigPeriodInstance.activeTime,
-					NextGigPeriodInstance.delegatedNodes,
-					NextGigPeriodInstance.delegatedNodesSign,
-					STATE_MISMATCHED_ROUND,
-					currNodeIdHash});
-			}
-			// if i have already confirmed this round. send this round to peer.
-			return p.SendSyncBigPeriodResponse(&SyncBigPeriodResponse{
-				NextGigPeriodInstance.round,
-				NextGigPeriodInstance.activeTime,
-				NextGigPeriodInstance.delegatedNodes,
-				NextGigPeriodInstance.delegatedNodesSign,
-				STATE_CONFIRMED,
-				currNodeIdHash});
-		} else if NextGigPeriodInstance.state == STATE_LOOKING {
-			if request.Round < NextGigPeriodInstance.round{
-				return p.SendSyncBigPeriodResponse(&SyncBigPeriodResponse{
-					NextGigPeriodInstance.round,
-					NextGigPeriodInstance.activeTime,
-					NextGigPeriodInstance.delegatedNodes,
-					NextGigPeriodInstance.delegatedNodesSign,
-					STATE_MISMATCHED_ROUND,
-					currNodeIdHash});
-			}
-			if !reflect.DeepEqual(DelegatorsTable, request.DelegatedTable) {
-				if len(DelegatorsTable) < len(request.DelegatedTable) {
-					// refresh table if mismatch.
-					DelegatorsTable, DelegatorNodeInfo = pm.votingManager.Refresh()
+		if request.Round == NextGigPeriodInstance.round {
+			if NextGigPeriodInstance.state == STATE_CONFIRMED {
+				log.Debug(fmt.Sprintf("I am in the agreed round %v", NextGigPeriodInstance.round));
+				// if i have already confirmed this round. send this round to peer.
+				if TestMode {
+					return nil;
 				}
+				return p.SendSyncBigPeriodResponse(&SyncBigPeriodResponse{
+					NextGigPeriodInstance.round,
+					NextGigPeriodInstance.activeTime,
+					NextGigPeriodInstance.delegatedNodes,
+					NextGigPeriodInstance.delegatedNodesSign,
+					STATE_CONFIRMED,
+					currNodeIdHash});
+			} else {
 				if !reflect.DeepEqual(DelegatorsTable, request.DelegatedTable) {
-					// i got more then you, reject your request.
-					return p.SendSyncBigPeriodResponse(&SyncBigPeriodResponse{
+					if len(DelegatorsTable) < len(request.DelegatedTable) {
+						// refresh table if mismatch.
+						DelegatorsTable, DelegatorNodeInfo = VotingAccessor.Refresh()
+					}
+					if !reflect.DeepEqual(DelegatorsTable, request.DelegatedTable) {
+						log.Debug("Delegators are mismatched in two tables.");
+						if TestMode {
+							return nil;
+						}
+						// both delegators are not matched,  both lose the election power of this round.
+						return p.SendSyncBigPeriodResponse(&SyncBigPeriodResponse{
+							NextGigPeriodInstance.round,
+							NextGigPeriodInstance.activeTime,
+							NextGigPeriodInstance.delegatedNodes,
+							NextGigPeriodInstance.delegatedNodesSign,
+							STATE_MISMATCHED_DNUMBER,
+							currNodeIdHash});
+					}
+				}
+				NextGigPeriodInstance.state = STATE_CONFIRMED;
+				NextGigPeriodInstance.delegatedNodes = request.DelegatedTable;
+				NextGigPeriodInstance.delegatedNodesSign = request.DelegatedTableSign;
+				NextGigPeriodInstance.activeTime = request.ActiveTime;
+
+				pm.setNextRoundTimer();//sync the timer.
+				log.Debug(fmt.Sprintf("Agreed this table %v as %v round", NextGigPeriodInstance.delegatedNodes, NextGigPeriodInstance.round));
+				if TestMode {
+					return nil;
+				}
+				// broadcast it to all peers again.
+				for _, peer := range pm.ethManager.peers.peers {
+					err := peer.SendSyncBigPeriodResponse(&SyncBigPeriodResponse{
 						NextGigPeriodInstance.round,
 						NextGigPeriodInstance.activeTime,
 						NextGigPeriodInstance.delegatedNodes,
 						NextGigPeriodInstance.delegatedNodesSign,
-						STATE_MISMATCHED_DNUMBER,
-						currNodeIdHash});
+						STATE_CONFIRMED,
+						currNodeIdHash})
+					if (err != nil) {
+						log.Warn("Error occurred while sending VoteElectionRequest: " + err.Error())
+					}
 				}
 			}
-			// even though i have not confirmed this round yet, we met all conditions. send this round to peer.
+		} else if request.Round < NextGigPeriodInstance.round {
+			log.Debug(fmt.Sprintf("Mismatched request.round %v, CurrRound %v: ", request.Round, NextGigPeriodInstance.round))
+			if TestMode {
+				return nil;
+			}
 			return p.SendSyncBigPeriodResponse(&SyncBigPeriodResponse{
 				NextGigPeriodInstance.round,
 				NextGigPeriodInstance.activeTime,
 				NextGigPeriodInstance.delegatedNodes,
 				NextGigPeriodInstance.delegatedNodesSign,
-				STATE_CONFIRMED,
+				STATE_MISMATCHED_ROUND,
 				currNodeIdHash});
-		} else {
-			log.Warn("SYNC Process must not going to here!!!!")
+		} else if request.Round > NextGigPeriodInstance.round {
+			if NextGigPeriodInstance.state == STATE_CONFIRMED {
+				if TestMode {
+					return nil;
+				}
+				return p.SendSyncBigPeriodResponse(&SyncBigPeriodResponse{
+					NextGigPeriodInstance.round,
+					NextGigPeriodInstance.activeTime,
+					NextGigPeriodInstance.delegatedNodes,
+					NextGigPeriodInstance.delegatedNodesSign,
+					STATE_CONFIRMED,
+					currNodeIdHash});
+			}
+			log.Debug(fmt.Sprintf("Mismatched request.round %v, CurrRound %v ", request.Round, NextGigPeriodInstance.round))
+			// skip the conditions.
 		}
 	case msg.Code == SYNC_BIGPERIOD_RESPONSE:
 		var response SyncBigPeriodResponse;
 		if err := msg.Decode(&response); err != nil {
 			return errResp(DPOSErrDecode, "%v: %v", msg, err);
 		}
-		if NextGigPeriodInstance.state == STATE_CONFIRMED {
+		if response.Round != NextGigPeriodInstance.round {
 			return nil;
 		}
-		if response.State == STATE_CONFIRMED {
-			NextGigPeriodInstance.confirmedTickets++;
-		} else if response.State == STATE_MISMATCHED_ROUND && NextGigPeriodInstance.round < response.Round{
+		if SignCandidates(response.DelegatedTable) != response.DelegatedTableSign {
+			return errResp(DPOSErroDelegatorSign, "");
+		}
+		nodeId := common.Bytes2Hex(response.NodeId)
+		log.Debug("Received SYNC Big Period response: " + nodeId);
+		NextGigPeriodInstance.confirmedTickets[nodeId] ++;
+		NextGigPeriodInstance.confirmedBestNode[nodeId] = &GigPeriodTable{
+			response.Round,
+			STATE_CONFIRMED,
+			response.DelegatedTable,
+			response.DelegatedTableSign,
+			nil,
+			nil,
+			response.ActiveTime,
+		};
+
+		maxTickets, bestNodeId := uint32(0), "";
+		for key, value := range NextGigPeriodInstance.confirmedTickets {
+			if maxTickets < value {
+				maxTickets = value;
+				bestNodeId = key;
+			}
+		}
+		if NextGigPeriodInstance.state == STATE_CONFIRMED {
+			// set the best node as the final state.
+			bestNode := NextGigPeriodInstance.confirmedBestNode[bestNodeId];
+			NextGigPeriodInstance.delegatedNodes = bestNode.delegatedNodes;
+			NextGigPeriodInstance.delegatedNodesSign = bestNode.delegatedNodesSign;
+			NextGigPeriodInstance.activeTime = bestNode.activeTime;
+			log.Debug(fmt.Sprintf("Updated the best table: %v", bestNode.delegatedNodes));
+			pm.setNextRoundTimer();
+		} else if NextGigPeriodInstance.state == STATE_LOOKING && uint32(NextGigPeriodInstance.confirmedTickets[bestNodeId]) > uint32(len(NextGigPeriodInstance.delegatedNodes)) {
+			NextGigPeriodInstance.state = STATE_CONFIRMED;
+			NextGigPeriodInstance.delegatedNodes = response.DelegatedTable;
+			NextGigPeriodInstance.delegatedNodesSign = response.DelegatedTableSign;
+			NextGigPeriodInstance.activeTime = response.ActiveTime;
+
+			pm.setNextRoundTimer();
+		} else if response.State == STATE_MISMATCHED_ROUND {
 			// force to create new round
 			NextGigPeriodInstance = &GigPeriodTable{
 				response.Round,
 				STATE_LOOKING,
 				response.DelegatedTable,
 				response.DelegatedTableSign,
-				0,
+				make(map[string]uint32),
+				make(map[string]*GigPeriodTable),
 				response.ActiveTime,
 			};
 			pm.trySyncAllDelegators()
 		} else if response.State == STATE_MISMATCHED_DNUMBER {
-			// force to refresh table
-			DelegatorsTable, DelegatorNodeInfo = pm.votingManager.Refresh()
-			//pm.syncDelegatedNodeSafely()
-		}
-		// TODO: need a counter to be confirmed from 2/3 nodes.
-		if NextGigPeriodInstance.confirmedTickets == uint8(len(NextGigPeriodInstance.delegatedNodes)) {
-			NextGigPeriodInstance.state = STATE_CONFIRMED;
-
-			//switch to GigPeriodInstance when the next round begins.
-			leftTime := int64(NextGigPeriodInstance.activeTime) - time.Now().Unix()
-			time.AfterFunc(time.Second*time.Duration(leftTime), func() {
-				GigPeriodInstance = &GigPeriodTable{
-					NextGigPeriodInstance.round,
-					NextGigPeriodInstance.state,
-					NextGigPeriodInstance.delegatedNodes,
-					NextGigPeriodInstance.delegatedNodesSign,
-					NextGigPeriodInstance.confirmedTickets,
-					NextGigPeriodInstance.activeTime,
-				};
-				log.Info(fmt.Sprintf("Switched the new big period round. %d ", GigPeriodInstance.round));
-			});
+			// refresh table only, and this node loses the election power of this round.
+			DelegatorsTable, DelegatorNodeInfo = VotingAccessor.Refresh()
 		}
 		return nil;
 	default:
 		return errResp(ErrInvalidMsgCode, "%v", msg.Code)
 	}
 	return nil
+}
+
+func (pm *DPoSProtocolManager) setNextRoundTimer() {
+	leftTime := int64(NextGigPeriodInstance.activeTime) - time.Now().Unix()
+	if leftTime < 1 {
+		log.Warn("Discard this round due to the expiration of the active time.")
+		return;
+	}
+	if pm.t1 != nil {
+		// potentially could be an issue if the timer is unable to be cancelled.
+		if pm.t1.Stop() {
+			pm.t1 = time.AfterFunc(time.Second*time.Duration(leftTime), pm.syncDelegatedNodeSafely)
+		}
+	} else {
+		pm.t1 = time.AfterFunc(time.Second*time.Duration(leftTime), pm.syncDelegatedNodeSafely)
+	}
 }
 
 // the node would not be a candidate if it is not qualified.
@@ -372,7 +481,8 @@ type GigPeriodTable struct {
 	state              uint8;       // STATE_LOOKING
 	delegatedNodes     []string;    // all 31 nodes id
 	delegatedNodesSign common.Hash; // a security sign for all delegated nodes which can be verified from node array.
-	confirmedTickets   uint8;       // 31 node must be confirmed this ticket or must equal to delegatedNodes length.
+	confirmedTickets   map[string]uint32;   // 31 node must be confirmed this ticket or must equal to delegatedNodes length.
+	confirmedBestNode  map[string]*GigPeriodTable;  // confirmed the next active time from all peers. <nodeid><GigPeriodTable>
 	activeTime         uint64;       // Unix timestamp for all nodes.
 }
 func (t *GigPeriodTable) wasHisTurn(round uint64, nodeId string, minedTime int64) bool {
@@ -440,6 +550,5 @@ func SignCandidates(candidates []string) common.Hash {
 	var signCandidates = []byte{}
 	hw := sha3.NewKeccak256()
 	rlp.Encode(hw, candidates)
-	hw.Sum(signCandidates)
-	return common.BytesToHash(signCandidates)
+	return common.BytesToHash(hw.Sum(signCandidates))
 }

@@ -34,6 +34,7 @@ import (
 	"os"
 	"github.com/juchain/go-juchain/common/log"
 	"time"
+	"reflect"
 )
 
 // Tests that protocol versions and modes of operations are matched up properly.
@@ -531,6 +532,8 @@ func testVoteElection(t *testing.T, protocol uint) {
 	//Mismatched request.round with greater value
 	p2p.Send(peer1.app, VOTE_ElectionNode_Request, &VoteElectionRequest{2,
 		2, activeTime, currNodeIdHash})
+	p2p.Send(peer1.app, VOTE_ElectionNode_Request, &VoteElectionRequest{NextElectionInfo.round - 10,
+		2, activeTime, currNodeIdHash})
 	time.Sleep(time.Millisecond * time.Duration(500))
 	if NextElectionInfo.round != 1 {
 		t.Errorf("returned %v want     %v", NextElectionInfo.round, 2)
@@ -607,6 +610,8 @@ func testVoteElection(t *testing.T, protocol uint) {
 
 func TestDPosDelegator(t *testing.T) {
 	log.Root().SetHandler(log.LvlFilterHandler(log.LvlDebug, log.StreamHandler(os.Stderr, log.TerminalFormat(false))))
+
+	DelegatorsTable = []string{"abcd"}
 	TestMode = true;
 	generator := func(i int, block *core.BlockGen) {}
 	// Assemble the testing environment
@@ -617,9 +622,57 @@ func TestDPosDelegator(t *testing.T) {
 	defer peer.close()
 	defer pm.Stop();
 
+	NodeAIdHash := common.Hex2Bytes("aaaaa111");
+	pm.dposManager.dposManager.syncDelegatedNodeSafely()
 
+	p2p.Send(peer.app, SYNC_BIGPERIOD_REQUEST, &SyncBigPeriodRequest{NextGigPeriodInstance.round,
+		NextGigPeriodInstance.activeTime,
+		NextGigPeriodInstance.delegatedNodes,
+		NextGigPeriodInstance.delegatedNodesSign,
+		currNodeIdHash})
+	p2p.Send(peer1.app, SYNC_BIGPERIOD_REQUEST, &SyncBigPeriodRequest{NextGigPeriodInstance.round,
+		NextGigPeriodInstance.activeTime,
+		NextGigPeriodInstance.delegatedNodes,
+		NextGigPeriodInstance.delegatedNodesSign,
+		NodeAIdHash})
+	// mismatch and overflow
+	p2p.Send(peer1.app, SYNC_BIGPERIOD_REQUEST, &SyncBigPeriodRequest{NextGigPeriodInstance.round-10,
+		NextGigPeriodInstance.activeTime,
+		NextGigPeriodInstance.delegatedNodes,
+		NextGigPeriodInstance.delegatedNodesSign,
+		NodeAIdHash})
+	p2p.Send(peer1.app, SYNC_BIGPERIOD_REQUEST, &SyncBigPeriodRequest{NextGigPeriodInstance.round+10,
+		NextGigPeriodInstance.activeTime,
+		NextGigPeriodInstance.delegatedNodes,
+		NextGigPeriodInstance.delegatedNodesSign,
+		NodeAIdHash})
+	time.Sleep(time.Millisecond * time.Duration(500))
+	if NextGigPeriodInstance.state != STATE_CONFIRMED {
+		t.Errorf("returned %v want     %v", NextGigPeriodInstance.state, STATE_CONFIRMED)
+	}
+	if len(NextGigPeriodInstance.delegatedNodes) == 0 {
+		t.Errorf("returned %v want     %v", NextGigPeriodInstance.delegatedNodes, 1)
+	}
 
-
-
+	delegatedNodesA := []string{"aaa", "bbbb", "cccc", "ddddd", "eeeeee"}
+	p2p.Send(peer1.app, SYNC_BIGPERIOD_RESPONSE, &SyncBigPeriodResponse{NextGigPeriodInstance.round,
+		NextGigPeriodInstance.activeTime,
+		delegatedNodesA,
+		SignCandidates(delegatedNodesA),
+		STATE_CONFIRMED,
+		NodeAIdHash})
+	p2p.Send(peer1.app, SYNC_BIGPERIOD_RESPONSE, &SyncBigPeriodResponse{NextGigPeriodInstance.round,
+		NextGigPeriodInstance.activeTime,
+		delegatedNodesA,
+		SignCandidates(delegatedNodesA),
+		STATE_CONFIRMED,
+		NodeAIdHash})
+	time.Sleep(time.Millisecond * time.Duration(500))
+	if NextGigPeriodInstance.state != STATE_CONFIRMED {
+		t.Errorf("returned %v want     %v", NextGigPeriodInstance.state, STATE_CONFIRMED)
+	}
+	if !reflect.DeepEqual(NextGigPeriodInstance.delegatedNodes, delegatedNodesA) {
+		t.Errorf("returned %v want     %v", NextGigPeriodInstance.delegatedNodes, delegatedNodesA)
+	}
 	TestMode = false
 }

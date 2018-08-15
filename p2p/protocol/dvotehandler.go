@@ -50,11 +50,6 @@ var (
 	LastElectedNodeId string;
 )
 
-// Delegator table refers to the voting contract.
-type DelegatorVotingManager interface {
-	Refresh() (delegatorsTable []string, delegatorNodes []*discover.Node)
-}
-
 type ElectionInfo struct {
 	round            uint64;
 	enodestate       uint8; //= VOTESTATE_LOOKING
@@ -103,7 +98,7 @@ func NewDVoteProtocolManager(eth *JuchainService, ethManager *ProtocolManager, c
 }
 
 func (pm *DVoteProtocolManager) Start(maxPeers int) {
-	// get data from contract
+	// todo: get data from contract
 	if DelegatorsTable != nil && len(DelegatorsTable) > 0 {
 		log.Info("Starting DPoS Delegation Consensus")
 		pm.dposManager.Start();
@@ -127,6 +122,7 @@ func (pm *DVoteProtocolManager) schedule() {
 		}
 	}
 }
+
 func (pm *DVoteProtocolManager) schedulePackaging() {
 	// log.Info("schedulePackaging...")
 	// generate block by election node.
@@ -148,6 +144,9 @@ func (pm *DVoteProtocolManager) scheduleElecting() {
 			gap := int64(NextElectionInfo.activeTime) - time.Now().Unix()
 			if gap > 2 || gap < -2 {
 				log.Warn(fmt.Sprintf("Scheduling of the new electing round is improper! current gap: %v seconds", gap))
+				//restart the scheduler
+				NextElectionInfo = nil;
+				pm.scheduleElecting();
 				return;
 			}
 		}
