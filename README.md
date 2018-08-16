@@ -1,4 +1,4 @@
-JuChain is a DApp governing & global-scale blockchain operating system.
+OBOD is a DApp governing & global-scale blockchain operating system.
 
 1.What is DApp Governance?
 ===
@@ -41,8 +41,9 @@ JuChain is a DApp governing & global-scale blockchain operating system.
 
 7.Dependencies
 ===
- JuChain reused Ethereum Kademlia p2p node detection protocol, State database and the keystore solution.
+ OBOD reused Ethereum Kademlia p2p node detection protocol, the state database and the keystore solution as the initial 1.0 version. 
 
 
 8.Copyrights
 ===
+ 
