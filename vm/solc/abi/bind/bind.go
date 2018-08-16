@@ -28,7 +28,7 @@ import (
 	"text/template"
 	"unicode"
 
-	"github.com/juchain/go-juchain/core/account/abi"
+	"github.com/juchain/go-juchain/vm/solc/abi"
 	"golang.org/x/tools/imports"
 )
 

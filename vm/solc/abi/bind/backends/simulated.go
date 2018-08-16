@@ -25,7 +25,7 @@ import (
 	"time"
 
 	"github.com/juchain/go-juchain"
-	"github.com/juchain/go-juchain/core/account/abi/bind"
+	"github.com/juchain/go-juchain/vm/solc/abi/bind"
 	"github.com/juchain/go-juchain/common"
 	"github.com/juchain/go-juchain/common/math"
 	"github.com/juchain/go-juchain/core"

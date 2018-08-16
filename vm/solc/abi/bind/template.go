@@ -16,7 +16,7 @@
 
 package bind
 
-import "github.com/juchain/go-juchain/core/account/abi"
+import "github.com/juchain/go-juchain/vm/solc/abi"
 
 // tmplData is the data structure required to fill the binding template.
 type tmplData struct {

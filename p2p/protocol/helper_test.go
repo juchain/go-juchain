@@ -41,6 +41,7 @@ import (
 	"github.com/juchain/go-juchain/p2p/node"
 	"github.com/juchain/go-juchain/consensus/dpos"
 	"github.com/juchain/go-juchain/core/bloombits"
+	"github.com/juchain/go-juchain/p2p/protocol/gasprice"
 )
 
 var (
@@ -82,9 +83,14 @@ func newTestProtocolManager(mode downloader.SyncMode, blocks int, generator func
 			bloomRequests:  make(chan chan *bloombits.Retrieval),
 			bloomIndexer:   NewBloomIndexer(db, config.BloomBitsBlocks),
 			txPool:         core.NewTxPool(DefaultConfig.TxPool, config.TestChainConfig, blockchain, nil),
-
 		}
 	)
+	eth.ApiBackend = &EthApiBackend{eth, nil}
+	gpoconfig := eth.config.GPO
+	if gpoconfig.Default == nil {
+		gpoconfig.Default = eth.config.GasPrice
+	}
+	eth.ApiBackend.gpo = gasprice.NewOracle(eth.ApiBackend, gpoconfig)
 	chain, _ := core.GenerateChain(gspec.Config, genesis, engine, db, blocks, generator)
 	if _, err := blockchain.InsertChain(chain); err != nil {
 		panic(err)

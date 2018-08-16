@@ -78,6 +78,10 @@ contract DPOSBallot
     }
 
     function register(string nodeid, string ip, uint port) public payable {
+        require(bytes(nodeid).length > 0);
+        require(bytes(ip).length > 0);
+        require(port > 0);
+
         Delegator storage d = delegators[nodeid];
         require(d.port > 0);
         delegators[nodeid] = Delegator({ip: ip, port: port, ticket: 0});
@@ -87,6 +91,8 @@ contract DPOSBallot
 
     /// Give your vote (including votes delegated to you)
     function vote(string nodeid) public payable {
+        require(bytes(nodeid).length > 0);
+
         Delegator storage d = delegators[nodeid];
         require(d.port > 0);
         Voter storage sender = voters[msg.sender];
@@ -120,6 +126,8 @@ contract DPOSBallot
     function delegatorInfo(string nodeid) public view
             returns (string ip, uint port, uint256 ticket)
     {
+        require(bytes(nodeid).length > 0);
+
         Delegator storage d = delegators[nodeid];
         return (d.ip, d.port, d.ticket);
     }

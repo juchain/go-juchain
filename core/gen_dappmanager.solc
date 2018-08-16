@@ -63,6 +63,12 @@ contract DAppManager
             payable
     {
         require(dappInfoMap[msg.sender].initialized == false);
+        require(bytes(dappName).length > 0);
+        require(bytes(orgName).length > 0);
+        require(bytes(orgDescription).length > 0);
+        require(nationalityCode > 0);
+        require(ledgerReplicated > 0);
+
         dappInfoMap[msg.sender] = DAppInformation({
             dappAddress: msg.sender,
             dappName: dappName,
@@ -87,6 +93,9 @@ contract DAppManager
         payable
     {
         require(dappInfoMap[msg.sender].initialized == true);
+        require(bytes(orgDescription).length > 0);
+        require(ledgerReplicated > 0);
+
         DAppInformation storage info = dappInfoMap[msg.sender];
         info.orgDescription = orgDescription;
         info.ledgerReplicated = ledgerReplicated;
@@ -110,6 +119,8 @@ contract DAppManager
         )
     {
         require(dappInfoMap[dappId].initialized == true);
+        require(dappId == address(0));
+
         DAppInformation storage info = dappInfoMap[dappId];
         return (
             info.dappAddress,

@@ -79,7 +79,7 @@ type DVoteProtocolManager struct {
 // NewProtocolManager returns a new ethereum sub protocol manager. The JuchainService sub protocol manages peers capable
 // with the ethereum network.
 func NewDVoteProtocolManager(eth *JuchainService, ethManager *ProtocolManager, config *config.ChainConfig, config2 *node.Config,
-	mode downloader.SyncMode, networkId uint64, blockchain *core.BlockChain, engine consensus.Engine) (*DVoteProtocolManager) {
+	mode downloader.SyncMode, networkId uint64, blockchain *core.BlockChain, engine consensus.Engine) (*DVoteProtocolManager, error) {
 	// Create the protocol manager with the base fields
 	manager := &DVoteProtocolManager{
 		networkId:   networkId,
@@ -87,34 +87,38 @@ func NewDVoteProtocolManager(eth *JuchainService, ethManager *ProtocolManager, c
 		blockchain:  blockchain,
 		lock:        &sync.Mutex{},
 		packager:    dpos.NewPackager(config, engine, DefaultConfig.Etherbase, eth, eth.EventMux()),
-		dposManager: NewDPoSProtocolManager(eth, ethManager, config, config2, mode, networkId, blockchain, engine),
 	}
-
+	//manager.dposManager
+	manager0, err0 := NewDPoSProtocolManager(eth, ethManager, config, config2, mode, networkId, blockchain, engine);
+	if err0 != nil {
+		return nil, err0;
+	}
+	manager.dposManager = manager0;
 	currNodeId = discover.PubkeyID(&config2.NodeKey().PublicKey).TerminalString();
 	currNodeIdHash = common.Hex2Bytes(currNodeId);
 	ElectionInfo0 = nil;
 	NextElectionInfo = nil;
-	return manager
+	return manager, nil
 }
 
 func (pm *DVoteProtocolManager) Start(maxPeers int) {
-	// todo: get data from contract
-	if DelegatorsTable != nil && len(DelegatorsTable) > 0 {
-		log.Info("Starting DPoS Delegation Consensus")
-		pm.dposManager.Start();
-	} else {
-		log.Info("Starting DPoS Voting Consensus")
-		pm.packager.Start();
-		go pm.schedule();
-		if !TestMode {
-			time.AfterFunc(time.Second*time.Duration(PackagingInterval), pm.scheduleElecting) //initial attempt.
-		}
+	// get data from contract
+	log.Info("Starting DPoS Voting Consensus")
+	pm.packager.Start();
+	go pm.schedule();
+	if !TestMode {
+		time.AfterFunc(time.Second*time.Duration(PackagingInterval), pm.scheduleElecting) //initial attempt.
 	}
 }
 
 func (pm *DVoteProtocolManager) schedule() {
 	t2 := time.NewTimer(time.Second * time.Duration(PackagingInterval))
 	for {
+		if DelegatorsTable != nil && len(DelegatorsTable) > 0 {
+			log.Info("Starting DPoS Delegation Consensus")
+			pm.dposManager.Start();
+			break;
+		}
 		select {
 		case <-t2.C:
 			go pm.schedulePackaging();
@@ -138,6 +142,10 @@ func (pm *DVoteProtocolManager) isElectionNode() bool {
 }
 
 func (pm *DVoteProtocolManager) scheduleElecting() {
+	if DelegatorsTable != nil && len(DelegatorsTable) > 0 {
+		// dpos delegator consensus is activated!
+		return;
+	}
 	round := uint64(1)
 	if NextElectionInfo != nil {
 		if !TestMode {

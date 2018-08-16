@@ -22,7 +22,7 @@ import (
 	"math/big"
 	"reflect"
 
-	"github.com/juchain/go-juchain/core/account/abi"
+	"github.com/juchain/go-juchain/vm/solc/abi"
 	"github.com/juchain/go-juchain/common"
 	"github.com/juchain/go-juchain/common/crypto"
 )

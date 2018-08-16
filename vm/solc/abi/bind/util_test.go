@@ -22,8 +22,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/juchain/go-juchain/core/account/abi/bind"
-	"github.com/juchain/go-juchain/core/account/abi/bind/backends"
+	"github.com/juchain/go-juchain/vm/solc/abi/bind"
+	"github.com/juchain/go-juchain/vm/solc/abi/bind/backends"
 	"github.com/juchain/go-juchain/common"
 	"github.com/juchain/go-juchain/core"
 	"github.com/juchain/go-juchain/core/types"

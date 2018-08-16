@@ -35,6 +35,8 @@ import (
 	"github.com/juchain/go-juchain/common/log"
 	"time"
 	"reflect"
+	"strings"
+	"github.com/juchain/go-juchain/vm/solc/abi"
 )
 
 // Tests that protocol versions and modes of operations are matched up properly.
@@ -674,5 +676,25 @@ func TestDPosDelegator(t *testing.T) {
 	if !reflect.DeepEqual(NextGigPeriodInstance.delegatedNodes, delegatedNodesA) {
 		t.Errorf("returned %v want     %v", NextGigPeriodInstance.delegatedNodes, delegatedNodesA)
 	}
+	TestMode = false
+}
+
+func TestDPosDelegatorContract(t *testing.T) {
+	log.Root().SetHandler(log.LvlFilterHandler(log.LvlDebug, log.StreamHandler(os.Stderr, log.TerminalFormat(false))))
+
+	TestMode = true
+	generator := func(i int, block *core.BlockGen) {}
+	// Assemble the testing environment
+	pm, _   := newTestProtocolManagerMust(t, downloader.FullSync, 1, generator, nil, false)
+	defer pm.Stop();
+
+	dappabi, err := abi.JSON(strings.NewReader(core.DPOSBallotABI))
+	if err != nil {
+		log.Error("Unable to load DPoS Ballot ABI object!")
+		return;
+	}
+	VotingAccessor = &DelegatorAccessorImpl{dappabi: dappabi, blockchain: pm.blockchain, b: pm.backend};
+	DelegatorsTable, DelegatorNodeInfo = VotingAccessor.Refresh();
+
 	TestMode = false
 }

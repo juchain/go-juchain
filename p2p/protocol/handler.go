@@ -76,6 +76,7 @@ type ProtocolManager struct {
 	chainconfig *config.ChainConfig
 	maxPeers    int
 
+	backend    *EthApiBackend
 	downloader *downloader.Downloader
 	fetcher    *fetcher.Fetcher
 	peers      *peerSet
@@ -110,14 +111,18 @@ func NewProtocolManager(eth *JuchainService, config *config.ChainConfig, config2
 		txpool:      txpool,
 		blockchain:  blockchain,
 		chainconfig: config,
+		backend:     eth.ApiBackend,
 		peers:       newPeerSet(),
 		newPeerCh:   make(chan *peer),
 		noMorePeers: make(chan struct{}),
 		txsyncCh:    make(chan *txsync),
 		quitSync:    make(chan struct{}),
+	};
+	manager0,err0 := NewDVoteProtocolManager(eth, manager, config, config2, mode, networkId, blockchain, engine);
+	if err0 != nil {
+		return nil, err0;
 	}
-	manager.dposManager = NewDVoteProtocolManager(eth, manager, config, config2, mode, networkId, blockchain, engine);
-
+	manager.dposManager = manager0;
 	// Figure out whether to allow fast sync or not
 	if mode == downloader.FastSync && blockchain.CurrentBlock().NumberU64() > 0 {
 		log.Warn("Blockchain not empty, fast sync disabled")

@@ -26,6 +26,7 @@ import (
 	"github.com/juchain/go-juchain/common/crypto/sha3"
 	"github.com/juchain/go-juchain/common/log"
 	"github.com/juchain/go-juchain/core"
+	"github.com/juchain/go-juchain/vm/solc/abi"
 	"github.com/juchain/go-juchain/p2p/protocol/downloader"
 	"github.com/juchain/go-juchain/p2p"
 	"github.com/juchain/go-juchain/p2p/discover"
@@ -33,8 +34,16 @@ import (
 	"github.com/juchain/go-juchain/consensus"
 	"github.com/juchain/go-juchain/consensus/dpos"
 	"github.com/juchain/go-juchain/config"
+	"github.com/juchain/go-juchain/vm/solc"
+	"github.com/juchain/go-juchain/core/types"
+	"github.com/juchain/go-juchain/rpc"
 	"fmt"
 	"reflect"
+	"math/big"
+	"context"
+	"math"
+	"strings"
+	"errors"
 )
 
 // DPoS consensus handler of delegator packaging process.
@@ -84,6 +93,133 @@ func (d *DelegatorAccessorTestImpl) Refresh() (delegatorsTable []string, delegat
 	return []string{d.currNodeId}, []*discover.Node{}
 }
 
+// access production contract.
+type DelegatorAccessorImpl struct {
+	blockchain    *core.BlockChain;
+	b             p2p.Backend;
+	dappabi       abi.ABI;
+}
+type DelegatedNodeInfoMapping struct {
+	ip     string
+	port   uint
+	ticket uint64
+}
+// https://solidity.readthedocs.io/en/develop/abi-spec.html#use-of-dynamic-types
+// The first four bytes of the call data for a function call specifies the function to be called.
+// It is the first (left, high-order in big-endian) four bytes of the Keccak (SHA-3) hash of the signature of the function.
+// The signature is defined as the canonical expression of the basic prototype, i.e.
+// the function name with the parenthesised list of parameter types. Parameter types are split by a single comma
+// no spaces are used. for example: bytes4(sha3("set(uint256[])"))
+// "0xb4701401": "birusu()",
+// "0x1ab88d26": "delegatorInfo(string)",
+// "0x61b29d69": "delegatorList()",
+// https://solidity.readthedocs.io/en/develop/abi-spec.html#examples
+// please also refer to abi_test.go
+// hw.Sum(data[:0])
+func (d *DelegatorAccessorImpl) Refresh() (delegatorsTable []string, delegatorNodes []*discover.Node) {
+	// call delegatorList()
+	data, err0 := d.dappabi.Pack("delegatorList")
+	if err0 != nil {
+		log.Error("error to encode delegatorList function call.")
+		return []string{}, []*discover.Node{}
+	}
+	//var data = common.Hex2Bytes("0x61b29d69")
+	var result string;
+	output, err0 := d.doCall(data);
+	if err0 != nil {
+		log.Error("error to call delegatorList function.")
+		return []string{}, []*discover.Node{}
+	}
+	err0 = d.dappabi.Unpack(&result, "result", output)
+	if err0 != nil {
+		log.Error("error to parse the result of delegatorList function.")
+		return []string{}, []*discover.Node{}
+	}
+	if len(result) == 0 {
+		return []string{}, []*discover.Node{}
+	}
+
+	delegatorIds := strings.Split(result, ";")
+	ids := make([]string, len(delegatorIds))
+	peerinfo := make([]*discover.Node, len(delegatorIds))
+	for i,delegatorId := range delegatorIds {
+		// call delegatorInfo(string) 0x6162630000000000000000000000000000000000000000000000000000000000
+		data1, err0 := d.dappabi.Pack("delegatorInfo", delegatorId)
+		if err0 != nil {
+			log.Error("error to parse delegatorInfo function.")
+			return []string{}, []*discover.Node{}
+		}
+		output1, err0 := d.doCall(data1)
+		if err0 != nil {
+			log.Error("error to call delegatorInfo function.")
+			return []string{}, []*discover.Node{}
+		}
+		var result DelegatedNodeInfoMapping
+		//string ip, uint port, uint256 ticket
+		err0 = d.dappabi.Unpack(&result, "result", output1)
+		if err0 != nil {
+			log.Error("error to parse the result of delegatorInfo function.")
+			return []string{}, []*discover.Node{}
+		}
+		ids[i] = delegatorId
+		peerinfo[i] = &discover.Node{}
+	}
+	return
+}
+
+func (d *DelegatorAccessorImpl) doCall(data []byte) ([]byte, error) {
+	defer func(start time.Time) { log.Debug("Executing EVM call finished", "runtime", time.Since(start)) }(time.Now())
+
+	ctx := context.Background()
+	state, header, err := d.b.StateAndHeaderByNumber(ctx, rpc.LatestBlockNumber)
+	if state == nil || err != nil {
+		return nil, err
+	}
+	// Set sender address or use a default if none specified
+	var addr common.Address;
+	if wallets := d.b.AccountManager().Wallets(); len(wallets) > 0 {
+		if accounts := wallets[0].Accounts(); len(accounts) > 0 {
+			addr = accounts[0].Address
+		}
+	}
+
+	// Set default gas & gas price if none were set
+	defaultGasPrice := uint64(50 * config.Shannon)
+	gas, gasPrice := uint64(math.MaxUint64 / 2), new(big.Int).SetUint64(defaultGasPrice)
+
+	// Create new call message
+	msg := types.NewMessage(addr, &core.DPOSBallotContractAddress, 0, new(big.Int), gas, gasPrice, data, false)
+
+	// Setup context so it may be cancelled the call has completed.
+	var cancel context.CancelFunc
+	ctx, cancel = context.WithCancel(ctx)
+
+	// Make sure the context is cancelled when the call has completed
+	// this makes sure resources are cleaned up.
+	defer cancel()
+
+	// Get a new instance of the EVM.
+	evm, vmError, err := d.b.GetEVM(ctx, msg, state, header, vm.Config{})
+	if err != nil {
+		return nil, err
+	}
+	// Wait for the context to be done and cancel the evm. Even if the
+	// EVM has finished, cancelling may be done (repeatedly)
+	go func() {
+		<-ctx.Done()
+		evm.Cancel()
+	}()
+
+	// Setup the gas pool (also for unmetered requests)
+	// and apply the message.
+	gp := new(core.GasPool).AddGas(math.MaxUint64)
+	res, gas, _, err := core.ApplyMessage(evm, msg, gp)
+	if err := vmError(); err != nil {
+		return nil, err
+	}
+	return res, err
+}
+
 type DPoSProtocolManager struct {
 	networkId     uint64;
 	eth           *JuchainService;
@@ -98,7 +234,8 @@ type DPoSProtocolManager struct {
 // NewProtocolManager returns a new obod sub protocol manager. The JuchainService sub protocol manages peers capable
 // with the obod network.
 func NewDPoSProtocolManager(eth *JuchainService, ethManager *ProtocolManager, config *config.ChainConfig, config2 *node.Config,
-	mode downloader.SyncMode, networkId uint64, blockchain *core.BlockChain, engine consensus.Engine) (*DPoSProtocolManager) {
+	mode downloader.SyncMode, networkId uint64, blockchain *core.BlockChain, engine consensus.Engine) (*DPoSProtocolManager, error) {
+	// Set sender address or use a default if none specified
 	// Create the protocol manager with the base fields
 	manager := &DPoSProtocolManager{
 		networkId:         networkId,
@@ -112,14 +249,30 @@ func NewDPoSProtocolManager(eth *JuchainService, ethManager *ProtocolManager, co
 	currNodeIdHash = common.Hex2Bytes(currNodeId);
 	if TestMode {
 		VotingAccessor = &DelegatorAccessorTestImpl{currNodeId:currNodeId, currNodeIdHash:currNodeIdHash};
+		DelegatorsTable, DelegatorNodeInfo = VotingAccessor.Refresh();
+	} else {
+		var addr common.Address;
+		if wallets := eth.ApiBackend.AccountManager().Wallets(); len(wallets) > 0 {
+			if accounts := wallets[0].Accounts(); len(accounts) > 0 {
+				addr = accounts[0].Address
+			}
+		}
+		if addr == (common.Address{}) {
+			log.Error("we must have a default address to activate dpos delegator consensus")
+			return nil, errors.New("we must have a default address to activate dpos delegator consensus")
+		}
+		dappabi, err := abi.JSON(strings.NewReader(core.DPOSBallotABI))
+		if err != nil {
+			log.Error("Unable to load DPoS Ballot ABI object!")
+			return nil, errors.New("Unable to load DPoS Ballot ABI object!")
+		}
+		VotingAccessor = &DelegatorAccessorImpl{dappabi: dappabi, blockchain: eth.blockchain, b: eth.ApiBackend};
+		DelegatorsTable, DelegatorNodeInfo = VotingAccessor.Refresh();
 	}
-	return manager
+	return manager, nil;
 }
 
 func (pm *DPoSProtocolManager) Start() {
-	if TestMode {
-		DelegatorsTable = []string{currNodeId}
-	}
 	if pm.isDelegatedNode() {
 		log.Info("I am a delegator.")
 		pm.packager.Start();
@@ -199,6 +352,7 @@ func (pm *DPoSProtocolManager) syncDelegatedNodeSafely() {
 	};
 	pm.trySyncAllDelegators()
 }
+
 func (pm *DPoSProtocolManager) trySyncAllDelegators() {
 	if TestMode {
 		return;
