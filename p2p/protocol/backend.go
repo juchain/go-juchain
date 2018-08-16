@@ -33,7 +33,6 @@ import (
 	"github.com/juchain/go-juchain/core/types"
 	"github.com/juchain/go-juchain/vm/solc"
 	"github.com/juchain/go-juchain/p2p/protocol/downloader"
-	"github.com/juchain/go-juchain/p2p/protocol/gasprice"
 	"github.com/juchain/go-juchain/p2p/protocol/filters"
 	"github.com/juchain/go-juchain/core/store"
 	"github.com/juchain/go-juchain/common/event"
@@ -43,6 +42,7 @@ import (
 	"github.com/juchain/go-juchain/config"
 	"github.com/juchain/go-juchain/common/rlp"
 	"github.com/juchain/go-juchain/rpc"
+	"github.com/juchain/go-juchain/p2p/protocol/gasprice"
 )
 
 type LesServer interface {
@@ -185,16 +185,15 @@ func New(node *node.Node, ctx *node.ServiceContext, config0 *Config) (*JuchainSe
 		config0.TxPool.Journal = ctx.ResolvePath(config0.TxPool.Journal)
 	}
 	eth.txPool = core.NewTxPool(config0.TxPool, eth.chainConfig, eth.blockchain, eth.dappchains)
-	if eth.protocolManager, err = NewProtocolManager(eth, eth.chainConfig, ctx.Config, config0.SyncMode, config0.NetworkId, eth.eventMux, eth.txPool, eth.engine, eth.blockchain, chainDb); err != nil {
-		return nil, err
-	}
 	eth.ApiBackend = &EthApiBackend{eth, nil}
 	gpoconfig := config0.GPO
 	if gpoconfig.Default == nil {
 		gpoconfig.Default = config0.GasPrice
 	}
 	eth.ApiBackend.gpo = gasprice.NewOracle(eth.ApiBackend, gpoconfig)
-
+	if eth.protocolManager, err = NewProtocolManager(eth, eth.chainConfig, ctx.Config, config0.SyncMode, config0.NetworkId, eth.eventMux, eth.txPool, eth.engine, eth.blockchain, chainDb); err != nil {
+		return nil, err
+	}
 	return eth, nil
 }
 

@@ -460,7 +460,7 @@ func (d *DelegatorVotingManagerImpl) Refresh() (delegatorsTable []string, delega
 func TestVoteElection(t *testing.T) { testVoteElection(t, OBOD01) }
 
 func testVoteElection(t *testing.T, protocol uint) {
-	log.Root().SetHandler(log.LvlFilterHandler(log.LvlDebug, log.StreamHandler(os.Stderr, log.TerminalFormat(false))))
+	//log.Root().SetHandler(log.LvlFilterHandler(log.LvlDebug, log.StreamHandler(os.Stderr, log.TerminalFormat(false))))
 	TestMode = true;
 	generator := func(i int, block *core.BlockGen) {}
 	// Assemble the testing environment
@@ -611,7 +611,7 @@ func testVoteElection(t *testing.T, protocol uint) {
 }
 
 func TestDPosDelegator(t *testing.T) {
-	log.Root().SetHandler(log.LvlFilterHandler(log.LvlDebug, log.StreamHandler(os.Stderr, log.TerminalFormat(false))))
+	//log.Root().SetHandler(log.LvlFilterHandler(log.LvlDebug, log.StreamHandler(os.Stderr, log.TerminalFormat(false))))
 
 	DelegatorsTable = []string{"abcd"}
 	TestMode = true;
@@ -694,7 +694,10 @@ func TestDPosDelegatorContract(t *testing.T) {
 		return;
 	}
 	VotingAccessor = &DelegatorAccessorImpl{dappabi: dappabi, blockchain: pm.blockchain, b: pm.backend};
-	DelegatorsTable, DelegatorNodeInfo = VotingAccessor.Refresh();
+	DelegatorsTable, DelegatorNodeInfo, err = VotingAccessor.Refresh();
+	if err != nil {
+		t.Error(err.Error())
+	}
 
 	TestMode = false
 }

@@ -42,6 +42,7 @@ import (
 	"github.com/juchain/go-juchain/consensus/dpos"
 	"github.com/juchain/go-juchain/core/bloombits"
 	"github.com/juchain/go-juchain/p2p/protocol/gasprice"
+	"github.com/juchain/go-juchain/core/account"
 )
 
 var (
@@ -73,7 +74,7 @@ func newTestProtocolManager(mode downloader.SyncMode, blocks int, generator func
 			dappChainDb:    make(map[common.Address]store.Database),
 			dappchains:     make(map[common.Address]*core.BlockChain),
 			eventMux:       evmux,
-			accountManager: nil,
+			accountManager: account.NewManager(),
 			engine:         engine,
 			shutdownChan:   make(chan bool),
 			stopDbUpgrade:  nil,
@@ -85,6 +86,7 @@ func newTestProtocolManager(mode downloader.SyncMode, blocks int, generator func
 			txPool:         core.NewTxPool(DefaultConfig.TxPool, config.TestChainConfig, blockchain, nil),
 		}
 	)
+
 	eth.ApiBackend = &EthApiBackend{eth, nil}
 	gpoconfig := eth.config.GPO
 	if gpoconfig.Default == nil {

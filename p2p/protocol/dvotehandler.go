@@ -142,6 +142,7 @@ func (pm *DVoteProtocolManager) isElectionNode() bool {
 }
 
 func (pm *DVoteProtocolManager) scheduleElecting() {
+	DelegatorsTable, DelegatorNodeInfo, _ = VotingAccessor.Refresh();
 	if DelegatorsTable != nil && len(DelegatorsTable) > 0 {
 		// dpos delegator consensus is activated!
 		return;

@@ -65,7 +65,7 @@ contract DPOSBallot
 
     // This declares a state variable that
     // stores a `Voter` struct for each possible address.
-    string[] delegatorIds;
+    string[] private delegatorIds;
     mapping(string  => Delegator) private delegators;
     mapping(address => Voter) private voters;
 
@@ -83,7 +83,7 @@ contract DPOSBallot
         require(port > 0);
 
         Delegator storage d = delegators[nodeid];
-        require(d.port > 0);
+        require(d.port == 0);
         delegators[nodeid] = Delegator({ip: ip, port: port, ticket: 0});
         delegatorIds.push(nodeid);
         emit NotifyRegistered();
@@ -95,15 +95,23 @@ contract DPOSBallot
 
         Delegator storage d = delegators[nodeid];
         require(d.port > 0);
-        Voter storage sender = voters[msg.sender];
-        if (bytes(sender.nodeid).length == 0) {
-            sender.nodeid = nodeid;
+        Voter storage v = voters[msg.sender];
+        if (bytes(v.nodeid).length == 0) {
+            v.nodeid = nodeid;
         } else {
-            Delegator storage old = delegators[sender.nodeid];
-            old.ticket.sub(1);
+            Delegator storage old = delegators[v.nodeid];
+            old.ticket = old.ticket.sub(1);
+            v.nodeid = nodeid;
         }
-        d.ticket.add(1);
+        d.ticket = d.ticket.add(1);
         emit NotifyVoted();
+    }
+
+    function voteWho() public view
+            returns (string result)
+    {
+        Voter storage sender = voters[msg.sender];
+        return sender.nodeid;
     }
 
     //running sorter is hard in solidity vm.

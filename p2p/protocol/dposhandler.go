@@ -81,7 +81,7 @@ var (
 
 // Delegator table refers to the voting contract.
 type DelegatorAccessor interface {
-	Refresh() (delegatorsTable []string, delegatorNodes []*discover.Node)
+	Refresh() (delegatorsTable []string, delegatorNodes []*discover.Node, e error)
 }
 
 // only for test purpose.
@@ -89,8 +89,8 @@ type DelegatorAccessorTestImpl struct {
 	currNodeId           string;           // current short node id.
 	currNodeIdHash       []byte;           // short node id hash.
 }
-func (d *DelegatorAccessorTestImpl) Refresh() (delegatorsTable []string, delegatorNodes []*discover.Node) {
-	return []string{d.currNodeId}, []*discover.Node{}
+func (d *DelegatorAccessorTestImpl) Refresh() (delegatorsTable []string, delegatorNodes []*discover.Node, e error) {
+	return []string{d.currNodeId}, []*discover.Node{}, nil
 }
 
 // access production contract.
@@ -116,27 +116,32 @@ type DelegatedNodeInfoMapping struct {
 // https://solidity.readthedocs.io/en/develop/abi-spec.html#examples
 // please also refer to abi_test.go
 // hw.Sum(data[:0])
-func (d *DelegatorAccessorImpl) Refresh() (delegatorsTable []string, delegatorNodes []*discover.Node) {
+func (d *DelegatorAccessorImpl) Refresh() (delegatorsTable []string, delegatorNodes []*discover.Node, e error) {
 	// call delegatorList()
 	data, err0 := d.dappabi.Pack("delegatorList")
 	if err0 != nil {
-		log.Error("error to encode delegatorList function call.")
-		return []string{}, []*discover.Node{}
+		log.Error("Error to encode delegatorList function call.")
+		return nil,nil, errors.New("Error to encode delegatorList function call.")
 	}
 	//var data = common.Hex2Bytes("0x61b29d69")
 	var result string;
 	output, err0 := d.doCall(data);
 	if err0 != nil {
-		log.Error("error to call delegatorList function.")
-		return []string{}, []*discover.Node{}
+		log.Error("Error to call delegatorList function.")
+		return nil,nil, errors.New("Error to call delegatorList function.")
+	}
+	if len(output) == 0 {
+		// no result
+		return nil,nil, errors.New("Delegator list must not be empty! the state of this node is incorrect.")
 	}
 	err0 = d.dappabi.Unpack(&result, "result", output)
 	if err0 != nil {
-		log.Error("error to parse the result of delegatorList function.")
-		return []string{}, []*discover.Node{}
+		log.Error("Error to parse the result of delegatorList function.")
+		return nil,nil, errors.New("Error to parse the result of delegatorList function.")
 	}
 	if len(result) == 0 {
-		return []string{}, []*discover.Node{}
+		log.Error("Delegator list must not be empty! the state of this node is incorrect.")
+		return nil,nil, errors.New("Delegator list must not be empty! the state of this node is incorrect.")
 	}
 
 	delegatorIds := strings.Split(result, ";")
@@ -146,25 +151,25 @@ func (d *DelegatorAccessorImpl) Refresh() (delegatorsTable []string, delegatorNo
 		// call delegatorInfo(string) 0x6162630000000000000000000000000000000000000000000000000000000000
 		data1, err0 := d.dappabi.Pack("delegatorInfo", delegatorId)
 		if err0 != nil {
-			log.Error("error to parse delegatorInfo function.")
-			return []string{}, []*discover.Node{}
+			log.Error("Error to parse delegatorInfo function.")
+			return nil,nil, errors.New("Error to parse delegatorInfo function.")
 		}
 		output1, err0 := d.doCall(data1)
 		if err0 != nil {
-			log.Error("error to call delegatorInfo function.")
-			return []string{}, []*discover.Node{}
+			log.Error("Error to call delegatorInfo function.")
+			return nil,nil, errors.New("Error to call delegatorInfo function.")
 		}
 		var result DelegatedNodeInfoMapping
 		//string ip, uint port, uint256 ticket
 		err0 = d.dappabi.Unpack(&result, "result", output1)
 		if err0 != nil {
-			log.Error("error to parse the result of delegatorInfo function.")
-			return []string{}, []*discover.Node{}
+			log.Error("Error to parse the result of delegatorInfo function.")
+			return nil,nil, errors.New("Error to parse the result of delegatorInfo function.")
 		}
 		ids[i] = delegatorId
 		peerinfo[i] = &discover.Node{}
 	}
-	return
+	return ids, peerinfo, nil;
 }
 
 func (d *DelegatorAccessorImpl) doCall(data []byte) ([]byte, error) {
@@ -176,13 +181,14 @@ func (d *DelegatorAccessorImpl) doCall(data []byte) ([]byte, error) {
 		return nil, err
 	}
 	// Set sender address or use a default if none specified
-	var addr common.Address;
-	if wallets := d.b.AccountManager().Wallets(); len(wallets) > 0 {
-		if accounts := wallets[0].Accounts(); len(accounts) > 0 {
-			addr = accounts[0].Address
+	addr := common.Address{};
+	if !TestMode {
+		if wallets := d.b.AccountManager().Wallets(); len(wallets) > 0 {
+			if accounts := wallets[0].Accounts(); len(accounts) > 0 {
+				addr = accounts[0].Address
+			}
 		}
 	}
-
 	// Set default gas & gas price if none were set
 	defaultGasPrice := uint64(50 * config.Shannon)
 	gas, gasPrice := uint64(math.MaxUint64 / 2), new(big.Int).SetUint64(defaultGasPrice)
@@ -249,8 +255,9 @@ func NewDPoSProtocolManager(eth *JuchainService, ethManager *ProtocolManager, co
 	currNodeIdHash = common.Hex2Bytes(currNodeId);
 	if TestMode {
 		VotingAccessor = &DelegatorAccessorTestImpl{currNodeId:currNodeId, currNodeIdHash:currNodeIdHash};
-		DelegatorsTable, DelegatorNodeInfo = VotingAccessor.Refresh();
+		DelegatorsTable, DelegatorNodeInfo, _ = VotingAccessor.Refresh();
 	} else {
+		/**
 		var addr common.Address;
 		if wallets := eth.ApiBackend.AccountManager().Wallets(); len(wallets) > 0 {
 			if accounts := wallets[0].Accounts(); len(accounts) > 0 {
@@ -258,16 +265,16 @@ func NewDPoSProtocolManager(eth *JuchainService, ethManager *ProtocolManager, co
 			}
 		}
 		if addr == (common.Address{}) {
-			log.Error("we must have a default address to activate dpos delegator consensus")
+			log.Error("We must have a default address to activate dpos delegator consensus")
 			return nil, errors.New("we must have a default address to activate dpos delegator consensus")
-		}
+		}*/
 		dappabi, err := abi.JSON(strings.NewReader(core.DPOSBallotABI))
 		if err != nil {
 			log.Error("Unable to load DPoS Ballot ABI object!")
 			return nil, errors.New("Unable to load DPoS Ballot ABI object!")
 		}
 		VotingAccessor = &DelegatorAccessorImpl{dappabi: dappabi, blockchain: eth.blockchain, b: eth.ApiBackend};
-		DelegatorsTable, DelegatorNodeInfo = VotingAccessor.Refresh();
+		DelegatorsTable, DelegatorNodeInfo, err = VotingAccessor.Refresh();
 	}
 	return manager, nil;
 }
@@ -302,7 +309,13 @@ func (pm *DPoSProtocolManager) syncDelegatedNodeSafely() {
 	}
 	log.Info("Preparing for next big period...");
 	// pull the newest delegators from voting contract.
-	DelegatorsTable, DelegatorNodeInfo = VotingAccessor.Refresh()
+	a, b, err0 := VotingAccessor.Refresh()
+	if err0 != nil {
+		log.Error(err0.Error())
+		return;
+	}
+	DelegatorsTable = a
+	DelegatorNodeInfo = b
 	if uint8(len(GigPeriodHistory)) >= BigPeriodHistorySize {
 		GigPeriodHistory = GigPeriodHistory[1:] //remove the first old one.
 	}
@@ -422,7 +435,7 @@ func (pm *DPoSProtocolManager) handleMsg(msg *p2p.Msg, p *peer) error {
 				if !reflect.DeepEqual(DelegatorsTable, request.DelegatedTable) {
 					if len(DelegatorsTable) < len(request.DelegatedTable) {
 						// refresh table if mismatch.
-						DelegatorsTable, DelegatorNodeInfo = VotingAccessor.Refresh()
+						DelegatorsTable, DelegatorNodeInfo, _ = VotingAccessor.Refresh()
 					}
 					if !reflect.DeepEqual(DelegatorsTable, request.DelegatedTable) {
 						log.Debug("Delegators are mismatched in two tables.");
@@ -551,7 +564,7 @@ func (pm *DPoSProtocolManager) handleMsg(msg *p2p.Msg, p *peer) error {
 			pm.trySyncAllDelegators()
 		} else if response.State == STATE_MISMATCHED_DNUMBER {
 			// refresh table only, and this node loses the election power of this round.
-			DelegatorsTable, DelegatorNodeInfo = VotingAccessor.Refresh()
+			DelegatorsTable, DelegatorNodeInfo, _ = VotingAccessor.Refresh()
 		}
 		return nil;
 	default:
