@@ -307,6 +307,8 @@ func (pm *DPoSProtocolManager) syncDelegatedNodeSafely() {
 		// only candidate node is able to participant to this process.
 		return;
 	}
+	pm.lock.Lock()
+	defer pm.lock.Unlock()
 	log.Info("Preparing for next big period...");
 	// pull the newest delegators from voting contract.
 	a, b, err0 := VotingAccessor.Refresh()
@@ -332,7 +334,7 @@ func (pm *DPoSProtocolManager) syncDelegatedNodeSafely() {
 				log.Warn(fmt.Sprintf("Scheduling of the new electing round is improper! current gap: %v seconds", gap))
 				//restart the scheduler
 				NextElectionInfo = nil;
-				pm.syncDelegatedNodeSafely();
+				go pm.syncDelegatedNodeSafely();
 				return;
 			}
 		}
@@ -489,20 +491,12 @@ func (pm *DPoSProtocolManager) handleMsg(msg *p2p.Msg, p *peer) error {
 				STATE_MISMATCHED_ROUND,
 				currNodeIdHash});
 		} else if request.Round > NextGigPeriodInstance.round {
-			if NextGigPeriodInstance.state == STATE_CONFIRMED {
-				if TestMode {
-					return nil;
-				}
-				return p.SendSyncBigPeriodResponse(&SyncBigPeriodResponse{
-					NextGigPeriodInstance.round,
-					NextGigPeriodInstance.activeTime,
-					NextGigPeriodInstance.delegatedNodes,
-					NextGigPeriodInstance.delegatedNodesSign,
-					STATE_CONFIRMED,
-					currNodeIdHash});
+			if (request.Round - NextElectionInfo.round) == 1 {
+				// the most reason could be the round timeframe switching later than this request.
+				// but we are continue switching as regular.
+			} else {
+				// attack happens.
 			}
-			log.Debug(fmt.Sprintf("Mismatched request.round %v, CurrRound %v ", request.Round, NextGigPeriodInstance.round))
-			// skip the conditions.
 		}
 	case msg.Code == SYNC_BIGPERIOD_RESPONSE:
 		var response SyncBigPeriodResponse;
@@ -577,16 +571,17 @@ func (pm *DPoSProtocolManager) setNextRoundTimer() {
 	leftTime := int64(NextGigPeriodInstance.activeTime) - time.Now().Unix()
 	if leftTime < 1 {
 		log.Warn("Discard this round due to the expiration of the active time.")
+		go pm.syncDelegatedNodeSafely()
 		return;
 	}
 	if pm.t1 != nil {
 		// potentially could be an issue if the timer is unable to be cancelled.
-		if pm.t1.Stop() {
-			pm.t1 = time.AfterFunc(time.Second*time.Duration(leftTime), pm.syncDelegatedNodeSafely)
-		}
+		pm.t1.Stop()
+		pm.t1 = time.AfterFunc(time.Second*time.Duration(leftTime), pm.syncDelegatedNodeSafely)
 	} else {
 		pm.t1 = time.AfterFunc(time.Second*time.Duration(leftTime), pm.syncDelegatedNodeSafely)
 	}
+	log.Debug(fmt.Sprintf("scheduled for next round in %v seconds", leftTime))
 }
 
 // the node would not be a candidate if it is not qualified.

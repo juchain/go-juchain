@@ -1051,7 +1051,7 @@ func (bc *BlockChain) insertChain(chain types.Blocks) (int, []interface{}, []*ty
 		// Wait for the block's verification to complete
 		bstart := time.Now()
 
-		log.Info("insert block into chain ", block.Hash().String());
+		log.Info("insert block into chain ");
 		block.ToString();
 
 		err := <-results

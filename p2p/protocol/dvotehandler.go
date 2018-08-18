@@ -43,7 +43,7 @@ import (
 var (
 	TestMode          bool   = false; // only for test case.
 	PackagingInterval uint32 = 2;     // vote for packaging node in every 5 seconds.
-	ElectingInterval  uint32 = 30;    // elect for new node in every 30 seconds.
+	ElectingInterval  uint32 = 15;    // elect for new node in every 30 seconds.
 
 	ElectionInfo0    *ElectionInfo; // we use two versions of election info for switching election node smoothly.
 	NextElectionInfo *ElectionInfo;
@@ -74,6 +74,7 @@ type DVoteProtocolManager struct {
 	dposManager	  *DPoSProtocolManager;
 
 	t1            *time.Timer; // global synchronized timer.
+
 }
 
 // NewProtocolManager returns a new ethereum sub protocol manager. The JuchainService sub protocol manages peers capable
@@ -107,34 +108,29 @@ func (pm *DVoteProtocolManager) Start(maxPeers int) {
 	pm.packager.Start();
 	go pm.schedule();
 	if !TestMode {
-		time.AfterFunc(time.Second*time.Duration(PackagingInterval), pm.scheduleElecting) //initial attempt.
+		go pm.scheduleElecting();
 	}
 }
 
 func (pm *DVoteProtocolManager) schedule() {
-	t2 := time.NewTimer(time.Second * time.Duration(PackagingInterval))
-	for {
-		if DelegatorsTable != nil && len(DelegatorsTable) > 0 {
-			log.Info("Starting DPoS Delegation Consensus")
-			pm.dposManager.Start();
-			break;
-		}
-		select {
-		case <-t2.C:
-			go pm.schedulePackaging();
-			t2 = time.NewTimer(time.Second * time.Duration(PackagingInterval))
-		}
+	if DelegatorsTable != nil && len(DelegatorsTable) > 2 {
+		log.Info("Starting DPoS Delegation Consensus")
+		pm.dposManager.Start();
+		return;
 	}
+	pm.schedulePackaging();
 }
 
 func (pm *DVoteProtocolManager) schedulePackaging() {
-	// log.Info("schedulePackaging...")
 	// generate block by election node.
 	if pm.isElectionNode() {
+		log.Debug("I am packaging now...")
 		round := pm.blockchain.CurrentFastBlock().Header().Round;
 		block := pm.packager.GenerateNewBlock(round+1, currNodeId);
 		block.ToString();
 	}
+	// confirm broadcasting result.
+	time.AfterFunc(time.Second * time.Duration(PackagingInterval), pm.schedule)
 }
 
 func (pm *DVoteProtocolManager) isElectionNode() bool {
@@ -142,8 +138,10 @@ func (pm *DVoteProtocolManager) isElectionNode() bool {
 }
 
 func (pm *DVoteProtocolManager) scheduleElecting() {
+	pm.lock.Lock()
+	defer pm.lock.Unlock()
 	DelegatorsTable, DelegatorNodeInfo, _ = VotingAccessor.Refresh();
-	if DelegatorsTable != nil && len(DelegatorsTable) > 0 {
+	if DelegatorsTable != nil && len(DelegatorsTable) > 2 {
 		// dpos delegator consensus is activated!
 		return;
 	}
@@ -155,7 +153,7 @@ func (pm *DVoteProtocolManager) scheduleElecting() {
 				log.Warn(fmt.Sprintf("Scheduling of the new electing round is improper! current gap: %v seconds", gap))
 				//restart the scheduler
 				NextElectionInfo = nil;
-				pm.scheduleElecting();
+				go pm.scheduleElecting();
 				return;
 			}
 		}
@@ -183,7 +181,7 @@ func (pm *DVoteProtocolManager) scheduleElecting() {
 		make(map[string]uint64),
 		currNodeId,
 		currNodeIdHash,
-		uint64(time.Now().Unix() + int64(ElectingInterval)),
+		uint64(time.Now().Unix() + int64(ElectingInterval)), //UTC time is an universe time. but we need an offset for different country, check here http://tutorials.jenkov.com/java-internationalization/time-zones.html
 		time.Now(),
 	};
 	log.Info(fmt.Sprintf("Elect for next round %v...", round));
@@ -206,7 +204,7 @@ func (pm *DVoteProtocolManager) electNodeSafely() {
 				time.AfterFunc(time.Second*time.Duration(rand.Intn(5)), pm.electNodeSafely);
 				return;
 			}
-			log.Debug("Start looking for election node with my tickets: " + strconv.Itoa(int(NextElectionInfo.electionTickets)));
+			log.Debug("Start looking for election node with my tickets: " + strconv.Itoa(int(NextElectionInfo.electionTickets)) + " with round: " + strconv.Itoa(int(NextElectionInfo.round)));
 			for _, peer := range pm.ethManager.peers.peers {
 				err := peer.SendVoteElectionRequest(&VoteElectionRequest{NextElectionInfo.round,
 				NextElectionInfo.electionTickets, NextElectionInfo.activeTime, currNodeIdHash});
@@ -255,6 +253,9 @@ func (pm *DVoteProtocolManager) handleMsg(msg *p2p.Msg, p *peer) error {
 		if err := msg.Decode(&request); err != nil {
 			return errResp(DPOSErrDecode, "%v: %v", msg, err);
 		}
+		if NextElectionInfo == nil {//sometime happens
+			return nil;
+		}
 		log.Debug(fmt.Sprintf("Received request round %v, nodeid %v, CurrRound %v", request.Round, common.Bytes2Hex(request.NodeId), NextElectionInfo.round));
 		if request.Round == NextElectionInfo.round {
 			if NextElectionInfo.enodestate == VOTESTATE_SELECTED {
@@ -262,19 +263,25 @@ func (pm *DVoteProtocolManager) handleMsg(msg *p2p.Msg, p *peer) error {
 				if TestMode {
 					return nil;
 				}
-				return p.SendBroadcastVotedElection(&BroadcastVotedElection{
+				bestNodeId, tickets, activeTime := pm.getBestNodeInfo()
+				return p.SendVoteElectionResponse(&VoteElectionResponse{
 					NextElectionInfo.round,
-					NextElectionInfo.electionTickets,
-					NextElectionInfo.activeTime,
+					tickets,
+					activeTime,
 					VOTESTATE_SELECTED,
-					NextElectionInfo.electionNodeIdHash});
+					bestNodeId});
 			} else {
 				// this comparision will decide who is the winner.
 				// remote win.
 				if request.Tickets > NextElectionInfo.electionTickets {
+					//update the best counter.
+					nodeId := common.Bytes2Hex(request.NodeId[:8])
+					NextElectionInfo.confirmedTickets[nodeId] ++;
+					NextElectionInfo.confirmedActiveTimes[nodeId] = request.ActiveTime;
+					//update current state
 					NextElectionInfo.enodestate = VOTESTATE_SELECTED;
 					NextElectionInfo.electionNodeIdHash = request.NodeId[:8];
-					NextElectionInfo.electionNodeId = common.Bytes2Hex(request.NodeId[:8]);
+					NextElectionInfo.electionNodeId = nodeId;
 					NextElectionInfo.activeTime = request.ActiveTime;
 
 					//this candidate have more broadcasting power.
@@ -283,21 +290,25 @@ func (pm *DVoteProtocolManager) handleMsg(msg *p2p.Msg, p *peer) error {
 					NextElectionInfo.enodestate = VOTESTATE_SELECTED;
 					NextElectionInfo.electionNodeId = currNodeId;
 					NextElectionInfo.electionNodeIdHash = currNodeIdHash;
-					log.Debug("I win. simply skip this request.");
+					//update the best counter
+					NextElectionInfo.confirmedTickets[currNodeId] ++;
+					NextElectionInfo.confirmedActiveTimes[currNodeId] = NextElectionInfo.activeTime;
+					log.Debug("I win.");
 					// I win. the remote loses broadcasting power.
 				}
 				pm.setNextRoundTimer();//sync the timer.
 				if TestMode {
 					return nil;
 				}
+				bestNodeId, tickets, activeTime := pm.getBestNodeInfo()
 				// broadcast it to all peers again.
 				for _, peer := range pm.ethManager.peers.peers {
 					err := peer.SendBroadcastVotedElection(&BroadcastVotedElection{
 						NextElectionInfo.round,
-						NextElectionInfo.electionTickets,
-						NextElectionInfo.activeTime,
+						tickets,
+						activeTime,
 						VOTESTATE_SELECTED,
-						NextElectionInfo.electionNodeIdHash,
+						bestNodeId,
 					});
 					if (err != nil) {
 						log.Warn("Error occurred while sending VoteElectionRequest: " + err.Error())
@@ -305,30 +316,25 @@ func (pm *DVoteProtocolManager) handleMsg(msg *p2p.Msg, p *peer) error {
 				}
 			}
 		} else if request.Round < NextElectionInfo.round {
-			log.Debug(fmt.Sprintf("Mismatched request.round %v, CurrRound %v: ", request.Round, NextElectionInfo.round))
+			log.Debug(fmt.Sprintf("Mismatched request.round %v, CurrRound %v ", request.Round, NextElectionInfo.round))
 			if TestMode {
 				return nil;
 			}
+			bestNodeId, tickets, activeTime := pm.getBestNodeInfo()
 			return p.SendVoteElectionResponse(&VoteElectionResponse{
 				NextElectionInfo.round,
-				NextElectionInfo.electionTickets,
-				NextElectionInfo.activeTime,
+				tickets,
+				activeTime,
 				VOTESTATE_MISMATCHED_ROUND,
-				NextElectionInfo.electionNodeIdHash});
+				bestNodeId});
 		} else if request.Round > NextElectionInfo.round {
-			if NextElectionInfo.enodestate == VOTESTATE_SELECTED {
-				if TestMode {
-					return nil;
-				}
-				return p.SendVoteElectionResponse(&VoteElectionResponse{
-					NextElectionInfo.round,
-					NextElectionInfo.electionTickets,
-					NextElectionInfo.activeTime,
-					VOTESTATE_MISMATCHED_ROUND,
-					NextElectionInfo.electionNodeIdHash});
+			if (request.Round - NextElectionInfo.round) == 1 {
+				// the most reason could be the round timeframe switching later than this request.
+				// but we are continue switching as regular.
+			} else {
+				// attack happens.
+
 			}
-			log.Debug(fmt.Sprintf("Mismatched request.round %v, CurrRound %v ", request.Round, NextElectionInfo.round))
-			// skip the conditions.
 		}
 	case msg.Code == VOTE_ElectionNode_Response:
 		var response VoteElectionResponse;
@@ -336,12 +342,27 @@ func (pm *DVoteProtocolManager) handleMsg(msg *p2p.Msg, p *peer) error {
 			return errResp(DPOSErrDecode, "%v: %v", msg, err);
 		}
 		log.Info("Received a voted response: " + common.Bytes2Hex(response.ElectionNodeId));
-		if response.State == VOTESTATE_SELECTED {
-			log.Debug("Voted Election Response must not have VOTESTATE_SELECTED state. rejected!")
-			//VOTE_ElectionNode_Broadcast only have VOTESTATE_SELECTED state.
+		if response.State == VOTESTATE_SELECTED && NextElectionInfo.round == response.Round {
+			nodeId := common.Bytes2Hex(response.ElectionNodeId)
+			NextElectionInfo.confirmedTickets[nodeId] ++;
+			NextElectionInfo.confirmedActiveTimes[nodeId] = response.ActiveTime;
+			pm.setNextRoundTimer();
+			bestNodeId, tickets, activeTime := pm.getBestNodeInfo()
+			for _, peer := range pm.ethManager.peers.peers {
+				err := peer.SendBroadcastVotedElection(&BroadcastVotedElection{
+					NextElectionInfo.round,
+					tickets,
+					activeTime,
+					VOTESTATE_SELECTED,
+					bestNodeId,
+				});
+				if (err != nil) {
+					log.Warn("Error occurred while sending VoteElectionRequest: " + err.Error())
+				}
+			}
 			return nil;
 		} else if response.State == VOTESTATE_MISMATCHED_ROUND && NextElectionInfo.enodestate == VOTESTATE_LOOKING {
-			log.Info(fmt.Sprintf("Mismatched round %v, switch to %v", NextElectionInfo.round, response.Round))
+			log.Info(fmt.Sprintf("Mismatched round %v, switch to %v and then refresh again", NextElectionInfo.round, response.Round))
 			// update round and resend
 			NextElectionInfo = &ElectionInfo{
 				response.Round,
@@ -362,7 +383,7 @@ func (pm *DVoteProtocolManager) handleMsg(msg *p2p.Msg, p *peer) error {
 		if err := msg.Decode(&response); err != nil {
 			return errResp(DPOSErrDecode, "%v: %v", msg, err);
 		}
-		if response.Round != NextElectionInfo.round {
+		if NextElectionInfo == nil || response.Round != NextElectionInfo.round {
 			return nil;
 		}
 		nodeId := common.Bytes2Hex(response.ElectionNodeId)
@@ -386,30 +407,17 @@ func (pm *DVoteProtocolManager) handleMsg(msg *p2p.Msg, p *peer) error {
 			if NextElectionInfo.electionNodeId != bestNodeId {
 				log.Info(fmt.Sprintf("Switched to the best election node: %v", bestNodeId));
 				NextElectionInfo.electionNodeId = bestNodeId;
-				NextElectionInfo.electionNodeIdHash = []byte(bestNodeId);
+				NextElectionInfo.electionNodeIdHash = common.Hex2Bytes(bestNodeId);
 				NextElectionInfo.activeTime = NextElectionInfo.confirmedActiveTimes[bestNodeId];
 				pm.setNextRoundTimer();
 				if TestMode {
 					return nil;
 				}
-				// broadcast it to all peers again. increase it's broadcasting power.
-				for _, peer := range pm.ethManager.peers.peers {
-					err := peer.SendBroadcastVotedElection(&BroadcastVotedElection{
-						NextElectionInfo.round,
-						NextElectionInfo.electionTickets,
-						NextElectionInfo.activeTime,
-						VOTESTATE_SELECTED,
-						NextElectionInfo.electionNodeIdHash,
-					});
-					if (err != nil) {
-						log.Warn("Error occurred while sending VoteElectionRequest: " + err.Error())
-					}
-				}
 			}
 		} else if NextElectionInfo.enodestate == VOTESTATE_LOOKING { //&& maxTickets > uint32(len(pm.ethManager.peers.peers))
 			NextElectionInfo.enodestate = VOTESTATE_SELECTED;
 			NextElectionInfo.electionNodeId = bestNodeId;
-			NextElectionInfo.electionNodeIdHash = []byte(bestNodeId);
+			NextElectionInfo.electionNodeIdHash = common.Hex2Bytes(bestNodeId);
 			NextElectionInfo.activeTime = NextElectionInfo.confirmedActiveTimes[bestNodeId];
 			pm.setNextRoundTimer();
 		}
@@ -421,18 +429,33 @@ func (pm *DVoteProtocolManager) handleMsg(msg *p2p.Msg, p *peer) error {
 	return nil
 }
 
+func (pm *DVoteProtocolManager) getBestNodeInfo() ([]byte, uint32, uint64) {
+	if len(NextElectionInfo.confirmedTickets) == 0 {
+		return NextElectionInfo.electionNodeIdHash, NextElectionInfo.electionTickets, NextElectionInfo.activeTime;
+	}
+	maxTickets, bestNodeId := uint32(0), "";
+	for key, value := range NextElectionInfo.confirmedTickets {
+		if maxTickets < value {
+			maxTickets = value;
+			bestNodeId = key;
+		}
+	}
+	return common.Hex2Bytes(bestNodeId), maxTickets, NextElectionInfo.confirmedActiveTimes[bestNodeId];
+}
+
 func (pm *DVoteProtocolManager) setNextRoundTimer() {
 	leftTime := int64(NextElectionInfo.activeTime) - time.Now().Unix()
 	if leftTime < 1 {
-		log.Warn("Discard this round due to the expiration of the active time.")
+		log.Warn("Discard this round due to the expiration of the active time. reschedule it.")
+		go pm.scheduleElecting();
 		return;
 	}
 	if pm.t1 != nil {
 		// potentially could be an issue if the timer is unable to be cancelled.
-		if pm.t1.Stop() {
-			pm.t1 = time.AfterFunc(time.Second*time.Duration(leftTime), pm.scheduleElecting)
-		}
+		pm.t1.Stop()
+		pm.t1 = time.AfterFunc(time.Second*time.Duration(leftTime), pm.scheduleElecting)
 	} else {
 		pm.t1 = time.AfterFunc(time.Second*time.Duration(leftTime), pm.scheduleElecting)
 	}
+	log.Debug(fmt.Sprintf("scheduled for next round in %v seconds", leftTime))
 }

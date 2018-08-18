@@ -596,7 +596,8 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		request.Block.ReceivedAt = msg.ReceivedAt
 		request.Block.ReceivedFrom = p
 
-		if GigPeriodInstance.wasHisTurn(request.Block.Round(), request.Block.PesidentID(), request.Block.Time().Int64()) {
+		// if dpos delegator is activated.
+		if GigPeriodInstance != nil && GigPeriodInstance.wasHisTurn(request.Block.Round(), request.Block.PesidentID(), request.Block.Time().Int64()) {
 			return errResp(ErrInvalidTimestamp, "");
 		}
 
