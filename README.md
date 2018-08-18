@@ -38,6 +38,7 @@ OBOD is a DApp governing & global-scale blockchain operating system.
 
 6.Installation
 ===
+make all
 
 7.Dependencies
 ===
@@ -46,4 +47,6 @@ OBOD is a DApp governing & global-scale blockchain operating system.
 
 8.Copyrights
 ===
+A free and open source project that you can use for any purpose. You are also welcome to have any contribution for this project.
+
  
