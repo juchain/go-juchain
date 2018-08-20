@@ -249,6 +249,10 @@ func (p *peer) SendBroadcastVotedElection(response *BroadcastVotedElection) erro
 	//p.Log().Debug("register as candidate response", "count", len(response))
 	return p2p.Send(p.rw, VOTE_ElectionNode_Broadcast, response)
 }
+func (p *peer) SendBestNodeConflict(response *BroadcastBestNodeConflict) error {
+	//p.Log().Debug("register as candidate response", "count", len(response))
+	return p2p.Send(p.rw, VOTE_BESTNODE_CONFLICT, response)
+}
 // Handshake executes the eth protocol handshake, negotiating version number,
 // network IDs, difficulties, head and genesis blocks.
 func (p *peer) Handshake(network uint64, td *big.Int, head common.Hash, genesis common.Hash) error {

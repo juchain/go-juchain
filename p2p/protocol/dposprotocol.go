@@ -37,7 +37,8 @@ const (
 	// Protocol messages belonging to dpos/10
 	VOTE_ElectionNode_Request   = 0xa1
 	VOTE_ElectionNode_Response  = 0xa2
-	VOTE_ElectionNode_Broadcast  = 0xa3
+	VOTE_ElectionNode_Broadcast = 0xa3
+	VOTE_BESTNODE_CONFLICT      = 0xa4
 	SYNC_BIGPERIOD_REQUEST      = 0xb1
 	SYNC_BIGPERIOD_RESPONSE     = 0xb2
 
@@ -161,6 +162,13 @@ type BroadcastVotedElection struct {
 	Tickets        uint32
 	ActiveTime     uint64
 	State          uint8
+	ElectionNodeId []byte
+}
+
+type BroadcastBestNodeConflict struct {
+	Round          uint64
+	Tickets        uint32
+	ActiveTime     uint64
 	ElectionNodeId []byte
 }
 
