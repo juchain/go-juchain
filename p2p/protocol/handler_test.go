@@ -460,7 +460,7 @@ func (d *DelegatorVotingManagerImpl) Refresh() (delegatorsTable []string, delega
 func TestVoteElection(t *testing.T) { testVoteElection(t, OBOD01) }
 
 func testVoteElection(t *testing.T, protocol uint) {
-	//log.Root().SetHandler(log.LvlFilterHandler(log.LvlDebug, log.StreamHandler(os.Stderr, log.TerminalFormat(false))))
+	log.Root().SetHandler(log.LvlFilterHandler(log.LvlDebug, log.StreamHandler(os.Stderr, log.TerminalFormat(false))))
 	TestMode = true;
 	generator := func(i int, block *core.BlockGen) {}
 	// Assemble the testing environment
@@ -577,9 +577,6 @@ func testVoteElection(t *testing.T, protocol uint) {
 	}
 	if NextElectionInfo.enodestate != VOTESTATE_LOOKING {
 		t.Errorf("returned %v want     %v", NextElectionInfo.enodestate, VOTESTATE_LOOKING)
-	}
-	if LastElectedNodeId != common.Bytes2Hex(NodeAIdHash) {
-		t.Errorf("returned %v want     %v", LastElectedNodeId, common.Bytes2Hex(NodeAIdHash))
 	}
 
 	//Mismatched request.round
@@ -700,4 +697,20 @@ func TestDPosDelegatorContract(t *testing.T) {
 	}
 
 	TestMode = false
+}
+
+func TestPackageBlock(t *testing.T) {
+	log.Root().SetHandler(log.LvlFilterHandler(log.LvlDebug, log.StreamHandler(os.Stderr, log.TerminalFormat(false))))
+
+	generator := func(i int, block *core.BlockGen) {}
+	// Assemble the testing environment
+	pm, _   := newTestProtocolManagerMust(t, downloader.FullSync, 1, generator, nil, false)
+	defer pm.Stop();
+
+	ElectionInfo0 = &ElectionInfo{electionNodeId: currNodeId}
+	ElectionInfo0.electionNodeId = currNodeId
+
+	for i :=0; i < 40; i++ {
+		pm.dposManager.schedulePackaging()
+	}
 }

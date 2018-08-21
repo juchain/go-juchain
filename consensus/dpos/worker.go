@@ -46,9 +46,9 @@ const (
 	// The number is referenced from the size of tx pool.
 	txChanSize = 4096
 	// chainHeadChanSize is the size of channel listening to ChainHeadEvent.
-	chainHeadChanSize = 10
+	chainHeadChanSize = 100
 	// chainSideChanSize is the size of channel listening to ChainSideEvent.
-	chainSideChanSize = 10
+	chainSideChanSize = 100
 )
 
 // Backend wraps all methods required for mining.
@@ -104,13 +104,10 @@ type Packager struct {
 	coinbase common.Address
 	extra    []byte
 
-	currentMu sync.Mutex
-
 	snapshotMu    sync.RWMutex
 	snapshotBlock *types.Block
 	snapshotState *state.StateDB
 
-	uncleMu        sync.Mutex
 	possibleUncles map[common.Hash]*types.Block
 
 	unconfirmed *unconfirmedBlocks // set of locally mined blocks pending canonicalness confirmations
@@ -199,14 +196,13 @@ func (self *Packager) makeCurrent(parent *types.Block, header *types.Header) (*W
 func (self *Packager) GenerateNewBlock(round uint64, presidentId string) *types.Block {
 	self.mu.Lock()
 	defer self.mu.Unlock()
-	self.uncleMu.Lock()
-	defer self.uncleMu.Unlock()
-	self.currentMu.Lock()
-	defer self.currentMu.Unlock()
 
 	tstart := time.Now()
 	parent := self.chain.CurrentBlock()
 	tstamp := tstart.Unix()
+	if parent.Time().Cmp(new(big.Int).SetInt64(tstamp)) >= 0 {
+		tstamp = parent.Time().Int64() + 1
+	}
 	//log.Info("Parent block("+parent.Number().String()+") with State root " + parent.Root().String())
 	num := parent.Number()
 	header := &types.Header{

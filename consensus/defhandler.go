@@ -36,7 +36,7 @@ import (
 
 // this is exactly the same file copied from dpos.handle.go
 // just want to solve the cycle dependency issue for test case.
-// Please sync this file if you made any change.
+// Please sync this file if you made any change!
 
 var (
 	ByzantiumBlockReward   *big.Int = big.NewInt(0) // Block reward in wei for successfully mining a block upward from Byzantium
@@ -50,7 +50,7 @@ var (
 // error types into the consensus package.
 var (
 	errLargeBlockTime    = errors.New("timestamp too big")
-	errZeroBlockTime     = errors.New("timestamp equals parent's")
+	errZeroBlockTime     = errors.New("timestamp small than parent's")
 	errTooManyUncles     = errors.New("too many uncles")
 	errDuplicateUncle    = errors.New("duplicate uncle")
 	errUncleIsAncestor   = errors.New("uncle is ancestor")
@@ -282,7 +282,7 @@ func (dpos *DElection) verifyHeader(chain ChainReader, header, parent *types.Hea
 			return ErrFutureBlock
 		}
 	}
-	if header.Time.Cmp(parent.Time) <= 0 {
+	if header.Time.Cmp(parent.Time) < 0 {
 		return errZeroBlockTime
 	}
 	// Verify the block's difficulty based in it's timestamp and parent's difficulty

@@ -511,6 +511,7 @@ func (b *Block) ToString() {
 Number: %v
 Round: %v
 PesidentID: %v
+Time: %v
 Hash: 0x%x
 Root: 0x%x
 ParentHash: 0x%x
@@ -525,7 +526,7 @@ ReceiptHash: 0x%x
 UncleHash: 0x%x
 
 ########################################
-`, b.Number(), b.Round(), b.PesidentID(), b.Hash(), b.Root(), b.ParentHash(), b.GasLimit(), b.GasUsed(), b.Difficulty(), b.MixDigest(), b.Nonce(), b.Coinbase(), b.TxHash(), b.ReceiptHash(), b.UncleHash()))
+`, b.Number(), b.Round(), b.PesidentID(), b.Time().String(), b.Hash(), b.Root(), b.ParentHash(), b.GasLimit(), b.GasUsed(), b.Difficulty(), b.MixDigest(), b.Nonce(), b.Coinbase(), b.TxHash(), b.ReceiptHash(), b.UncleHash()))
 
 	} else {
 		log.Info(fmt.Sprintf(`
@@ -540,9 +541,10 @@ MixDigest: %v
 Nonce: %
 TxHash: 0x%x
 ReceiptHash: 0x%x
+Time: %v
 
 #############################################
-`, b.DAppID(), b.DAppMainRoot(), b.Number(), b.Root(), b.ParentHash(), b.MixDigest(), b.Nonce(), b.TxHash(), b.ReceiptHash()))
+`, b.DAppID(), b.DAppMainRoot(), b.Number(), b.Root(), b.ParentHash(), b.MixDigest(), b.Nonce(), b.TxHash(), b.ReceiptHash(), b.Time().String()))
 	}
 }
 

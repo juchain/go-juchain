@@ -41,6 +41,11 @@ import (
 // we need to vote at least 31 delegators and 70 candidates in the smart contract.
 // if all the conditions satisfied, then activate the delegator packaging process.
 // DPoS packaging handler.
+// ------------------------
+// the voting process of the best node has three stages:
+// 1. try to vote for the best node with random tickets to all peers.
+// 2. solve the best node confliction if has.
+// 3. exchange the voted best node from all peers.
 var (
 	TestMode          bool   = false; // only for test case.
 	PackagingInterval uint32 = 2;     // vote for packaging node in every 5 seconds.
@@ -50,7 +55,7 @@ var (
 	NextElectionInfo *ElectionInfo;
 	LastElectedNodeId string;
 	//enableBNConflict  bool   = false;
-	BNConflictInterval uint32 = 5; // must be small than ElectingInterval / 2
+	BNConflictInterval uint32 = 4; // must be small than ElectingInterval / 2
 )
 
 type ElectionInfo struct {
@@ -109,8 +114,8 @@ func (pm *DVoteProtocolManager) Start(maxPeers int) {
 	// get data from contract
 	log.Info("Starting DPoS Voting Consensus")
 	pm.packager.Start();
-	go pm.schedule();
 	if !TestMode {
+		go pm.schedule();
 		go pm.scheduleElecting();
 	}
 }
@@ -121,7 +126,7 @@ func (pm *DVoteProtocolManager) schedule() {
 		pm.dposManager.Start();
 		return;
 	}
-	//pm.schedulePackaging();
+	pm.schedulePackaging();
 }
 
 func (pm *DVoteProtocolManager) schedulePackaging() {
@@ -263,7 +268,6 @@ func (pm *DVoteProtocolManager) handleMsg(msg *p2p.Msg, p *peer) error {
 	if ElectionInfo0 != nil {
 		ElectionInfo0.latestActiveENode = time.Now();
 	}
-	// Handle the message depending on its contents
 	switch {
 	case msg.Code == VOTE_ElectionNode_Request:
 		var request VoteElectionRequest;
@@ -369,6 +373,7 @@ func (pm *DVoteProtocolManager) handleMsg(msg *p2p.Msg, p *peer) error {
 
 			bestNodeId, tickets, activeTime := pm.getBestNodeInfo();
 			pm.setNextRoundTimer(activeTime);
+			if TestMode { return nil;}
 			for _, peer := range pm.ethManager.peers.peers {
 				err := peer.SendBroadcastVotedElection(&BroadcastVotedElection{
 					NextElectionInfo.round,
@@ -410,6 +415,7 @@ func (pm *DVoteProtocolManager) handleMsg(msg *p2p.Msg, p *peer) error {
 		// simply response the best node.
 		bestNodeId, tickets, activeTime := pm.getBestNodeInfo()
 		pm.setNextRoundTimer(activeTime);
+		if TestMode { return nil;}
 		return p.SendVoteElectionResponse(&VoteElectionResponse{
 			NextElectionInfo.round,
 			tickets,
@@ -440,9 +446,6 @@ func (pm *DVoteProtocolManager) handleMsg(msg *p2p.Msg, p *peer) error {
 				NextElectionInfo.electionNodeIdHash = bestNodeId;
 				NextElectionInfo.activeTime = activeTime;
 				pm.setNextRoundTimer(activeTime);
-				if TestMode {
-					return nil;
-				}
 			}
 		} else if NextElectionInfo.enodestate == VOTESTATE_LOOKING { //&& maxTickets > uint32(len(pm.ethManager.peers.peers))
 			NextElectionInfo.enodestate = VOTESTATE_SELECTED;
