@@ -32,6 +32,9 @@ import (
 	"github.com/juchain/go-juchain/core/store"
 	"github.com/juchain/go-juchain/config"
 	"github.com/juchain/go-juchain/consensus"
+	"os"
+	"github.com/juchain/go-juchain/common/log"
+	"strconv"
 )
 
 // Test fork of length N starting from block i
@@ -852,14 +855,14 @@ func TestChainTxReorgs(t *testing.T) {
 }
 
 func TestLogReorgs(t *testing.T) {
-
+	log.Root().SetHandler(log.LvlFilterHandler(log.LvlDebug, log.StreamHandler(os.Stderr, log.TerminalFormat(false))))
 	var (
 		key1, _ = crypto.HexToECDSA("b71c71a67e1177ad4e901695e1b4b9ee17ae16c6668d313eac2f96dbcda3f291")
 		addr1   = crypto.PubkeyToAddress(key1.PublicKey)
 		db, _   = store.NewMemDatabase()
 		// this code generates a log
 		code    = common.Hex2Bytes("60606040525b7f24ec1d3ff24c2f6ff210738839dbc339cd45a5294d85c79361016243157aae7b60405180905060405180910390a15b600a8060416000396000f360606040526008565b00")
-		gspec   = &Genesis{Config: config.TestChainConfig, Alloc: GenesisAlloc{addr1: {Balance: big.NewInt(1000000000000000)}}}
+		gspec   = &Genesis{Config: config.TestChainConfig, Alloc: GenesisAlloc{addr1: {Balance: big.NewInt(10000000000000000)}}}
 		genesis = gspec.MustCommit(db)
 		signer  = types.NewEIP155Signer(gspec.Config.ChainId)
 		engine  = consensus.CreateFakeEngine()
@@ -1123,6 +1126,8 @@ func TestTrieForkGC(t *testing.T) {
 // Tests that doing large reorgs works even if the state associated with the
 // forking point is not available any more.
 func TestLargeReorgTrieGC(t *testing.T) {
+	log.Root().SetHandler(log.LvlFilterHandler(log.LvlDebug, log.StreamHandler(os.Stderr, log.TerminalFormat(false))))
+
 	// Generate the original common chain segment and the two competing forks
 	engine := consensus.CreateFakeEngine()
 	db, _ := store.NewMemDatabase()
@@ -1135,7 +1140,8 @@ func TestLargeReorgTrieGC(t *testing.T) {
 	// Import the shared chain and the original canonical one
 	diskdb, _ := store.NewMemDatabase()
 	new(Genesis).MustCommit(diskdb)
-
+	l := diskdb.Len()
+	fmt.Println("diskdb length: " + strconv.Itoa(l))
 	chain, err := NewBlockChain(diskdb, nil, config.TestChainConfig, engine, vm.Config{})
 	if err != nil {
 		t.Fatalf("failed to create tester chain: %v", err)
@@ -1146,6 +1152,8 @@ func TestLargeReorgTrieGC(t *testing.T) {
 	if _, err := chain.InsertChain(original); err != nil {
 		t.Fatalf("failed to insert shared chain: %v", err)
 	}
+	l0 := diskdb.Len()
+	fmt.Println("diskdb length: " + strconv.Itoa(l0))
 	// Ensure that the state associated with the forking point is pruned away
 	if node, _ := chain.stateCache.TrieDB().Node(shared[len(shared)-1].Root()); node != nil {
 		t.Fatalf("common-but-old ancestor still cache")

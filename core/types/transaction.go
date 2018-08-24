@@ -108,7 +108,8 @@ func newTransaction(dappId *common.Address, nonce uint64, to *common.Address, am
 		data = common.CopyBytes(data)
 	}
 	payload := data;
-	if (dappId != nil) {
+	if !bytes.Equal(dappId.Bytes(), EmptyDAppIdHash.Bytes()) {
+		//seperate the business data into dapp transaction.
 		payload = nil
 	}
 	d := txdata{

@@ -161,8 +161,8 @@ func NewBlockChain(db store.Database, cacheConfig *CacheConfig, chainConfig *con
 		vmConfig:     vmConfig,
 		badBlocks:    badBlocks,
 	}
-	bc.SetValidator(NewBlockValidator(chainConfig, bc))
-	bc.SetProcessor(NewStateProcessor(chainConfig, bc))
+	bc.SetValidator(NewBlockValidator(chainConfig, bc, engine))
+	bc.SetProcessor(NewStateProcessor(chainConfig, bc, engine))
 
 	var err error
 	bc.hc, err = NewHeaderChain(db, chainConfig, engine, bc.getProcInterrupt)
@@ -1051,12 +1051,13 @@ func (bc *BlockChain) insertChain(chain types.Blocks) (int, []interface{}, []*ty
 		// Wait for the block's verification to complete
 		bstart := time.Now()
 
-		log.Info("insert block into chain ");
-		block.ToString();
-
 		err := <-results
 		if err == nil {
 			err = bc.Validator().ValidateBody(block)
+		}
+		if err != nil {
+			log.Warn("invalid block: " + err.Error())
+			block.ToString()
 		}
 		switch {
 		case err == ErrKnownBlock:
@@ -1129,7 +1130,7 @@ func (bc *BlockChain) insertChain(chain types.Blocks) (int, []interface{}, []*ty
 			parent = chain[i-1]
 		}
 
-		log.Info("stateRoot: " + parent.Root().String())
+		//log.Info("stateRoot: " + parent.Root().String())
 		state, err := state.New(parent.Root(), bc.stateCache)
 		if err != nil {
 			return i, events, coalescedLogs, err
@@ -1173,6 +1174,9 @@ func (bc *BlockChain) insertChain(chain types.Blocks) (int, []interface{}, []*ty
 			blockInsertTimer.UpdateSince(bstart)
 			events = append(events, ChainSideEvent{block})
 		}
+		log.Info("insert block into chain ");
+		block.ToString();
+
 		stats.processed++
 		stats.usedGas += usedGas
 		stats.report(chain, i, bc.stateCache.TrieDB().Size())
@@ -1416,11 +1420,13 @@ Chain config: %v
 
 Number: %v
 Hash: 0x%x
+ParentHash: 0x%x
+Root: 0x%x
 %v
 
 Error: %v
 ##############################
-`, bc.chainConfig, block.Number(), block.Hash(), receiptString, err))
+`, bc.chainConfig, block.Number(), block.Hash(), block.ParentHash(), block.Root(), receiptString, err))
 }
 
 // InsertHeaderChain attempts to insert the given header chain in to the local

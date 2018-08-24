@@ -175,11 +175,12 @@ func GenerateChain(config0 *config.ChainConfig, parent *types.Block, engine cons
 	}
 	blockchain, _ := NewBlockChain(db, nil, config0, engine, vm.Config{})
 	defer blockchain.Stop()
+
 	blocks, receipts := make(types.Blocks, n), make([]types.Receipts, n)
 	genblock := func(i int, parent *types.Block, statedb *state.StateDB) (*types.Block, types.Receipts) {
+
 		b := &BlockGen{i: i, parent: parent, chain: blocks, chainReader: blockchain, statedb: statedb, config: config0, engine: engine}
 		b.header = makeHeader(b.chainReader, parent, statedb, b.engine)
-
 		// Execute any user modifications to the block and finalize it
 		if gen != nil {
 			gen(i, b)

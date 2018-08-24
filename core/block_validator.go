@@ -22,6 +22,7 @@ import (
 	"github.com/juchain/go-juchain/core/state"
 	"github.com/juchain/go-juchain/core/types"
 	"github.com/juchain/go-juchain/config"
+	"github.com/juchain/go-juchain/consensus"
 )
 
 // BlockValidator is responsible for validating block headers, uncles and
@@ -31,13 +32,15 @@ import (
 type BlockValidator struct {
 	config *config.ChainConfig // Chain configuration options
 	bc     *BlockChain         // Canonical block chain
+	engine consensus.Engine
 }
 
 // NewBlockValidator returns a new block validator which is safe for re-use
-func NewBlockValidator(config *config.ChainConfig, blockchain *BlockChain) *BlockValidator {
+func NewBlockValidator(config *config.ChainConfig, blockchain *BlockChain, engine consensus.Engine) *BlockValidator {
 	validator := &BlockValidator{
 		config: config,
 		bc:     blockchain,
+		engine: engine,
 	}
 	return validator
 }
@@ -58,9 +61,9 @@ func (v *BlockValidator) ValidateBody(block *types.Block) error {
 	}
 	// Header validity is known at this point, check the uncles and transactions
 	header := block.Header()
-	//if err := v.engine.VerifyUncles(v.bc, block); err != nil {
-	//	return err
-	//}
+	if err := v.engine.VerifyUncles(v.bc, block); err != nil {
+		return err
+	}
 	if hash := types.CalcUncleHash(block.Uncles()); hash != header.UncleHash {
 		return fmt.Errorf("uncle root hash mismatch: have %x, want %x", hash, header.UncleHash)
 	}

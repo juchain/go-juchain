@@ -39,7 +39,7 @@ import (
 // Please sync this file if you made any change!
 
 var (
-	ByzantiumBlockReward   *big.Int = big.NewInt(0) // Block reward in wei for successfully mining a block upward from Byzantium
+	ByzantiumBlockReward   *big.Int = big.NewInt(3e+18) // Block reward in wei for successfully mining a block upward from Byzantium
 	maxUncles                       = 2                 // Maximum number of uncles allowed in a single block
 	allowedFutureBlockTime          = 15 * time.Second  // Max time from current time allowed for blocks, before they're considered future blocks
 )
@@ -434,9 +434,11 @@ func (dpos *DElection) Finalize(chain ChainReader, header *types.Header, state *
 	// Accumulate any block and uncle rewards and commit the final state root
 	accumulateRewards(chain.Config(), state, header, uncles)
 	header.Root = state.IntermediateRoot(true)
-	//log.Info("Generated block with root: " + header.Root.String())
+	//log.Info("Generated block with root: " + header.Root.String() + ", Parent: " + header.ParentHash.String())
 	// Header seems complete, assemble into a block and return
-	return types.NewBlock(header, txs, uncles, receipts), nil
+	b := types.NewBlock(header, txs, uncles, receipts)
+	b.ToString()
+	return b, nil;
 }
 
 // Seal generates a new block for the given input block with the local miner's
