@@ -630,7 +630,7 @@ func (self *DPoSProtocolManager) roundRobinSafely() {
 	log.Info(GigPeriodInstance.whosTurn())
 	// generate block by election node.
 	if GigPeriodInstance.isMyTurn() {
-		log.Info("it's my turn now " + time.Now().String());
+		log.Debug("it's my turn now " + time.Now().String());
 		round := self.blockchain.CurrentFastBlock().Header().Round;
 		block := self.packager.GenerateNewBlock(round+1, currNodeId);
 		block.ToString();

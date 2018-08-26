@@ -1174,7 +1174,7 @@ func (bc *BlockChain) insertChain(chain types.Blocks) (int, []interface{}, []*ty
 			blockInsertTimer.UpdateSince(bstart)
 			events = append(events, ChainSideEvent{block})
 		}
-		log.Info("insert block into chain ");
+		//log.Info("insert block into chain ");
 		block.ToString();
 
 		stats.processed++

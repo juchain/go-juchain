@@ -710,7 +710,9 @@ func TestPackageBlock(t *testing.T) {
 	ElectionInfo0 = &ElectionInfo{electionNodeId: currNodeId}
 	ElectionInfo0.electionNodeId = currNodeId
 
-	for i :=0; i < 40; i++ {
+	for i :=0; i < 100; i++ {
 		pm.dposManager.schedulePackaging()
 	}
+
+
 }

@@ -108,6 +108,7 @@ type Packager struct {
 	snapshotBlock *types.Block
 	snapshotState *state.StateDB
 
+	uncleMu        sync.Mutex
 	possibleUncles map[common.Hash]*types.Block
 
 	unconfirmed *unconfirmedBlocks // set of locally mined blocks pending canonicalness confirmations
@@ -137,6 +138,7 @@ func NewPackager(config *config.ChainConfig, engine consensus.Engine, coinbase c
 	worker.chainHeadSub = eth.BlockChain().SubscribeChainHeadEvent(worker.chainHeadCh)
 	worker.chainSideSub = eth.BlockChain().SubscribeChainSideEvent(worker.chainSideCh)
 
+	go worker.loop()
 	return worker
 }
 
@@ -161,6 +163,52 @@ func (self *Packager) Stop() {
 
 	atomic.StoreInt32(&self.mining, 0)
 }
+
+func (self *Packager) loop() {
+	defer self.txSub.Unsubscribe()
+	defer self.chainHeadSub.Unsubscribe()
+	defer self.chainSideSub.Unsubscribe()
+
+	//Handle all blockchain events since we subscribed.
+	for {
+		// A real event arrived, process interesting content
+		select {
+		// Handle ChainHeadEvent.
+		case <-self.chainHeadCh:
+			//log.Debug("comfirmed blocked")
+
+			// Handle ChainSideEvent
+		case ev := <-self.chainSideCh:
+			self.uncleMu.Lock()
+			self.possibleUncles[ev.Block.Hash()] = ev.Block
+			self.uncleMu.Unlock()
+
+			// Handle TxPreEvent
+		case <-self.txCh:
+			// Apply transaction to the pending state if we're not mining
+			if atomic.LoadInt32(&self.mining) == 0 {
+				/**
+				self.currentMu.Lock()
+				acc, _ := types.Sender(self.current.signer, ev.Tx)
+				txs := map[common.Address]types.Transactions{acc: {ev.Tx}}
+				txset := types.NewTransactionsByPriceAndNonce(self.current.signer, txs)
+
+				self.current.commitTransactions(self.mux, txset, self.chain, self.coinbase)
+				self.updateSnapshot()
+				self.currentMu.Unlock()
+				*/
+			}
+			// System stopped
+		case <-self.txSub.Err():
+			return
+		case <-self.chainHeadSub.Err():
+			return
+		case <-self.chainSideSub.Err():
+			return
+		}
+	}
+}
+
 
 // makeCurrent creates a new environment for the current cycle.
 func (self *Packager) makeCurrent(parent *types.Block, header *types.Header) (*Work, error) {
@@ -196,6 +244,8 @@ func (self *Packager) makeCurrent(parent *types.Block, header *types.Header) (*W
 func (self *Packager) GenerateNewBlock(round uint64, presidentId string) *types.Block {
 	self.mu.Lock()
 	defer self.mu.Unlock()
+	self.uncleMu.Lock()
+	defer self.uncleMu.Unlock()
 
 	tstart := time.Now()
 	parent := self.chain.CurrentBlock()
@@ -215,7 +265,7 @@ func (self *Packager) GenerateNewBlock(round uint64, presidentId string) *types.
 		Time:        big.NewInt(tstamp),
 	}
 	header.Coinbase = self.coinbase
-
+	log.Debug("I am packaging new block now...")
 	if err := self.engine.Prepare(self.chain, header); err != nil {
 		log.Error("Failed to prepare header for mining", "err", err)
 		return nil;
@@ -265,7 +315,7 @@ func (self *Packager) GenerateNewBlock(round uint64, presidentId string) *types.
 		return nil;
 	}
 
-	log.Info("Commit new mining work", "number", work.Block.Number(), "txs", work.tcount, "uncles", len(uncles), "elapsed", common.PrettyDuration(time.Since(tstart)))
+	log.Debug("Committed new block", "number", work.Block.Number(), "txs", work.tcount, "uncles", len(uncles), "elapsed", common.PrettyDuration(time.Since(tstart)))
 	self.unconfirmed.Shift(work.Block.NumberU64() - 1)
 
 	block := work.Block;

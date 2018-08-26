@@ -132,7 +132,6 @@ func (pm *DVoteProtocolManager) schedule() {
 func (pm *DVoteProtocolManager) schedulePackaging() {
 	// generate block by election node.
 	if pm.isElectionNode() {
-		log.Debug("I am packaging now...")
 		round := pm.blockchain.CurrentFastBlock().Header().Round;
 		block := pm.packager.GenerateNewBlock(round+1, currNodeId);
 		block.ToString();
