@@ -32,6 +32,8 @@ OBOD is a DApp governing & global-scale blockchain operating system.
 
 4.2 Transaction Pool
 
+4.3 Sharding
+
 5.Community Governance & DApp Market
 ===
 
