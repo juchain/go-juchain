@@ -311,7 +311,7 @@ func testGetNodeData(t *testing.T, protocol uint) {
 	acc1Addr := crypto.PubkeyToAddress(acc1Key.PublicKey)
 	acc2Addr := crypto.PubkeyToAddress(acc2Key.PublicKey)
 
-	signer := types.HomesteadSigner{}
+	signer := types.DefaultSigner{}
 	// Create a chain generator with some simple transactions (blatantly stolen from @fjl/chain_markets_test)
 	generator := func(i int, block *core.BlockGen) {
 		switch i {
@@ -404,7 +404,7 @@ func testGetReceipt(t *testing.T, protocol uint) {
 	acc1Addr := crypto.PubkeyToAddress(acc1Key.PublicKey)
 	acc2Addr := crypto.PubkeyToAddress(acc2Key.PublicKey)
 
-	signer := types.HomesteadSigner{}
+	signer := types.DefaultSigner{}
 	// Create a chain generator with some simple transactions (blatantly stolen from @fjl/chain_markets_test)
 	generator := func(i int, block *core.BlockGen) {
 		switch i {
@@ -799,11 +799,11 @@ func dappTransaction(dapp *common.Address, nonce uint64, gaslimit uint64, key *e
 
 func pricedDappTransaction(dapp *common.Address, nonce uint64, gaslimit uint64, gasprice *big.Int, key *ecdsa.PrivateKey) *types.Transaction {
 	tx := types.NewDAppTransaction(dapp, nonce, gaslimit, gasprice, dappTxData)
-	tx, _ = types.SignTx(tx, types.NewEIP155Signer(common.Big1), key)
+	tx, _ = types.SignTx(tx, types.NewChainSigner(common.Big1), key)
 
-	from, _ := types.Sender(types.NewEIP155Signer(common.Big1), tx)
-	from1, _ := types.Sender(types.NewEIP155Signer(common.Big1), tx.DAppTx())
-	from2, _ := types.Sender(types.NewEIP155Signer(common.Big2), tx.DAppTx())
+	from, _ := types.Sender(types.NewChainSigner(common.Big1), tx)
+	from1, _ := types.Sender(types.NewChainSigner(common.Big1), tx.DAppTx())
+	from2, _ := types.Sender(types.NewChainSigner(common.Big2), tx.DAppTx())
 	if from != from1 || from1 == from2 {
 		return nil; //errors.New("signed error.")
 	}

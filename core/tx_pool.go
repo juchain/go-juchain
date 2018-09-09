@@ -229,7 +229,7 @@ func NewTxPool(config TxPoolConfig, chainconfig *config.ChainConfig, chain block
 		chainconfig: chainconfig,
 		chain:       chain,
 		dappchains:  dappChains,
-		signer:      types.NewEIP155Signer(chainconfig.ChainId),
+		signer:      types.NewChainSigner(chainconfig.ChainId),
 		dappPending: make(map[common.Address]*txList),
 		pending:     make(map[common.Address]*txList),
 		queue:       make(map[common.Address]*txList),

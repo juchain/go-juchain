@@ -46,7 +46,7 @@ var (
 		big.NewInt(1),
 		common.FromHex("5544"),
 	).WithSignature(
-		HomesteadSigner{},
+		NewChainSigner(common.Big1),
 		common.Hex2Bytes("98ff921201554726367d2be8c804a7ff89ccf285ebc57dff8ae4c44b9c19ac4a8887321be575c8095f789dd4c743dfe42c1820f9231f98a962b210e3ac2452a301"),
 	)
 
@@ -61,7 +61,7 @@ var (
 )
 
 func TestTransactionSigHash(t *testing.T) {
-	var homestead HomesteadSigner
+	var homestead DefaultSigner
 	if homestead.Hash(emptyTx) != common.HexToHash("c775b99e7ad12f50d819fcd602390467e28141316969f4b57f0626f74fe3b386") {
 		t.Errorf("empty transaction hash mismatch, got %x", emptyTx.Hash())
 	}
@@ -77,8 +77,8 @@ func TestTransactionEncode(t *testing.T) {
 		t.Fatalf("encode error: %v", err)
 	}
 	fmt.Println(common.Bytes2Hex(txb))
-	should := common.FromHex("f897940000000000000000000000000000000000000000a0000000000000000000000000000000000000000000000000000000000000000080018207d094b94f5374fce5edbc8e2a8697c15331677e6ebf0b0a8255441ca098ff921201554726367d2be8c804a7ff89ccf285ebc57dff8ae4c44b9c19ac4aa08887321be575c8095f789dd4c743dfe42c1820f9231f98a962b210e3ac2452a3")
-	//fmt.Println(common.Bytes2Hex(txb))
+	should := common.FromHex("f897940000000000000000000000000000000000000000a0000000000000000000000000000000000000000000000000000000000000000080018207d094b94f5374fce5edbc8e2a8697c15331677e6ebf0b0a82554426a098ff921201554726367d2be8c804a7ff89ccf285ebc57dff8ae4c44b9c19ac4aa08887321be575c8095f789dd4c743dfe42c1820f9231f98a962b210e3ac2452a3")
+	fmt.Println(common.Bytes2Hex(txb))
 	if !bytes.Equal(txb, should) {
 		t.Errorf("encoded RLP mismatch, got %x", txb)
 	}
@@ -141,7 +141,7 @@ func TestRecipientEmpty(t *testing.T) {
 	}
 	fmt.Println("%v , dappid: %v", addr.String(), tx.DAppID().String())
 	/**
-	from, err := Sender(HomesteadSigner{}, tx)
+	from, err := Sender(DefaultSigner{}, tx)
 	if err != nil {
 		t.Error(err)
 		t.FailNow()
@@ -162,7 +162,7 @@ func TestTransactionPriceNonceSort(t *testing.T) {
 		keys[i], _ = crypto.GenerateKey()
 	}
 
-	signer := HomesteadSigner{}
+	signer := NewChainSigner(common.Big1)
 	// Generate a batch of transactions with overlapping values, but shifted nonces
 	groups := map[common.Address]Transactions{}
 	for start, key := range keys {
@@ -227,7 +227,7 @@ func TestTransactionJSON(t *testing.T) {
 	if err != nil {
 		t.Fatalf("could not generate key: %v", err)
 	}
-	signer := NewEIP155Signer(common.Big1)
+	signer := NewChainSigner(common.Big1)
 
 	for i := uint64(0); i < 25; i++ {
 		var tx *Transaction

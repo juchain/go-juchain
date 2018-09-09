@@ -278,10 +278,10 @@ func (ks *KeyStore) SignTx(a account.Account, tx *types.Transaction, chainID *bi
 		return nil, ErrLocked
 	}
 	// Depending on the presence of the chain ID, sign with EIP155 or homestead
-	if chainID != nil {
-		return types.SignTx(tx, types.NewEIP155Signer(chainID), unlockedKey.PrivateKey)
+	if chainID == nil {
+		return nil, errors.New("chainID must not be empty")
 	}
-	return types.SignTx(tx, types.HomesteadSigner{}, unlockedKey.PrivateKey)
+	return types.SignTx(tx, types.NewChainSigner(chainID), unlockedKey.PrivateKey)
 }
 
 // SignHashWithPassphrase signs hash if the private key matching the given address
@@ -305,11 +305,10 @@ func (ks *KeyStore) SignTxWithPassphrase(a account.Account, passphrase string, t
 	}
 	defer zeroKey(key.PrivateKey)
 
-	// Depending on the presence of the chain ID, sign with EIP155 or homestead
-	if chainID != nil {
-		return types.SignTx(tx, types.NewEIP155Signer(chainID), key.PrivateKey)
+	if chainID == nil {
+		return nil, errors.New("chainID must not be empty")
 	}
-	return types.SignTx(tx, types.HomesteadSigner{}, key.PrivateKey)
+	return types.SignTx(tx, types.NewChainSigner(chainID), key.PrivateKey)
 }
 
 // Unlock unlocks the given account indefinitely.

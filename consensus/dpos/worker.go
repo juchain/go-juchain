@@ -245,7 +245,7 @@ func (self *Packager) makeCurrent(parent *types.Block, header *types.Header) (*W
 	}
 	work := &Work{
 		config:    self.config,
-		signer:    types.NewEIP155Signer(self.config.ChainId),
+		signer:    types.NewChainSigner(self.config.ChainId),
 		state:     state,
 		ancestors: set.New(),
 		family:    set.New(),

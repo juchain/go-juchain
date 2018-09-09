@@ -80,7 +80,7 @@ func transaction(nonce uint64, gaslimit uint64, key *ecdsa.PrivateKey) *types.Tr
 }
 
 func pricedTransaction(nonce uint64, gaslimit uint64, gasprice *big.Int, key *ecdsa.PrivateKey) *types.Transaction {
-	tx, _ := types.SignTx(types.NewTransaction(nonce, common.Address{}, big.NewInt(100), gaslimit, gasprice, dappTxData), types.HomesteadSigner{}, key)
+	tx, _ := types.SignTx(types.NewTransaction(nonce, common.Address{}, big.NewInt(100), gaslimit, gasprice, dappTxData), types.DefaultSigner{}, key)
 	return tx
 }
 
@@ -89,7 +89,7 @@ func dappTransaction(dapp *common.Address, nonce uint64, gaslimit uint64, key *e
 }
 
 func pricedDappTransaction(dapp *common.Address, nonce uint64, gaslimit uint64, gasprice *big.Int, key *ecdsa.PrivateKey) *types.Transaction {
-	tx, _ := types.SignTx(types.NewDAppTransaction(dapp, nonce, gaslimit, gasprice, dappTxData), types.HomesteadSigner{}, key)
+	tx, _ := types.SignTx(types.NewDAppTransaction(dapp, nonce, gaslimit, gasprice, dappTxData), types.DefaultSigner{}, key)
 	return tx
 }
 
@@ -168,7 +168,7 @@ func validateEvents(events chan TxPreEvent, count int) error {
 }
 
 func deriveSender(tx *types.Transaction) (common.Address, error) {
-	return types.Sender(types.HomesteadSigner{}, tx)
+	return types.Sender(types.DefaultSigner{}, tx)
 }
 
 type testChain struct {
@@ -427,7 +427,7 @@ func TestTransactionNegativeValue(t *testing.T) {
 	pool, key := setupTxPool()
 	defer pool.Stop()
 
-	tx, _ := types.SignTx(types.NewTransaction(0, common.Address{}, big.NewInt(-1), 100, big.NewInt(1), nil), types.HomesteadSigner{}, key)
+	tx, _ := types.SignTx(types.NewTransaction(0, common.Address{}, big.NewInt(-1), 100, big.NewInt(1), nil), types.DefaultSigner{}, key)
 	from, _ := deriveSender(tx)
 	pool.currentState.AddBalance(from, big.NewInt(1))
 	if err := pool.AddRemote(tx); err != ErrNegativeValue {
@@ -483,7 +483,7 @@ func TestTransactionDoubleNonce(t *testing.T) {
 	resetState()
 
 	dappId := addr
-	signer := types.HomesteadSigner{}
+	signer := types.NewChainSigner(common.Big1)
 	tx1, _ := types.SignTx(types.NewTransaction(0, common.Address{}, big.NewInt(100), 100000, big.NewInt(1), nil), signer, key)
 	tx2, _ := types.SignTx(types.NewTransaction(0, common.Address{}, big.NewInt(100), 1000000, big.NewInt(2), nil), signer, key)
 	tx3, _ := types.SignTx(types.NewDAppTransaction(&dappId, 0, 1000000, big.NewInt(1), dappTxData), signer, key)
