@@ -642,6 +642,27 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 			p.MarkTransaction(tx.Hash())
 		}
 		pm.txpool.AddRemotes(txs)
+	case msg.Code == DAppTxMsg:
+		// Transactions arrived, make sure we have a valid and fresh chain to handle them
+		if atomic.LoadUint32(&pm.acceptTxs) == 0 {
+			break
+		}
+		// Transactions can be processed, parse all of them and deliver to the pool
+		var txs []*types.Transaction
+		if err := msg.Decode(&txs); err != nil {
+			return errResp(ErrDecode, "msg %v: %v", msg, err)
+		}
+		for i, tx := range txs {
+			// Validate and mark the remote transaction
+			if tx == nil || tx.DAppID() == types.EmptyDAppIdHash || tx.RefHashId() == types.EmptyHash {
+				return errResp(ErrDecode, "dapp transaction %d is nil", i)
+			}
+			if !config.DAppAddresses.Has(tx.DAppID()) {
+				return errResp(ErrDecode, "dapp transaction %d is not acceptable by current node.", i)
+			}
+			p.MarkTransaction(tx.Hash())
+		}
+		pm.txpool.AddRemotes(txs)
 
 	default:
 		return errResp(ErrInvalidMsgCode, "%v", msg.Code)
@@ -665,16 +686,7 @@ func (pm *ProtocolManager) BroadcastBlock(block *types.Block, propagate bool) {
 			log.Error("Propagating dangling block", "number", block.Number(), "hash", hash)
 			return
 		}
-		// Send the block to a subset of our peers
-		transfer := peers[:int(math.Sqrt(float64(len(peers))))]
-		for _, peer := range transfer {
-			peer.SendNewBlock(block, td)
-		}
-		log.Trace("Propagated block", "hash", hash, "recipients", len(transfer), "duration", common.PrettyDuration(time.Since(block.ReceivedAt)))
-		return
-	}
-	// Otherwise if the block is indeed in out own chain, announce it
-	if pm.blockchain.HasBlock(hash, block.NumberU64()) {
+
 		if !bytes.Equal(block.DAppID().Bytes(), types.EmptyDAppIdHash.Bytes()) {
 			for i := range config.DAppAddresses.Addresse {
 				//TODO: only send to DApp assigned P2P Group.
@@ -682,9 +694,19 @@ func (pm *ProtocolManager) BroadcastBlock(block *types.Block, propagate bool) {
 				log.Trace(addr.String())
 			}
 		} else {
-			for _, peer := range peers {
-				peer.SendNewBlockHashes([]common.Hash{hash}, []uint64{block.NumberU64()})
+			// Send the block to a subset of our peers
+			transfer := peers[:int(math.Sqrt(float64(len(peers))))]
+			for _, peer := range transfer {
+				peer.SendNewBlock(block, td)
 			}
+			log.Trace("Propagated block", "hash", hash, "recipients", len(transfer), "duration", common.PrettyDuration(time.Since(block.ReceivedAt)))
+		}
+		return
+	}
+	// Otherwise if the block is indeed in out own chain, announce it
+	if pm.blockchain.HasBlock(hash, block.NumberU64()) {
+		for _, peer := range peers {
+			peer.SendNewBlockHashes([]common.Hash{hash}, []uint64{block.NumberU64()})
 		}
 		log.Trace("Announced block", "hash", hash, "recipients", len(peers), "duration", common.PrettyDuration(time.Since(block.ReceivedAt)))
 	}

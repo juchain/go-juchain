@@ -44,17 +44,17 @@ var ProtocolLengths = []uint64{1}
 
 const ProtocolMaxMsgSize = 10 * 1024 * 1024 // Maximum cap on the size of a protocol message
 
-// eth protocol message codes
 const (
 	// Protocol messages belonging to OBOD01
 	StatusMsg          = 0x00
 	NewBlockHashesMsg  = 0x01
-	TxMsg              = 0x02
-	GetBlockHeadersMsg = 0x03
-	BlockHeadersMsg    = 0x04
-	GetBlockBodiesMsg  = 0x05
-	BlockBodiesMsg     = 0x06
-	NewBlockMsg        = 0x07
+	GetBlockHeadersMsg = 0x02
+	BlockHeadersMsg    = 0x03
+	GetBlockBodiesMsg  = 0x04
+	BlockBodiesMsg     = 0x05
+	NewBlockMsg        = 0x06
+	TxMsg              = 0x07
+	DAppTxMsg          = 0x08
 	GetNodeDataMsg     = 0x0d
 	NodeDataMsg        = 0x0e
 	GetReceiptsMsg     = 0x0f

@@ -45,6 +45,25 @@ func deriveSigner(V *big.Int) Signer {
 	}
 }
 
+type DAppTransaction struct {
+	dappTx *Transaction
+}
+
+// EncodeRLP implements rlp.Encoder
+func (tx *DAppTransaction) EncodeRLP(w io.Writer) error {
+	return rlp.Encode(w, &tx.dappTx.data)
+}
+
+// DecodeRLP implements rlp.Decoder
+func (tx *DAppTransaction) DecodeRLP(s *rlp.Stream) error {
+	_, size, _ := s.Kind()
+	err := s.Decode(&tx.dappTx.data)
+	if err == nil {
+		tx.dappTx.size.Store(common.StorageSize(rlp.ListSize(size)))
+	}
+	return err
+}
+
 type Transaction struct {
 	dappTx *Transaction // dapp transaction if has.
 	data   txdata
@@ -90,16 +109,18 @@ func NewTransaction(nonce uint64, to common.Address, amount *big.Int, gasLimit u
 	return newTransaction(EmptyDAppIdHash, nonce, &to, amount, gasLimit, gasPrice, data)
 }
 
-func NewDAppTransaction(dappId *common.Address, nonce uint64, to common.Address, amount *big.Int, gasLimit uint64, gasPrice *big.Int, data []byte) *Transaction {
+func NewDAppTransaction(dappId *common.Address, nonce uint64, gasLimit uint64, gasPrice *big.Int, data []byte) *Transaction {
 	//try to seperate DApp transaction as two pieces.
-	return newTransaction(dappId, nonce, &to, amount, gasLimit, gasPrice, data)
+	return newTransaction(dappId, nonce, EmptyDAppIdHash, new(big.Int), gasLimit, gasPrice, data)
 }
 
 func NewContractCreation(nonce uint64, amount *big.Int, gasLimit uint64, gasPrice *big.Int, data []byte) *Transaction {
+	//contract "to attribute" must be nil
 	return newTransaction(EmptyDAppIdHash, nonce, nil, amount, gasLimit, gasPrice, data)
 }
 
 func NewDAppContractCreation(dappId *common.Address, nonce uint64, amount *big.Int, gasLimit uint64, gasPrice *big.Int, data []byte) *Transaction {
+	//contract "to attribute" must be nil
 	return newTransaction(dappId, nonce, nil, amount, gasLimit, gasPrice, data)
 }
 
@@ -108,13 +129,15 @@ func newTransaction(dappId *common.Address, nonce uint64, to *common.Address, am
 		data = common.CopyBytes(data)
 	}
 	payload := data;
-	if !bytes.Equal(dappId.Bytes(), EmptyDAppIdHash.Bytes()) {
+	if dappId != nil && !bytes.Equal(dappId.Bytes(), EmptyDAppIdHash.Bytes()) {
 		//seperate the business data into dapp transaction.
+		//write dappid into payload.
 		payload = nil
 	}
+	// create the normal transaction
 	d := txdata{
-		DAppId:       dappId,
-		RefHashId:    EmptyHash,
+		DAppId:       EmptyDAppIdHash, // must place an empty value, otherwise decoding error.
+		RefHashId:    EmptyHash, // must place an empty value, otherwise decoding error.
 		AccountNonce: nonce,
 		Recipient:    to,
 		Payload:      payload,
@@ -132,9 +155,18 @@ func newTransaction(dappId *common.Address, nonce uint64, to *common.Address, am
 		d.Price.Set(gasPrice)
 	}
 
-	if !bytes.Equal(dappId.Bytes(), EmptyDAppIdHash.Bytes()) {
+	if dappId != nil && !bytes.Equal(dappId.Bytes(), EmptyDAppIdHash.Bytes()) {
+		// create the dapp transaction.
+		d.DAppId = dappId; // the main tx carries a dappid if it is.
+		dappTx := newDAppTransaction(dappId, EmptyHash, nonce, gasLimit, gasPrice, data);
 		tx := &Transaction{data: d};
-		tx.dappTx = newDAppTransaction(dappId, tx.Hash(), nonce, to, amount, gasLimit, gasPrice, data)
+		// set the dapp hash without main tx.hash into tx.payload for verification. tx.hash can't be supported in here.
+		// the reversed verification of tx.data.Payload must replacing the RefHashId field as empty value.
+		tx.data.Payload = dappTx.Hash().Bytes();
+		//tx.data.Recipient = dappId; // dapp account receives this transaction.
+		txhash := tx.Hash();
+		dappTx.data.RefHashId = &txhash; //bing tx.hash into dapp.tx.RefHashId
+		tx.dappTx = dappTx;
 		return tx;
 	} else {
 		return &Transaction{data: d}
@@ -142,16 +174,15 @@ func newTransaction(dappId *common.Address, nonce uint64, to *common.Address, am
 }
 
 
-func newDAppTransaction(dappId *common.Address, refHashId common.Hash, nonce uint64, to *common.Address, amount *big.Int, gasLimit uint64, gasPrice *big.Int, data []byte) *Transaction {
+func newDAppTransaction(dappId *common.Address, refHashId *common.Hash, nonce uint64, gasLimit uint64, gasPrice *big.Int, data []byte) *Transaction {
 	if len(data) > 0 {
 		data = common.CopyBytes(data)
 	}
 
 	d := txdata{
 		DAppId:       dappId,
-		RefHashId:    &refHashId,
+		RefHashId:    refHashId,
 		AccountNonce: nonce,
-		Recipient:    to,
 		Payload:      data,
 		Amount:       new(big.Int),
 		GasLimit:     gasLimit,
@@ -159,9 +190,6 @@ func newDAppTransaction(dappId *common.Address, refHashId common.Hash, nonce uin
 		V:            new(big.Int),
 		R:            new(big.Int),
 		S:            new(big.Int),
-	}
-	if amount != nil {
-		d.Amount.Set(amount)
 	}
 	if gasPrice != nil {
 		d.Price.Set(gasPrice)
@@ -248,7 +276,7 @@ func (tx *Transaction) DAppTx() *Transaction { return tx.dappTx }
 // To returns the recipient address of the transaction.
 // It returns nil if the transaction is a contract creation.
 func (tx *Transaction) To() *common.Address {
-	if tx.data.Recipient == nil {
+	if tx.data.Recipient == nil || tx.data.Recipient == EmptyDAppIdHash {
 		return nil
 	}
 	to := *tx.data.Recipient
@@ -322,7 +350,7 @@ func (tx *Transaction) WithSignature(signer Signer, sig []byte) (*Transaction, e
 	if err != nil {
 		return nil, err
 	}
-	cpy := &Transaction{data: tx.data, dappTx: tx.dappTx}
+	cpy := &Transaction{data: tx.data}
 	cpy.data.R, cpy.data.S, cpy.data.V = r, s, v
 	return cpy, nil
 }

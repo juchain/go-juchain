@@ -1223,6 +1223,52 @@ func TestMultipleChainsInsert(t *testing.T) {
 
 }
 
+func TestMultipleDAppChainsInsert(t *testing.T) {
+	log.Root().SetHandler(log.LvlFilterHandler(log.LvlDebug, log.StreamHandler(os.Stderr, log.TerminalFormat(false))))
+
+	engine := consensus.CreateFakeEngine()
+	db, _ := store.NewMemDatabase()
+	genesis := new(Genesis).MustCommit(db)
+	db1, _ := store.NewMemDatabase()
+	genesis1 := new(Genesis).MustCommit(db1)
+	db2, _ := store.NewMemDatabase()
+	genesis2 := new(Genesis).MustCommit(db2)
+
+	chain, err := NewBlockChain(db, nil, config.TestChainConfig, engine, vm.Config{})
+	if err != nil {
+		t.Fatalf("failed to create main chain: %v", err)
+	}
+	chain1, err := NewBlockChain(db1, nil, config.TestChainConfig, engine, vm.Config{})
+	if err != nil {
+		t.Fatalf("failed to create dapp1 chain: %v", err)
+	}
+	chain2, err := NewBlockChain(db2, nil, config.TestChainConfig, engine, vm.Config{})
+	if err != nil {
+		t.Fatalf("failed to create dapp2 chain: %v", err)
+	}
+
+	shared, _ := GenerateChain(config.TestChainConfig, genesis, engine, db, 1, func(i int, b *BlockGen) { b.SetCoinbase(common.Address{1}) })
+	dapp1, _ := GenerateChain(config.TestChainConfig, genesis1, engine, db1, 1, func(i int, b *BlockGen) { b.SetCoinbase(common.Address{2}) })
+	dapp2, _ := GenerateChain(config.TestChainConfig, genesis2, engine, db2, 1, func(i int, b *BlockGen) { b.SetCoinbase(common.Address{3}) })
+
+	if _, err := chain.InsertChain(shared); err != nil {
+		t.Fatalf("failed to insert shared chain: %v", err)
+	}
+	if _, err := chain1.InsertChain(dapp1); err != nil {
+		t.Fatalf("failed to insert dapp1 chain: %v", err)
+	}
+	if _, err := chain2.InsertChain(dapp2); err != nil {
+		t.Fatalf("failed to insert dapp2 chain: %v", err)
+	}
+	t.Logf("chain.CurrentBlock().Number()= %v", chain.CurrentBlock().Number())
+	t.Logf("chain1.CurrentBlock().Number()= %v", chain1.CurrentBlock().Number())
+	t.Logf("chain2.CurrentBlock().Number()= %v", chain2.CurrentBlock().Number())
+	t.Logf("db.Len() = %v", db.Len())
+	t.Logf("db1.Len() = %v", db1.Len())
+	t.Logf("db2.Len() = %v", db2.Len())
+
+}
+
 // Benchmarks large blocks with value transfers to non-existing accounts
 func benchmarkLargeNumberOfValueToNonexisting(b *testing.B, numTxs, numBlocks int, recipientFn func(uint64) common.Address, dataFn func(uint64) []byte) {
 	var (

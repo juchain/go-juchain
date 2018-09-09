@@ -33,6 +33,7 @@ import (
 	"github.com/juchain/go-juchain/common/metrics"
 	"github.com/juchain/go-juchain/config"
 	"gopkg.in/karalabe/cookiejar.v2/collections/prque"
+	"strconv"
 	"bytes"
 )
 
@@ -151,7 +152,7 @@ var DefaultTxPoolConfig = TxPoolConfig{
 	PriceLimit: 1,
 	PriceBump:  10,
 
-	AccountSlots: 16,
+	AccountSlots: 128,
 	GlobalSlots:  4096,
 	AccountQueue: 64,
 	GlobalQueue:  1024,
@@ -418,11 +419,45 @@ func (pool *TxPool) reset(oldHead, newHead *types.Header) {
 	log.Debug("Reinjecting stale transactions", "count", len(reinject))
 	pool.addTxsLocked(reinject, false)
 
+	// generate dapp blocks after generating main block.
+	newBlock := pool.chain.GetBlock(newHead.Hash(), newHead.Number.Uint64())
+	txSize := newBlock.Transactions().Len();
+	if txSize > 0 {
+		for dappId, list := range pool.dappPending {
+			log.Debug(fmt.Sprintf("packaging dapp %v", dappId.String()))
+			dapptxs := []*types.Transaction{};
+			for i := 0; i < txSize; i++ {
+				if bytes.Equal(newBlock.Transactions()[i].DAppID().Bytes(), dappId.Bytes()) {
+					tx := list.RemoveByNouce(newBlock.Transactions()[i].Nonce())
+					log.Debug(fmt.Sprintf("read dapp's transaction %v", tx.Nonce()))
+					dapptxs = append(dapptxs, &tx);
+				}
+			}
+			if len(dapptxs) > 0 {
+				parentHeader := pool.dappchains[dappId].CurrentBlock().Header()
+				dappHeader := types.CopyHeader(parentHeader)
+				dappHeader.DAppID = dappId;
+				dappHeader.DAppMainHash = newBlock.Hash()
+				dappHeader.ParentHash = parentHeader.Hash()
+				dappHeader.Number = dappHeader.Number.Add(dappHeader.Number, big.NewInt(1))
+				dappHeader.Nonce = types.BlockNonce{} //TODO
+
+				// package a dapp block.
+				newblock := types.NewBlock(dappHeader, dapptxs, nil, nil)
+				if _, err := pool.dappchains[dappId].InsertChain(types.Blocks{newblock}); err != nil {
+					log.Warn("Downloaded item processing failed", "number", newblock.Number(), "hash", newblock.Hash(), "err", err)
+				} else {
+					log.Info(fmt.Sprintf("generated dapps %v block: ", dappId.String()))
+					newblock.ToString()
+				}
+			}
+		}
+	}
 	// validate the pool of pending transactions, this will remove
 	// any transactions that have been included in the block or
 	// have been invalidated because of another transaction (e.g.
 	// higher gas price)
-	pool.demoteUnexecutables(&newHead.Root)
+	pool.demoteUnexecutables()
 
 	// Update all accounts to the latest known pending nonce
 	for addr, list := range pool.pending {
@@ -534,7 +569,9 @@ func (pool *TxPool) Pending() (map[common.Address]types.Transactions, error) {
 	pending := make(map[common.Address]types.Transactions)
 	for addr, list := range pool.pending {
 		pending[addr] = list.Flatten()
+		log.Trace("pending account " + addr.String() + " txs: " + strconv.Itoa(pending[addr].Len()))
 	}
+	log.Trace("pending accounts: " + strconv.Itoa(len(pending)))
 	return pending, nil
 }
 
@@ -558,8 +595,19 @@ func (pool *TxPool) local() map[common.Address]types.Transactions {
 // rules and adheres to some heuristic limits of the local node (price and size).
 func (pool *TxPool) validateTx(tx *types.Transaction, local bool) error {
 	// Heuristic limit, reject transactions over 32KB to prevent DOS attacks
+	// todo: DApp transaction we may consider more than 32KB
 	if tx.Size() > 32*1024 {
 		return ErrOversizedData
+	}
+	// If it is an DApp transaction.
+	if tx.DAppTx() != nil {
+		// check whether DApp tx is belonging to this p2p node or not
+		if !config.DAppAddresses.Has(tx.DAppTx().DAppID()) {
+			return fmt.Errorf("Unknown DAppId: %x! please send transaction to the correct DApp node.", tx.DAppID())
+		}
+		if !config.DAppAddresses.HasDiskSpace(tx.DAppTx().DAppID()) {
+			return fmt.Errorf("DAppId: %x! does not have enough disk space.", tx.DAppID())
+		}
 	}
 	// Transactions can't be negative. This may never happen using RLP decoded
 	// transactions but may occur if you create a transaction using the RPC.
@@ -634,16 +682,6 @@ func (pool *TxPool) add(tx *types.Transaction, local bool) (bool, error) {
 			log.Trace("Discarding freshly underpriced transaction", "hash", tx.Hash(), "price", tx.GasPrice())
 			underpricedTxCounter.Inc(1)
 			pool.removeTx(tx.Hash(), false)
-		}
-	}
-	// If it is an DApp transaction.
-	if tx.DAppTx() != nil {
-		// check whether DApp tx is belonging to this p2p node or not
-		if !config.DAppAddresses.Has(tx.DAppID()) {
-			return false, fmt.Errorf("Unknown DAppId: %x! please send transaction to the correct DApp node.", tx.DAppID())
-		}
-		if !config.DAppAddresses.HasDiskSpace(tx.DAppID()) {
-			return false, fmt.Errorf("DAppId: %x! does not have enough disk space.", tx.DAppID())
 		}
 	}
 	// If the transaction is replacing an already pending one, do directly
@@ -763,20 +801,35 @@ func (pool *TxPool) promoteTx(addr common.Address, hash common.Hash, tx *types.T
 	pool.beats[addr] = time.Now()
 	pool.pendingState.SetNonce(addr, tx.Nonce()+1)
 
-	// If it is an DApp transaction.
+	// If it is a local DApp transaction.
 	if tx.DAppTx() != nil {
-		if pool.dappPending[*tx.DAppID()] == nil {
-			pool.dappPending[*tx.DAppID()] = newTxList(true)
-			pool.dappPending[*tx.DAppID()].Add(tx.DAppTx(), pool.config.PriceBump)
+		dappId := *tx.DAppTx().DAppID()
+		if pool.dappPending[dappId] == nil {
+			pool.dappPending[dappId] = newTxList(true)
+			pool.dappPending[dappId].Add(tx.DAppTx(), pool.config.PriceBump)
 			// send it to all assigned dapp nodes.
 			// config.DAppAddresses.GetAssignedNodes(tx.DAppID())
-			//go pool.txFeed.Send(DAppTxPreEvent{tx})
-		} else if !pool.dappPending[*tx.DAppID()].Overlaps(tx.DAppTx()) {
-			pool.dappPending[*tx.DAppID()].Add(tx.DAppTx(), pool.config.PriceBump)
+		} else if !pool.dappPending[dappId].Overlaps(tx.DAppTx()) {
+			pool.dappPending[dappId].Add(tx.DAppTx(), pool.config.PriceBump)
 			// send it to all assigned dapp nodes.
 			// config.DAppAddresses.GetAssignedNodes(tx.DAppID())
-			//go pool.txFeed.Send(DAppTxPreEvent{tx})
 		}
+		//go pool.txFeed.Send(DAppTxPreEvent{tx})
+	}
+	// If it is a remote DApp transaction.
+	if tx.DAppID() != types.EmptyDAppIdHash && tx.RefHashId() != types.EmptyHash {
+		dappId := *tx.DAppID()
+		if pool.dappPending[dappId] == nil {
+			pool.dappPending[dappId] = newTxList(true)
+			pool.dappPending[dappId].Add(tx, pool.config.PriceBump)
+			// send it to all assigned dapp nodes.
+			// config.DAppAddresses.GetAssignedNodes(tx)
+		} else if !pool.dappPending[dappId].Overlaps(tx) {
+			pool.dappPending[dappId].Add(tx, pool.config.PriceBump)
+			// send it to all assigned dapp nodes.
+			// config.DAppAddresses.GetAssignedNodes(tx)
+		}
+		//go pool.txFeed.Send(DAppTxPreEvent{tx})
 	}
 
 	go pool.txFeed.Send(TxPreEvent{tx})
@@ -1105,43 +1158,16 @@ func (pool *TxPool) promoteExecutables(accounts []common.Address) {
 // demoteUnexecutables removes invalid and processed transactions from the pools
 // executable/pending queue and any subsequent transactions that become unexecutable
 // are moved back into the future queue.
-func (pool *TxPool) demoteUnexecutables(blockHash *common.Hash) {
+func (pool *TxPool) demoteUnexecutables() {
 	// Iterate over all accounts and demote any non-executable transactions
 	for addr, list := range pool.pending {
 		nonce := pool.currentState.GetNonce(addr)
-
-		// notify dapp transactions.
-		// All DApp transactions which are ready for packaging
-		dappReadyTx := map[common.Address]*types.Block{};
 		// Drop all transactions that are deemed too old (low nonce)
 		for _, tx := range list.Forward(nonce) {
 			hash := tx.Hash()
 			log.Trace("Removed old pending transaction", "hash", hash)
 			delete(pool.all, hash)
 			pool.priced.Removed()
-
-			if !bytes.Equal(tx.DAppID().Bytes(), types.EmptyDAppIdHash.Bytes()) {
-				tx := pool.dappPending[*tx.DAppID()].RemoveByNouce(tx.Nonce())
-				if dappReadyTx[*tx.DAppID()] == nil {
-					parentHeader := pool.dappchains[*tx.DAppID()].CurrentBlock().Header()
-					dappHeader := types.CopyHeader(parentHeader)
-					dappHeader.DAppMainRoot = *blockHash
-					dappHeader.Number = dappHeader.Number.Add(dappHeader.Number, big.NewInt(1))
-					dappHeader.Nonce = types.BlockNonce{} //TODO
-					dappReadyTx[*tx.DAppID()] = types.NewBlockWithHeader(dappHeader)
-				}
-				dappReadyTx[*tx.DAppID()].AppendTx(&tx)
-			}
-
-			for k,v := range dappReadyTx {
-				if _, err := pool.dappchains[k].InsertChain(types.Blocks{v}); err != nil {
-					log.Warn("Downloaded item processing failed", "number", v.Number(), "hash", v.Hash(), "err", err)
-				}
-			}
-			for k,_ := range dappReadyTx {
-				delete(dappReadyTx, k)
-			}
-
 		}
 		// Drop all transactions that are too costly (low balance or out of gas), and queue any invalids back for later
 		drops, invalids := list.Filter(pool.currentState.GetBalance(addr), pool.currentMaxGas)

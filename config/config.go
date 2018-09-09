@@ -54,14 +54,14 @@ var (
 		big.NewInt(0),
 		big.NewInt(0),
 		&CliqueConfig{Period: 0, Epoch: 30000},
-		nil}
+		nil, nil}
 
 	TestChainConfig = &ChainConfig{
 		big.NewInt(1),
 		big.NewInt(0),
 		big.NewInt(0),
 		nil ,
-		new(DPoSConfig)}
+		new(DPoSConfig), nil}
 	TestRules       = TestChainConfig.Rules(new(big.Int))
 )
 
@@ -71,15 +71,14 @@ var (
 // that any network, identified by its genesis block, can have its own
 // set of configuration options.
 type ChainConfig struct {
-	ChainId *big.Int `json:"chainId"` // Chain id identifies the current chain and is used for replay protection
-
-	EIP158Block *big.Int `json:"eip158Block,omitempty"` // EIP158 HF block
-
-	ByzantiumBlock      *big.Int `json:"byzantiumBlock,omitempty"`      // Byzantium switch block (nil = no fork, 0 = already on byzantium)
+	ChainId      *big.Int `json:"chainId"` // Chain id identifies the current chain and is used for replay protection
+	EIP158Block  *big.Int `json:"eip158Block,omitempty"` // EIP158 HF block
+	ByzantiumBlock  *big.Int `json:"byzantiumBlock,omitempty"`      // Byzantium switch block (nil = no fork, 0 = already on byzantium)
 
 	// Various consensus engines
 	Clique *CliqueConfig `json:"clique,omitempty"`
 	DPoS   *DPoSConfig   `json:"dpos,omitempty"`
+	DAppId *common.Address `json:"dappid,omitempty"`
 }
 
 type DPoSConfig struct{
@@ -178,6 +177,10 @@ func (c *DAppAddress) HasDiskSpace(dappAddr *common.Address) bool {
 }
 
 func (c *DAppAddress) GetAssignedNodes(dappAddr *common.Address) bool {
+	return false;
+}
+
+func (c *DAppAddress) HasAssignedNodes(nodeId string) bool {
 	return false;
 }
 

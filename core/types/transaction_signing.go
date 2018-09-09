@@ -50,7 +50,18 @@ func SignTx(tx *Transaction, s Signer, prv *ecdsa.PrivateKey) (*Transaction, err
 	if err != nil {
 		return nil, err
 	}
-	return tx.WithSignature(s, sig)
+	signedTx, err := tx.WithSignature(s, sig)
+
+	// sign dapp tx with the same private key as well.
+	if tx.dappTx != nil {
+		h := s.Hash(tx.dappTx)
+		sig, err := crypto.Sign(h[:], prv)
+		if err != nil {
+			return nil, err
+		}
+		signedTx.dappTx, err = tx.dappTx.WithSignature(s, sig)
+	}
+	return signedTx, err;
 }
 
 // Sender returns the address derived from the signature (V, R, S) using secp256k1
@@ -76,6 +87,16 @@ func Sender(signer Signer, tx *Transaction) (common.Address, error) {
 		return common.Address{}, err
 	}
 	tx.from.Store(sigCache{signer: signer, from: addr})
+
+	// load dapp signer as well
+	if tx.dappTx != nil {
+		addr, err := signer.Sender(tx.dappTx)
+		if err != nil {
+			return common.Address{}, err
+		}
+		tx.dappTx.from.Store(sigCache{signer: signer, from: addr})
+	}
+
 	return addr, nil
 }
 

@@ -87,12 +87,12 @@ type Header struct {
 	Time        *big.Int       `json:"timestamp"        gencodec:"required"`
 	Extra       []byte         `json:"extraData"        gencodec:"required"`
 	MixDigest   common.Hash    `json:"mixHash"          gencodec:"required"`
-	Nonce       BlockNonce     `json:"nonce"            gencodec:"required"`
-	Round       uint64         `json:"round"            gencodec:"required"` // DPoS support: the round number.
-	Round2      uint64         `json:"round2"           gencodec:"required"` // DPoS support: the round2 number used if the round number is exceeded.
-	PresidentId string         `json:"presidentId"      gencodec:"required"` // DPoS support: the president id.
-	DAppID      common.Address `json:"dappID"           gencodec:"required"`
-	DAppMainRoot  common.Hash  `json:"dappMainRoot"     gencodec:"required"` // represents the referred block of main chain.
+	Nonce        BlockNonce     `json:"nonce"            gencodec:"required"`
+	Round        uint64         `json:"round"            gencodec:"required"` // DPoS support: the round number.
+	Round2       uint64         `json:"round2"           gencodec:"required"` // DPoS support: the round2 number used if the round number is exceeded.
+	PresidentId  string         `json:"presidentId"      gencodec:"required"` // DPoS support: the president id.
+	DAppID       common.Address `json:"dappID"           gencodec:"required"`
+	DAppMainHash common.Hash    `json:"dappMainRoot"     gencodec:"required"` // represents the referred block of main chain.
 }
 
 // field type overrides for gencodec
@@ -135,7 +135,7 @@ func (h Header) MarshalJSON() ([]byte, error) {
 		Round2      uint64         `json:"round2"           gencodec:"required"`
 		PresidentId string         `json:"presidentId"      gencodec:"required"`
 		DAppID      common.Address `json:"dappID"           gencodec:"required"`
-		DAppMainRoot  common.Hash  `json:"dappMainRoot"     gencodec:"required"` // represents the referred block from main chain.
+		DAppMainHash  common.Hash  `json:"dappMainHash"     gencodec:"required"` // represents the referred block from main chain.
 		Hash        common.Hash    `json:"hash"`
 	}
 	var enc Header
@@ -155,7 +155,7 @@ func (h Header) MarshalJSON() ([]byte, error) {
 	enc.MixDigest = h.MixDigest
 	enc.Nonce = h.Nonce
 	enc.DAppID = h.DAppID
-	enc.DAppMainRoot = h.DAppMainRoot
+	enc.DAppMainHash = h.DAppMainHash
 	enc.Hash = h.Hash()
 	return json.Marshal(&enc)
 }
@@ -181,7 +181,7 @@ func (h *Header) UnmarshalJSON(input []byte) error {
 		Round2      *uint64         `json:"round2"           gencodec:"required"`
 		PresidentId *string         `json:"presidentId"      gencodec:"required"`
 		DAppID      *common.Address `json:"dappID"           gencodec:"required"`
-		DAppMainRoot  *common.Hash  `json:"dappMainRoot"     gencodec:"required"` // represents the referred block from main chain.
+		DAppMainHash  *common.Hash  `json:"dappMainHash"     gencodec:"required"` // represents the referred block from main chain.
 
 	}
 	var dec Header
@@ -195,7 +195,7 @@ func (h *Header) UnmarshalJSON(input []byte) error {
 	h.Round2 = *dec.Round2
 	h.PresidentId = *dec.PresidentId
 	h.DAppID = *dec.DAppID
-	h.DAppMainRoot = *dec.DAppMainRoot
+	h.DAppMainHash = *dec.DAppMainHash
 	if dec.UncleHash == nil {
 		return errors.New("missing required field 'PresidentId' for Header")
 	}
@@ -279,7 +279,7 @@ func (h *Header) HashNoNonce() common.Hash {
 		h.Round2,
 		h.PresidentId,
 		h.DAppID,
-		h.DAppMainRoot,
+		h.DAppMainHash,
 	})
 }
 
@@ -489,7 +489,7 @@ func (b *Block) Header() *Header          { return CopyHeader(b.header) }
 func (b *Block) Body() *Body              { return &Body{b.transactions, b.uncles} }
 func (b *Block) HashNoNonce() common.Hash { return b.header.HashNoNonce() }
 func (b *Block) DAppID() common.Address   { return b.header.DAppID }
-func (b *Block) DAppMainRoot() common.Hash   { return b.header.DAppMainRoot }
+func (b *Block) DAppMainRoot() common.Hash   { return b.header.DAppMainHash }
 
 // Size returns the true RLP encoded storage size of the block, either by encoding
 // and returning it, or returning a previsouly cached value.
@@ -522,29 +522,30 @@ MixDigest: %v
 Nonce: %v
 Coinbase: %v
 TxHash: 0x%x
+TxCount: %v
 ReceiptHash: 0x%x
 UncleHash: 0x%x
 
 ########################################
-`, b.Number(), b.Round(), b.PesidentID(), b.Time().String(), b.Hash(), b.Root(), b.ParentHash(), b.GasLimit(), b.GasUsed(), b.Difficulty(), b.MixDigest(), b.Nonce(), b.Coinbase(), b.TxHash(), b.ReceiptHash(), b.UncleHash()))
+`, b.Number(), b.Round(), b.PesidentID(), b.Time().String(), b.Hash(), b.Root(), b.ParentHash(), b.GasLimit(), b.GasUsed(), b.Difficulty(), b.MixDigest(), b.Nonce(), b.Coinbase(), b.TxHash(), b.transactions.Len(), b.ReceiptHash(), b.UncleHash()))
 
 	} else {
 		log.Info(fmt.Sprintf(`
 ############### DApp BLOCK INFO #############
 
 DAppID: 0x%x
-DAppMainRoot: 0x%x
+DAppMainHash: 0x%x
 Number: %v
 Root: 0x%x
 ParentHash: 0x%x
-MixDigest: %v
-Nonce: %
+Nonce: %v
 TxHash: 0x%x
+TxCount: %v
 ReceiptHash: 0x%x
 Time: %v
 
 #############################################
-`, b.DAppID(), b.DAppMainRoot(), b.Number(), b.Root(), b.ParentHash(), b.MixDigest(), b.Nonce(), b.TxHash(), b.ReceiptHash(), b.Time().String()))
+`, b.DAppID(), b.DAppMainRoot(), b.Number(), b.Root(), b.ParentHash(), b.Nonce(), b.TxHash(), b.transactions.Len(), b.ReceiptHash(), b.Time().String()))
 	}
 }
 
@@ -577,12 +578,12 @@ UncleHash: 0x%x
 ############### DAPP BLOCK INFO #############
 
 DAppID: 0x%x
-DAppMainRoot: 0x%x
+DAppMainHash: 0x%x
 Number: %v
 Root: 0x%x
 ParentHash: 0x%x
 MixDigest: %v
-Nonce: %
+Nonce: %v
 TxHash: 0x%x
 ReceiptHash: 0x%x
 

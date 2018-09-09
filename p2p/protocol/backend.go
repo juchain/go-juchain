@@ -142,6 +142,7 @@ func New(node *node.Node, ctx *node.ServiceContext, config0 *Config) (*JuchainSe
 		// bind genesis with DB.
 		_, _, genesisErr := core.SetupDAppGenesisBlock(&dappId, dappChainDb, config0.Genesis)
 		if _, ok := genesisErr.(*config.ConfigCompatError); genesisErr != nil && !ok {
+			//core.WriteChainConfig(chainDb, genesisHash, chainConfig)
 			return nil, genesisErr
 		}
 		log.Info("Initialized dapp chain configuration", "dbName", dbName)

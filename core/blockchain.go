@@ -176,7 +176,7 @@ func NewBlockChain(db store.Database, cacheConfig *CacheConfig, chainConfig *con
 	if err := bc.loadLastState(); err != nil {
 		return nil, err
 	}
-
+	// chainConfig.DAppId
 	// Take ownership of this particular state
 	go bc.update()
 	return bc, nil

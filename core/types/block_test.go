@@ -95,20 +95,18 @@ func TestDAppBlockEncoding(t *testing.T) {
 
 	dappId = common.HexToAddress("095e7baea6a6c7c4c2dfeb977efac326af552d87")
 	block := &Block{header: &Header{
-		DAppID: dappId,
-		Number: big.NewInt(142),
-		Root: common.StringToHash("0xef1552a40b7165c3cd773806b9e0c165b75356e0314bf0706f279c729f51e017"),
-		ParentHash: common.StringToHash("0xef1552a40b7165c3cd773806b9e0c165b75356e0314bf0706f279c729f51e017"),
-		DAppMainRoot: common.StringToHash("0xef1552a40b7165c3cd773806b9e0c165b75356e0314bf0706f279c729f51e017"),
-		MixDigest: common.StringToHash("0xbd4472abb6659ebe3ee06ee4d7b72a00a9f4d001caca51342001075469aff498"),
-		Time: big.NewInt(1426516743),
-		Nonce: EncodeNonce(uint64(0xa13a5a8c8f2bb1c4)),
+		DAppID:       dappId,
+		Number:       big.NewInt(142),
+		Root:         common.StringToHash("0xef1552a40b7165c3cd773806b9e0c165b75356e0314bf0706f279c729f51e017"),
+		ParentHash:   common.StringToHash("0xef1552a40b7165c3cd773806b9e0c165b75356e0314bf0706f279c729f51e017"),
+		DAppMainHash: common.StringToHash("0xef1552a40b7165c3cd773806b9e0c165b75356e0314bf0706f279c729f51e017"),
+		MixDigest:    common.StringToHash("0xbd4472abb6659ebe3ee06ee4d7b72a00a9f4d001caca51342001075469aff498"),
+		Time:         big.NewInt(1426516743),
+		Nonce:        EncodeNonce(uint64(0xa13a5a8c8f2bb1c4)),
 	}, transactions: Transactions {
 		NewDAppTransaction(
 			&dappId,
 			3,
-			common.HexToAddress("b94f5374fce5edbc8e2a8697c15331677e6ebf0b"),
-			big.NewInt(10),
 			2000,
 			big.NewInt(1),
 			common.FromHex("5544"),
@@ -116,8 +114,6 @@ func TestDAppBlockEncoding(t *testing.T) {
 		NewDAppTransaction(
 			&dappId,
 			3,
-			common.HexToAddress("b94f5374fce5edbc8e2a8697c15331677e6ebf0b"),
-			big.NewInt(10),
 			2000,
 			big.NewInt(1),
 			common.FromHex("5544"),

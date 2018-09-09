@@ -430,7 +430,7 @@ func (g *Genesis) ToDAppBlock(db store.Database, dappAddress *common.Address) *t
 	}
 	statedb, _ := state.New(common.Hash{}, state.NewDatabase(db))
 	head := &types.Header{
-		DAppID:     *dappAddress, // should we add DAppMainRoot?
+		DAppID:     *dappAddress, // should we add DAppMainHash?
 		Number:     new(big.Int).SetUint64(g.Number),
 		Nonce:      types.EncodeNonce(g.Nonce),
 		Time:       new(big.Int).SetUint64(g.Timestamp),

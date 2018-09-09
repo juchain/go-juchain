@@ -28,6 +28,7 @@ import (
 	"github.com/juchain/go-juchain/p2p"
 	"github.com/juchain/go-juchain/common/rlp"
 	"gopkg.in/fatih/set.v0"
+	"github.com/juchain/go-juchain/config"
 )
 
 var (
@@ -137,6 +138,16 @@ func (p *peer) SendTransactions(txs types.Transactions) error {
 		p.knownTxs.Add(tx.Hash())
 	}
 	return p2p.Send(p.rw, TxMsg, txs)
+}
+
+func (p *peer) SendDAppTransactions(txs types.Transactions) error {
+	for _, tx := range txs {
+		if !config.DAppAddresses.HasAssignedNodes(p.ID().String()) {
+			return errors.New("peer " + p.ID().String() + " does not support this dapp transaction " + tx.DAppID().String());
+		}
+		p.knownTxs.Add(tx.Hash())
+	}
+	return p2p.Send(p.rw, DAppTxMsg, txs)
 }
 
 // SendNewBlockHashes announces the availability of a number of blocks through

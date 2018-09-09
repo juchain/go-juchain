@@ -338,7 +338,7 @@ func (l *txList) Remove(tx *types.Transaction) (bool, types.Transactions) {
 func (l *txList) RemoveByNouce(nouce uint64) (types.Transaction) {
 	// Remove the transaction from the set
 	tx := l.txs.Get(nouce)
-	l.Remove(tx)
+	//l.Remove(tx)
 	return *tx
 }
 

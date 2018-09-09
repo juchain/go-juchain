@@ -5,10 +5,6 @@ pragma solidity ^0.4.22;
 **/
 contract DAppManager
 {
-    ////////////////////////
-    // Type declarations
-    ////////////////////////
-
     struct DAppInformation {
         address dappAddress;
         string  dappName;
@@ -16,49 +12,22 @@ contract DAppManager
         string  orgDescription;
         uint8   nationalityCode;
         uint8   ledgerReplicated;
-        bytes32 icon;
+        string  icon;
         uint8   state;
-        string  ext0;
-        string  ext1;
-        string  ext2;
         uint256 lastActive;
         bool    initialized;
     }
 
-    ////////////////////////
-    // Immutable state
-    ////////////////////////
-
-    ////////////////////////
-    // Mutable state
-    ////////////////////////
-
-    mapping(address => DAppInformation) private dappInfoMap;
-
-    ////////////////////////
-    // Modifiers
-    ////////////////////////
-
-    ////////////////////////
-    // Events
-    ////////////////////////
+    mapping(address => DAppInformation) public dappInfoMap;
+    address[] public dappIds;
     event UpdateDAppInfoAccepted();
-
     event RegisterDAppInfoAccepted();
-
-    ////////////////////////
-    // Constructor
-    ////////////////////////
 
     constructor() public
     {
     }
 
-    ////////////////////////
-    // Public functions
-    ////////////////////////
-
-    function registerDAppInfo(string dappName, string orgName, string orgDescription, uint8 nationalityCode, uint8 ledgerReplicated, bytes32 icon, string ext0, string  ext1, string  ext2)
+    function registerDAppInfo(string dappName, string orgName, string orgDescription, uint8 nationalityCode, uint8 ledgerReplicated, string icon)
             public
             payable
     {
@@ -78,17 +47,14 @@ contract DAppManager
             ledgerReplicated: ledgerReplicated,
             icon: icon,
             state: 1,
-            ext0: ext0,
-            ext1: ext1,
-            ext2: ext2,
             lastActive: now,
             initialized: true
-
         });
+        dappIds.push(msg.sender);
         emit RegisterDAppInfoAccepted();
     }
 
-    function updateDAppInfo(string orgDescription, uint8 ledgerReplicated, bytes32 icon)
+    function updateDAppInfo(string orgDescription, uint8 ledgerReplicated, string icon)
         public
         payable
     {
@@ -102,41 +68,5 @@ contract DAppManager
         info.icon = icon;
         emit UpdateDAppInfoAccepted();
     }
-
-    function getDAppInfo(address dappId)
-        public
-        constant
-        returns (
-           address dappAddress,
-           string  dappName,
-           string  orgName,
-           string  orgDescription,
-           uint8   nationalityCode,
-           uint8   ledgerReplicated,
-           uint8   state,
-           uint256 lastActive,
-           bytes32 icon
-        )
-    {
-        require(dappInfoMap[dappId].initialized == true);
-        require(dappId == address(0));
-
-        DAppInformation storage info = dappInfoMap[dappId];
-        return (
-            info.dappAddress,
-            info.dappName,
-            info.orgName,
-            info.orgDescription,
-            info.nationalityCode,
-            info.ledgerReplicated,
-            info.state,
-            info.lastActive,
-            info.icon
-        );
-    }
-
-    ////////////////////////
-    // Internal functions
-    ////////////////////////
 
 }

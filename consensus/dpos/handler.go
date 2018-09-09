@@ -33,6 +33,7 @@ import (
 	"github.com/juchain/go-juchain/rpc"
 
 	"gopkg.in/fatih/set.v0"
+	"bytes"
 )
 
 // DElection proof-of-work protocol constants.
@@ -236,6 +237,12 @@ func (dpos *DElection) verifyHeader(chain consensus.ChainReader, header, parent 
 	if uint64(len(header.Extra)) > config.MaximumExtraDataSize {
 		return fmt.Errorf("extra-data too long: %d > %d", len(header.Extra), config.MaximumExtraDataSize)
 	}
+	if !bytes.Equal(header.DAppID.Bytes(),types.EmptyDAppIdHash.Bytes()) {
+		//todo dapp block verification
+		if bytes.Equal(header.DAppMainHash.Bytes(), types.EmptyHash.Bytes()) {
+
+		}
+	}
 	// Verify the header's timestamp
 	if uncle {
 		if header.Time.Cmp(math.MaxBig256) > 0 {
@@ -251,8 +258,7 @@ func (dpos *DElection) verifyHeader(chain consensus.ChainReader, header, parent 
 	}
 	// Verify the block's difficulty based in it's timestamp and parent's difficulty
 	expected := dpos.CalcDifficulty(chain, header.Time.Uint64(), parent)
-
-	if expected.Cmp(header.Difficulty) != 0 {
+	if bytes.Equal(header.DAppID.Bytes(),types.EmptyDAppIdHash.Bytes()) && expected.Cmp(header.Difficulty) != 0 {
 		return fmt.Errorf("invalid difficulty: have %v, want %v", header.Difficulty, expected)
 	}
 	// Verify that the gas limit is <= 2^63-1

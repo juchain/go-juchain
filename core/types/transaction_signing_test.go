@@ -43,7 +43,7 @@ func TestEIP155Signing(t *testing.T) {
 		t.Errorf("exected from and address to be equal. Got %x want %x", from, addr)
 	}
 }
-
+var dappTxData = []byte{1,2,3,4,5,6,7,8,10,4,5,6,7,8,10,1,2,3,4,5,6,7,8,10,4,5,6,7,8,10,1,2,3,4,5,6,7,8,10,4,5,6,7,8,10,1,2,3,4,5,6,7,8,10,4,5,6,7,8,101,2,3,4,5,6,7,8,10,4,5,6,7,8,10};
 func TestEIP155ChainId(t *testing.T) {
 	key, _ := crypto.GenerateKey()
 	addr := crypto.PubkeyToAddress(key.PublicKey)
@@ -61,6 +61,19 @@ func TestEIP155ChainId(t *testing.T) {
 		t.Error("expected chainId to be", signer.chainId, "got", tx.ChainId())
 	}
 
+	tx1, err := SignTx(NewDAppTransaction(&addr, 1,100, new(big.Int), dappTxData), signer, key)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !tx1.Protected() {
+		t.Fatal("expected tx to be protected")
+	}
+
+	if tx1.ChainId().Cmp(signer.chainId) != 0 {
+		t.Error("expected chainId to be", signer.chainId, "got", tx.ChainId())
+	}
+
+
 	tx = NewTransaction(1, addr, new(big.Int), 100, new(big.Int), nil)
 	tx, err = SignTx(tx, HomesteadSigner{}, key)
 	if err != nil {
@@ -73,6 +86,38 @@ func TestEIP155ChainId(t *testing.T) {
 
 	if tx.ChainId().Sign() != 0 {
 		t.Error("expected chain id to be 0 got", tx.ChainId())
+	}
+
+	tx1 = NewDAppTransaction(&addr, 1,100, new(big.Int), dappTxData)
+	tx1, err = SignTx(tx1, HomesteadSigner{}, key)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if tx1.Protected() {
+		t.Error("didn't expect tx to be protected")
+	}
+
+	if tx1.ChainId().Sign() != 0 {
+		t.Error("expected chain id to be 0 got", tx.ChainId())
+	}
+
+	tx2, err := SignTx(tx1.dappTx, HomesteadSigner{}, key)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if tx2.Protected() {
+		t.Error("didn't expect tx to be protected")
+	}
+
+	if tx2.ChainId().Sign() != 0 {
+		t.Error("expected chain id to be 0 got", tx.ChainId())
+	}
+
+	from, err := Sender(NewEIP155Signer(big.NewInt(0)), tx)
+	if from != addr {
+		t.Error("didn't expect an error")
 	}
 }
 
@@ -116,7 +161,7 @@ func testEIP155SigningVitalik(t *testing.T) {
 }
 
 func TestChainId(t *testing.T) {
-	key, _ := defaultTestKey()
+	key, address := defaultTestKey()
 
 	tx := NewTransaction(0, common.Address{}, new(big.Int), 0, new(big.Int), nil)
 
@@ -133,6 +178,42 @@ func TestChainId(t *testing.T) {
 
 	_, err = Sender(NewEIP155Signer(big.NewInt(1)), tx)
 	if err != nil {
+		t.Error("expected no error")
+	}
+
+	tx1 := NewDAppTransaction(&address, 1, 100000, new(big.Int), dappTxData)
+
+	var err1 error
+	tx1, err1 = SignTx(tx1, NewEIP155Signer(big.NewInt(1)), key)
+	if err1 != nil {
+		t.Fatal(err)
+	}
+
+	_, err = Sender(NewEIP155Signer(big.NewInt(2)), tx1)
+	if err != ErrInvalidChainId {
+		t.Error("expected error:", ErrInvalidChainId)
+	}
+
+	from, err := Sender(NewEIP155Signer(big.NewInt(1)), tx1)
+	if err != nil {
+		t.Error("expected no error")
+	}
+
+	from1, err := Sender(NewEIP155Signer(big.NewInt(2)), tx1.dappTx)
+	if err != ErrInvalidChainId {
+		t.Error("expected error:", ErrInvalidChainId)
+	}
+
+	from2, err := Sender(NewEIP155Signer(big.NewInt(1)), tx1.dappTx)
+	if err != nil {
+		t.Error("expected no error")
+	}
+
+	if from == from1 {
+		t.Error("expected no error")
+	}
+
+	if from != from2 || from != address { // dapp transations are signed by the same address.
 		t.Error("expected no error")
 	}
 }

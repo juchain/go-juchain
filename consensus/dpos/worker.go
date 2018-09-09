@@ -91,6 +91,7 @@ type Packager struct {
 	mux          *event.TypeMux
 	txCh         chan core.TxPreEvent
 	txSub        event.Subscription
+	txPool       *core.TxPool
 	chainHeadCh  chan core.ChainHeadEvent
 	chainHeadSub event.Subscription
 	chainSideCh  chan core.ChainSideEvent
@@ -123,6 +124,7 @@ func NewPackager(config *config.ChainConfig, engine consensus.Engine, coinbase c
 		engine:         engine,
 		eth:            eth,
 		mux:            mux,
+		txPool:         eth.TxPool(),
 		txCh:           make(chan core.TxPreEvent, txChanSize),
 		chainHeadCh:    make(chan core.ChainHeadEvent, chainHeadChanSize),
 		chainSideCh:    make(chan core.ChainSideEvent, chainSideChanSize),
@@ -137,6 +139,31 @@ func NewPackager(config *config.ChainConfig, engine consensus.Engine, coinbase c
 	// Subscribe events for blockchain
 	worker.chainHeadSub = eth.BlockChain().SubscribeChainHeadEvent(worker.chainHeadCh)
 	worker.chainSideSub = eth.BlockChain().SubscribeChainSideEvent(worker.chainSideCh)
+
+	go worker.loop()
+	return worker
+}
+
+func NewPackager1(config *config.ChainConfig, engine consensus.Engine, coinbase common.Address, blockChain *core.BlockChain, txPool *core.TxPool, mux *event.TypeMux) *Packager {
+	worker := &Packager{
+		config:         config,
+		engine:         engine,
+		mux:            mux,
+		txPool:         txPool,
+		txCh:           make(chan core.TxPreEvent, txChanSize),
+		chainHeadCh:    make(chan core.ChainHeadEvent, chainHeadChanSize),
+		chainSideCh:    make(chan core.ChainSideEvent, chainSideChanSize),
+		chain:          blockChain,
+		proc:           blockChain.Validator(),
+		possibleUncles: make(map[common.Hash]*types.Block),
+		coinbase:       coinbase,
+		unconfirmed:    newUnconfirmedBlocks(blockChain, miningLogAtDepth),
+	}
+	// Subscribe TxPreEvent for tx pool
+	worker.txSub = txPool.SubscribeTxPreEvent(worker.txCh)
+	// Subscribe events for blockchain
+	worker.chainHeadSub = blockChain.SubscribeChainHeadEvent(worker.chainHeadCh)
+	worker.chainSideSub = blockChain.SubscribeChainSideEvent(worker.chainSideCh)
 
 	go worker.loop()
 	return worker
@@ -278,7 +305,7 @@ func (self *Packager) GenerateNewBlock(round uint64, presidentId string) *types.
 		return nil;
 	}
 	// Create the current work task and check any fork transitions needed
-	pending, err := self.eth.TxPool().Pending()
+	pending, err := self.txPool.Pending()
 	if err != nil {
 		log.Error("Failed to fetch pending transactions", "err", err)
 		return nil;
@@ -337,8 +364,9 @@ func (self *Packager) GenerateNewBlock(round uint64, presidentId string) *types.
 		return nil;
 	}
 	// Broadcast the block and announce chain insertion event
-	self.mux.Post(core.NewMinedBlockEvent{Block: block})
-	//self.eth.TxPool().NotifyMinedBlockEvent(block)
+	if self.mux != nil {
+		self.mux.Post(core.NewMinedBlockEvent{Block: block})
+	}
 	var (
 		events []interface{}
 		logs   = work.state.Logs()
@@ -405,15 +433,15 @@ func (env *Work) commitTransactions(mux *event.TypeMux, txs *types.TransactionsB
 		// during transaction acceptance is the transaction pool.
 		//
 		// We use the eip155 signer regardless of the current hf.
-		from, _ := types.Sender(env.signer, tx)
+		// from, _ := types.Sender(env.signer, tx)
 		// Check whether the tx is replay protected. If we're not in the EIP155 hf
 		// phase, start ignoring the sender until we do.
-		if tx.Protected() {
-			log.Trace("Ignoring reply protected transaction", "hash", tx.Hash())
+		// if tx.Protected() {
+			//log.Trace("Ignoring reply protected transaction", "hash", tx.Hash())
 
-			txs.Pop()
-			continue
-		}
+			//txs.Pop()
+			//continue
+		//}
 		// Start executing the transaction
 		env.state.Prepare(tx.Hash(), common.Hash{}, env.tcount)
 
@@ -421,16 +449,19 @@ func (env *Work) commitTransactions(mux *event.TypeMux, txs *types.TransactionsB
 		switch err {
 		case core.ErrGasLimitReached:
 			// Pop the current out-of-gas transaction without shifting in the next from the account
+			from, _ := types.Sender(env.signer, tx)
 			log.Trace("Gas limit exceeded for current block", "sender", from)
 			txs.Pop()
 
 		case core.ErrNonceTooLow:
 			// New head notification data race between the transaction pool and miner, shift
+			from, _ := types.Sender(env.signer, tx)
 			log.Trace("Skipping transaction with low nonce", "sender", from, "nonce", tx.Nonce())
 			txs.Shift()
 
 		case core.ErrNonceTooHigh:
 			// Reorg notification data race between the transaction pool and miner, skip account =
+			from, _ := types.Sender(env.signer, tx)
 			log.Trace("Skipping account with hight nonce", "sender", from, "nonce", tx.Nonce())
 			txs.Pop()
 

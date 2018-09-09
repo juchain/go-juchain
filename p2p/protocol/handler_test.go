@@ -37,6 +37,11 @@ import (
 	"reflect"
 	"strings"
 	"github.com/juchain/go-juchain/vm/solc/abi"
+	"github.com/juchain/go-juchain/consensus/dpos"
+	"github.com/juchain/go-juchain/consensus"
+	"github.com/juchain/go-juchain/vm/solc"
+	"crypto/ecdsa"
+	"github.com/juchain/go-juchain/common/event"
 )
 
 // Tests that protocol versions and modes of operations are matched up properly.
@@ -715,4 +720,92 @@ func TestPackageBlock(t *testing.T) {
 	}
 
 
+}
+
+func TestMultipleDAppChainsInsert(t *testing.T) {
+	log.Root().SetHandler(log.LvlFilterHandler(log.LvlTrace, log.StreamHandler(os.Stderr, log.TerminalFormat(false))))
+
+	key, _  := crypto.GenerateKey()
+	key2, _ := crypto.GenerateKey()
+	dappIdA := crypto.PubkeyToAddress(key.PublicKey)
+	dappIdB := crypto.PubkeyToAddress(key2.PublicKey)
+
+	gspec   := core.Genesis{
+		Config: config.TestChainConfig,
+		Alloc: core.GenesisAlloc{
+			dappIdA: {Balance: new(big.Int).SetUint64(2 * config.Ether)},
+			dappIdB: {Balance: new(big.Int).SetUint64(2 * config.Ether)},
+		},
+		GasLimit: 100e6, // 100 M
+	}
+	engine := consensus.CreateFakeEngine()
+	db, _ := store.NewMemDatabase()
+	gspec.MustCommit(db)
+	db1, _ := store.NewMemDatabase()
+	gspec.MustCommit(db1)
+	db2, _ := store.NewMemDatabase()
+	gspec.MustCommit(db2)
+
+	chain, err  := core.NewBlockChain(db, nil, config.TestChainConfig, engine, vm.Config{})
+	if err != nil {
+		t.Fatalf("failed to create main chain: %v", err)
+	}
+	chain1, err := core.NewBlockChain(db1, nil, config.TestChainConfig, engine, vm.Config{})
+	if err != nil {
+		t.Fatalf("failed to create dapp1 chain: %v", err)
+	}
+	chain2, err := core.NewBlockChain(db2, nil, config.TestChainConfig, engine, vm.Config{})
+	if err != nil {
+		t.Fatalf("failed to create dapp2 chain: %v", err)
+	}
+	dappChains := map[common.Address]*core.BlockChain{
+		dappIdA: chain1,
+		dappIdB: chain2,
+	}
+	//statedb, _ := state.New(common.Hash{}, state.NewDatabase(db))
+	//statedb.SetBalance(dappIdA, new(big.Int).SetUint64(config.Ether))
+	//statedb.SetBalance(dappIdB, new(big.Int).SetUint64(config.Ether))
+
+	pool := core.NewTxPool(core.DefaultTxPoolConfig, config.TestChainConfig, chain, dappChains)
+	defer pool.Stop()
+
+	packager := dpos.NewPackager1(config.TestChainConfig, engine, dappIdA, chain, pool, &event.TypeMux{})
+	defer packager.Stop()
+
+	tx0 := dappTransaction(&dappIdA, 0, 100000, key)
+	tx1 := dappTransaction(&dappIdA, 1, 100000, key)
+	tx2 := dappTransaction(&dappIdA, 2, 100000, key)
+	tx3 := dappTransaction(&dappIdA, 3, 100000, key)
+	if (tx0 == nil) {
+		t.Error("failed to create dapp tx.")
+		return;
+	}
+	pool.AddLocals(types.Transactions{tx0, tx1, tx2, tx3})
+
+	packager.GenerateNewBlock(1, "testnode1")
+
+	t.Logf("chain.CurrentBlock().Number()= %v", chain.CurrentBlock().Number())
+	t.Logf("chain1.CurrentBlock().Number()= %v", chain1.CurrentBlock().Number())
+	t.Logf("chain2.CurrentBlock().Number()= %v", chain2.CurrentBlock().Number())
+	t.Logf("db.Len() = %v", db.Len())
+	t.Logf("db1.Len() = %v", db1.Len())
+	t.Logf("db2.Len() = %v", db2.Len())
+
+}
+var dappTxData = []byte{1,2,3,4,5,6,7,8,10,4,5,6,7,8,10,1,2,3,4,5,6,7,8,10,4,5,6,7,8,10,1,2,3,4,5,6,7,8,10,4,5,6,7,8,10,1,2,3,4,5,6,7,8,10,4,5,6,7,8,101,2,3,4,5,6,7,8,10,4,5,6,7,8,10};
+func dappTransaction(dapp *common.Address, nonce uint64, gaslimit uint64, key *ecdsa.PrivateKey) *types.Transaction {
+	return pricedDappTransaction(dapp, nonce, gaslimit, big.NewInt(1), key)
+}
+
+func pricedDappTransaction(dapp *common.Address, nonce uint64, gaslimit uint64, gasprice *big.Int, key *ecdsa.PrivateKey) *types.Transaction {
+	tx := types.NewDAppTransaction(dapp, nonce, gaslimit, gasprice, dappTxData)
+	tx, _ = types.SignTx(tx, types.NewEIP155Signer(common.Big1), key)
+
+	from, _ := types.Sender(types.NewEIP155Signer(common.Big1), tx)
+	from1, _ := types.Sender(types.NewEIP155Signer(common.Big1), tx.DAppTx())
+	from2, _ := types.Sender(types.NewEIP155Signer(common.Big2), tx.DAppTx())
+	if from != from1 || from1 == from2 {
+		return nil; //errors.New("signed error.")
+	}
+	return tx
 }

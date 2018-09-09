@@ -54,11 +54,9 @@ var (
 	dappTX = NewDAppTransaction(
 		&dappId,
 		3,
-		common.HexToAddress("b94f5374fce5edbc8e2a8697c15331677e6ebf0b"),
-		big.NewInt(10),
 		2000,
 		big.NewInt(1),
-		common.FromHex("5544"),
+		common.FromHex("554455445544554455445544555445544554454455445544285ebc57dff8ae4c44b9c19a5544554455445544554455445544554455445544554455445544554455445544"),
 	)
 )
 
@@ -78,8 +76,8 @@ func TestTransactionEncode(t *testing.T) {
 	if err != nil {
 		t.Fatalf("encode error: %v", err)
 	}
-	//fmt.Println(common.Bytes2Hex(txb))
-	should := common.FromHex("f895940000000000000000000000000000000000000000a0000000000000000000000000000000000000000000000000000000000000000080018207d094b94f5374fce5edbc8e2a8697c15331677e6ebf0b0a801ca098ff921201554726367d2be8c804a7ff89ccf285ebc57dff8ae4c44b9c19ac4aa08887321be575c8095f789dd4c743dfe42c1820f9231f98a962b210e3ac2452a3")
+	fmt.Println(common.Bytes2Hex(txb))
+	should := common.FromHex("f897940000000000000000000000000000000000000000a0000000000000000000000000000000000000000000000000000000000000000080018207d094b94f5374fce5edbc8e2a8697c15331677e6ebf0b0a8255441ca098ff921201554726367d2be8c804a7ff89ccf285ebc57dff8ae4c44b9c19ac4aa08887321be575c8095f789dd4c743dfe42c1820f9231f98a962b210e3ac2452a3")
 	//fmt.Println(common.Bytes2Hex(txb))
 	if !bytes.Equal(txb, should) {
 		t.Errorf("encoded RLP mismatch, got %x", txb)
@@ -106,7 +104,7 @@ func TestDAppCodec(t *testing.T) {
 		}
 	}
 
-	if (dappTX.dappTx == nil) {
+	if dappTX.dappTx == nil {
 		t.Fatalf("DApp transaction must not be nil !")
 	}
 	check("Hash", dappTX.Hash().String(), dappTX.dappTx.RefHashId().String())
@@ -125,6 +123,7 @@ func TestDAppCodec(t *testing.T) {
 	check("Hash", tx0.Hash(), dappTX.Hash())
 	check("DAppID", tx0.DAppID(), dappTX.DAppID())
 	check("RefHashId", tx0.RefHashId(), dappTX.RefHashId())
+	check("Hash", tx0.Hash().String(), dappTX.dappTx.RefHashId().String())
 	check("Value", tx0.Value(), dappTX.Value())
 
 }
