@@ -33,7 +33,7 @@ import (
 	"github.com/juchain/go-juchain/vm/solc"
 	"github.com/juchain/go-juchain/core/store"
 	"github.com/juchain/go-juchain/common/rlp"
-	"github.com/juchain/go-juchain/tests"
+	"github.com/juchain/go-juchain/core/state"
 )
 
 // To generate a new callTracer test, copy paste the makeTest method below into
@@ -160,7 +160,7 @@ func TestCallTracer(t *testing.T) {
 				GasPrice:    tx.GasPrice(),
 			}
 			db, _ := store.NewMemDatabase()
-			statedb := tests.MakePreState(db, test.Genesis.Alloc)
+			statedb := MakePreState(db, test.Genesis.Alloc)
 
 			// Create the tracer, the EVM environment and run it
 			tracer, err := New("callTracer")
@@ -191,4 +191,21 @@ func TestCallTracer(t *testing.T) {
 			}
 		})
 	}
+}
+
+func MakePreState(db0 store.Database, accounts core.GenesisAlloc) *state.StateDB {
+	sdb := state.NewDatabase(db0)
+	statedb, _ := state.New(common.Hash{}, sdb)
+	for addr, a := range accounts {
+		statedb.SetCode(addr, a.Code)
+		statedb.SetNonce(addr, a.Nonce)
+		statedb.SetBalance(addr, a.Balance)
+		for k, v := range a.Storage {
+			statedb.SetState(addr, k, v)
+		}
+	}
+	// Commit and re-open to start with a clean state.
+	root, _ := statedb.Commit(false)
+	statedb, _ = state.New(root, sdb)
+	return statedb
 }

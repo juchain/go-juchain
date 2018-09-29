@@ -32,7 +32,7 @@ import (
 	"github.com/juchain/go-juchain/core/state"
 	"github.com/juchain/go-juchain/core/types"
 	"github.com/juchain/go-juchain/vm/solc"
-	"github.com/juchain/go-juchain/p2p/protocol/tracers"
+	"github.com/juchain/go-juchain/vm/solc/tracers"
 	"github.com/juchain/go-juchain/p2p"
 	"github.com/juchain/go-juchain/common/log"
 	"github.com/juchain/go-juchain/common/rlp"

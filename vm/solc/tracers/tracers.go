@@ -21,7 +21,7 @@ import (
 	"strings"
 	"unicode"
 
-	"github.com/juchain/go-juchain/p2p/protocol/tracers/internal/tracers"
+	"github.com/juchain/go-juchain/vm/solc/tracers/internal/tracers"
 )
 
 // all contains all the built in JavaScript tracers by name.
