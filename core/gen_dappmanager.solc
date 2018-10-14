@@ -23,13 +23,13 @@ contract DAppManager
     event UpdateDAppInfoAccepted();
     event RegisterDAppInfoAccepted();
 
-    constructor() public
-    {
+    //reject all payble transaction
+    function() public payable {
+        revert();
     }
 
     function registerDAppInfo(string dappName, string orgName, string orgDescription, uint8 nationalityCode, uint8 ledgerReplicated, string icon)
-            public
-            payable
+        public
     {
         require(dappInfoMap[msg.sender].initialized == false);
         require(bytes(dappName).length > 0);
@@ -56,7 +56,6 @@ contract DAppManager
 
     function updateDAppInfo(string orgDescription, uint8 ledgerReplicated, string icon)
         public
-        payable
     {
         require(dappInfoMap[msg.sender].initialized == true);
         require(bytes(orgDescription).length > 0);

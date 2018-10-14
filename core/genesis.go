@@ -35,6 +35,7 @@ import (
 	"github.com/juchain/go-juchain/config"
 	"github.com/juchain/go-juchain/common/rlp"
 	"github.com/juchain/go-juchain/vm/solc"
+	"os"
 )
 
 //go:generate gencodec -type Genesis -field-override genesisSpecMarshaling -out gen_genesis.go
@@ -337,23 +338,28 @@ func (g *Genesis) ToBlock(db store.Database) *types.Block {
 	amount := big.NewInt(0);
 	gasLimit := head.GasLimit;
 	gasPrice := big.NewInt(300000);
-	gpool := new(GasPool).AddGas(math.MaxUint64);
-	data := []byte(DAPPContractBinCode);
+	gpool := new(GasPool).AddGas(head.GasLimit);
+	data := common.Hex2Bytes(DAPPContractBinCode);
 	dapptx := types.NewContractCreation(nonce, amount, gasLimit, gasPrice, data);
 	//this special transaction does not need to sign.
 	//dapptx, err := types.SignTx(dapptx, types.MakeSigner(config.AllDPoSProtocolChanges, head.Number),nil)
-	receipt, _, err := ApplyGenesisTransaction(dappAddr, config.MainnetChainConfig, nil, &head.Coinbase, gpool, statedb, head, dapptx, &head.GasUsed, vm.Config{})
+	tracer := vm.NewStructLogger(nil);
+	receipt, _, err := ApplyGenesisTransaction(dappAddr, config.MainnetChainConfig, nil, &head.Coinbase, gpool, statedb, head, dapptx, &head.GasUsed,
+		vm.Config{DisableGasMetering:true, Debug: false, Tracer: tracer})
+	vm.WriteTrace(os.Stdout, tracer.StructLogs())
 	if err != nil {
 		log.Error("Failed to initialize DApp decentralized management contract(ApplyTx)! ", "cause", err.Error())
 		return nil
 	}
 
 	// install dpos ballot contract into genesis block of main chain.
-	data1 := []byte(DPOSBallotBinCode);
+	gpool1 := new(GasPool).AddGas(head.GasLimit);
+	data1 := common.Hex2Bytes(DPOSBallotBinCode);
 	dapptx1 := types.NewContractCreation(uint64(1), amount, gasLimit, gasPrice, data1);
 	//this special transaction does not need to sign.
 	//dapptx, err := types.SignTx(dapptx, types.MakeSigner(config.AllDPoSProtocolChanges, head.Number),nil)
-	receipt1, _, err1 := ApplyGenesisTransaction(dappAddr, config.MainnetChainConfig, nil, &head.Coinbase, gpool, statedb, head, dapptx1, &head.GasUsed, vm.Config{})
+	receipt1, _, err1 := ApplyGenesisTransaction(dappAddr, config.MainnetChainConfig, nil, &head.Coinbase, gpool1, statedb, head, dapptx1, &head.GasUsed,
+		vm.Config{DisableGasMetering:true, Debug: false, Tracer: tracer})
 	if err1 != nil {
 		log.Error("Failed to initialize DPOS ballot contract(ApplyTx)! ", "cause", err1.Error())
 		return nil
